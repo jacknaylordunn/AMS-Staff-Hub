@@ -1,13 +1,16 @@
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 export interface User {
   uid: string;
   email: string | null;
   displayName?: string | null;
-  role?: 'Medic' | 'First Responder' | 'Welfare' | 'Admin';
+  role?: 'Paramedic' | 'EMT' | 'Nurse' | 'First Aider' | 'Welfare' | 'Manager' | 'Admin';
+  registrationNumber?: string;
 }
 
 export interface Patient {
-    id: string;
+    id?: string;
     nhsNumber?: string;
     firstName: string;
     lastName: string;
@@ -17,19 +20,24 @@ export interface Patient {
     allergies: string;
     medications: string;
     medicalHistory: string;
+    createdAt: firebase.firestore.Timestamp;
 }
 
 export interface EventLog {
-    id: string;
+    id?: string;
     name: string;
     date: string;
     location: string;
+    status: 'Upcoming' | 'Active' | 'Completed';
 }
 
 export interface EPRFForm {
+  id?: string;
+  status?: 'Draft' | 'Pending Review' | 'Reviewed';
   // Linking IDs
   patientId: string | null;
   eventId: string | null;
+  eventName: string | null;
   
   // Incident
   incidentNumber: string;
@@ -71,14 +79,19 @@ export interface EPRFForm {
   // Vitals & Secondary Survey
   vitals: VitalSign[];
   secondarySurvey: string;
-  
+  injuries: Injury[];
+
   // Treatment & Handover
-  treatment: string;
+  medicationsAdministered: MedicationAdministered[];
+  interventions: Intervention[];
   disposal: string;
   handoverDetails: string;
 
-  // Crew
+  // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];
+  createdAt: firebase.firestore.Timestamp;
+  createdBy: { uid: string; name: string; };
+  reviewedBy?: { uid: string; name: string; date: firebase.firestore.Timestamp; };
 }
 
 export interface VitalSign {
@@ -87,13 +100,38 @@ export interface VitalSign {
   rr: string;
   bp: string;
   spo2: string;
-  gcs: string; // Kept for quick entry, main GCS is in disability
   temp: string;
   bg: string;
-  news2?: string;
+  painScore: string;
+  avpu: 'Alert' | 'Voice' | 'Pain' | 'Unresponsive';
+  onOxygen: boolean;
+  news2?: number;
 }
 
-export interface Document {
+
+export interface MedicationAdministered {
+    id: string; // for key prop
+    time: string;
+    medication: string;
+    dose: string;
+    route: 'PO' | 'IV' | 'IM' | 'SC' | 'SL' | 'PR' | 'Nebulised' | 'Other';
+}
+
+export interface Intervention {
+    id: string; // for key prop
+    time: string;
+    intervention: string;
+    details: string;
+}
+
+export interface Injury {
+    id: string;
+    location: string; // e.g. 'Head (Anterior)'
+    locationId: string; // e.g. 'head-ant' for SVG path id
+    description: string;
+}
+
+export interface CompanyDocument {
   id: string;
   title: string;
   category: 'SOP' | 'Guideline' | 'Procedure';
@@ -102,9 +140,12 @@ export interface Document {
 }
 
 export interface Shift {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  role: string;
+  id?: string;
+  eventId: string;
+  eventName: string;
+  start: firebase.firestore.Timestamp;
+  end: firebase.firestore.Timestamp;
+  assignedStaff: { uid: string; name: string; }[];
+  roleRequired: string;
+  notes?: string;
 }

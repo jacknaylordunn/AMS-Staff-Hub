@@ -1,12 +1,15 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+// Fix: Use v8 compatibility API and types
+import type firebase from 'firebase/compat/app';
 import { auth } from '../services/firebase';
-import { User } from '../types';
+import { getUserProfile } from '../services/firestoreService';
+import type { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isManager: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -14,15 +17,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const isManager = user?.role === 'Manager' || user?.role === 'Admin';
+  const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+    // Fix: Use v8 `auth.onAuthStateChanged` method and `firebase.User` type
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: firebase.User | null) => {
       if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-        });
+        // Fetch profile from Firestore
+        const userProfile = await getUserProfile(firebaseUser.uid);
+        if (userProfile) {
+           setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: userProfile.displayName,
+              role: userProfile.role,
+              registrationNumber: userProfile.registrationNumber
+           });
+        } else {
+            // Handle case where auth exists but no profile in DB yet (e.g., during registration)
+             setUser({
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName,
+            });
+        }
       } else {
         setUser(null);
       }
@@ -33,7 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, isManager, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,8 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { AppProvider } from './hooks/useAppContext';
+import { ThemeProvider } from './hooks/useTheme';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -13,15 +14,17 @@ import Rota from './pages/Rota';
 import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
 import Patients from './pages/Patients';
+import PatientDetail from './pages/PatientDetail';
 import Events from './pages/Events';
+import EPRFReviews from './pages/EPRFReviews';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-ams-blue">
-                <div className="text-white text-2xl">Loading Aegis Hub...</div>
+            <div className="flex items-center justify-center h-screen bg-ams-blue dark:bg-gray-900">
+                <div className="text-white dark:text-gray-300 text-2xl animate-pulse">Loading Aegis Hub...</div>
             </div>
         );
     }
@@ -44,7 +47,16 @@ const AppRoutes: React.FC = () => {
                 <Route path="rota" element={<Rota />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="patients" element={<Patients />} />
+                <Route path="patients/:patientId" element={<PatientDetail />} />
                 <Route path="events" element={<Events />} />
+                 <Route 
+                    path="reviews" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <EPRFReviews />
+                        </ProtectedRoute>
+                    } 
+                />
             </Route>
             <Route path="*" element={<NotFound />} />
         </Routes>
@@ -53,11 +65,15 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
     return (
-        <AuthProvider>
-            <HashRouter>
-                <AppRoutes />
-            </HashRouter>
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <AppProvider>
+                    <HashRouter>
+                        <AppRoutes />
+                    </HashRouter>
+                </AppProvider>
+            </AuthProvider>
+        </ThemeProvider>
     );
 };
 

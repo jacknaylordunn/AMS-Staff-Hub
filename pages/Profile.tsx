@@ -1,63 +1,121 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { updateProfile } from 'firebase/auth';
+// Fix: `updateProfile` is a method on the user object in v8, not a separate import.
 import { auth } from '../services/firebase';
+import { updateUserProfile } from '../services/firestoreService';
+import { showToast } from '../components/Toast';
+import { SpinnerIcon } from '../components/icons';
 
 const Profile: React.FC = () => {
     const { user } = useAuth();
-    const [displayName, setDisplayName] = useState(user?.displayName || '');
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
+    const [displayName, setDisplayName] = useState('');
+    const [role, setRole] = useState('');
+    const [registrationNumber, setRegistrationNumber] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if(user) {
+            setDisplayName(user.displayName || '');
+            setRole(user.role || '');
+            setRegistrationNumber(user.registrationNumber || '');
+        }
+    }, [user]);
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        setMessage('');
-        setError('');
+        
+        if (!displayName.trim() || !role) {
+            showToast('Display name and role cannot be empty.', 'error');
+            return;
+        }
 
-        if (auth.currentUser && displayName.trim() !== '') {
+        if (auth.currentUser) {
+            setLoading(true);
             try {
-                await updateProfile(auth.currentUser, { displayName });
-                setMessage('Profile updated successfully!');
+                // Update Firebase Auth profile
+                if(auth.currentUser.displayName !== displayName) {
+                    // Fix: Use v8 `user.updateProfile()` method
+                    await auth.currentUser.updateProfile({ displayName });
+                }
+                
+                // Update Firestore profile
+                await updateUserProfile(auth.currentUser.uid, {
+                    displayName,
+                    role: role as any,
+                    registrationNumber
+                });
+
+                showToast('Profile updated successfully!', 'success');
             } catch (err) {
-                setError('Failed to update profile. Please try again.');
+                showToast('Failed to update profile. Please try again.', 'error');
                 console.error(err);
+            } finally {
+                setLoading(false);
             }
-        } else {
-            setError('Display name cannot be empty.');
         }
     };
+    
+    const inputClasses = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
+    const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
+
+    if(!user) {
+        return <div className="text-center p-10 dark:text-gray-300">Loading profile...</div>
+    }
 
     return (
         <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">Your Profile</h1>
-            <div className="bg-white p-8 rounded-lg shadow-md">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Your Profile</h1>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
                 <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700">Email Address</label>
-                    <p className="mt-1 text-lg text-gray-600 bg-gray-100 p-2 rounded-md">{user?.email}</p>
+                    <label className={labelClasses}>Email Address</label>
+                    <p className="mt-1 text-lg text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-400 p-2 rounded-md">{user.email}</p>
                 </div>
 
                 <form onSubmit={handleUpdateProfile}>
                     <div className="mb-4">
-                        <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">Display Name</label>
+                        <label htmlFor="displayName" className={labelClasses}>Full Name</label>
                         <input
                             type="text"
                             id="displayName"
                             value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm"
+                            className={inputClasses}
                             placeholder="Enter your full name"
                         />
                     </div>
-                    
-                    {message && <p className="text-green-600 text-sm mb-4">{message}</p>}
-                    {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+
+                    <div className="mb-4">
+                        <label htmlFor="role" className={labelClasses}>Clinical Role</label>
+                         <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClasses} bg-white dark:bg-gray-700`}>
+                            <option>First Aider</option>
+                            <option>EMT</option>
+                            <option>Nurse</option>
+                            <option>Paramedic</option>
+                            <option>Welfare</option>
+                            <option>Admin</option>
+                        </select>
+                    </div>
+
+                     <div className="mb-4">
+                        <label htmlFor="registrationNumber" className={labelClasses}>Professional Registration (e.g. HCPC, optional)</label>
+                        <input
+                            type="text"
+                            id="registrationNumber"
+                            value={registrationNumber}
+                            onChange={(e) => setRegistrationNumber(e.target.value)}
+                            className={inputClasses}
+                            placeholder="NMC 12345"
+                        />
+                    </div>
                     
                     <div className="flex justify-end">
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-lg shadow-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ams-blue"
+                            disabled={loading}
+                            className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-lg shadow-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ams-blue disabled:bg-gray-400 flex items-center"
                         >
+                            {loading && <SpinnerIcon className="w-5 h-5 mr-2"/>}
                             Update Profile
                         </button>
                     </div>
