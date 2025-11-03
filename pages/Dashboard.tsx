@@ -2,7 +2,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { EprfIcon, DocsIcon, RotaIcon } from '../components/icons';
+import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon } from '../components/icons';
+
+const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string, description: string }> = ({ to, icon, title, description }) => (
+    <Link to={to} className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div className="flex items-center">
+            {icon}
+            <div className="ml-4">
+                <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                <p className="text-gray-600">{description}</p>
+            </div>
+        </div>
+    </Link>
+);
+
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
@@ -13,35 +26,36 @@ const Dashboard: React.FC = () => {
             <p className="text-gray-600 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Link to="/eprf" className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                    <div className="flex items-center">
-                        <EprfIcon className="w-12 h-12 text-ams-blue" />
-                        <div className="ml-4">
-                            <h2 className="text-xl font-bold text-gray-800">New ePRF</h2>
-                            <p className="text-gray-600">Start a new electronic Patient Report Form.</p>
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/documents" className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                    <div className="flex items-center">
-                        <DocsIcon className="w-12 h-12 text-ams-blue" />
-                        <div className="ml-4">
-                            <h2 className="text-xl font-bold text-gray-800">Documents & Guidelines</h2>
-                            <p className="text-gray-600">Access SOPs, guidelines, and procedures.</p>
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/rota" className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                    <div className="flex items-center">
-                        <RotaIcon className="w-12 h-12 text-ams-blue" />
-                        <div className="ml-4">
-                            <h2 className="text-xl font-bold text-gray-800">Shift Rota</h2>
-                            <p className="text-gray-600">View your upcoming shifts and schedule.</p>
-                        </div>
-                    </div>
-                </Link>
+                <DashboardCard 
+                    to="/eprf" 
+                    icon={<EprfIcon className="w-12 h-12 text-ams-blue" />} 
+                    title="New ePRF" 
+                    description="Start a new electronic Patient Report Form." 
+                />
+                 <DashboardCard 
+                    to="/patients" 
+                    icon={<PatientsIcon className="w-12 h-12 text-ams-blue" />} 
+                    title="Patient Records" 
+                    description="Search and manage patient files." 
+                />
+                <DashboardCard 
+                    to="/events" 
+                    icon={<EventsIcon className="w-12 h-12 text-ams-blue" />} 
+                    title="Event Logon" 
+                    description="Logon to an event or shift." 
+                />
+                <DashboardCard 
+                    to="/documents" 
+                    icon={<DocsIcon className="w-12 h-12 text-ams-blue" />} 
+                    title="Documents & Guidelines" 
+                    description="Access SOPs, guidelines, and procedures." 
+                />
+                <DashboardCard 
+                    to="/rota" 
+                    icon={<RotaIcon className="w-12 h-12 text-ams-blue" />} 
+                    title="Shift Rota" 
+                    description="View your upcoming shifts and schedule." 
+                />
             </div>
 
             <div className="mt-12 p-6 bg-white rounded-lg shadow-md">

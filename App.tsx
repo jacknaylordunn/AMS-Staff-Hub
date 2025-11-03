@@ -12,6 +12,8 @@ import Documents from './pages/Documents';
 import Rota from './pages/Rota';
 import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
+import Patients from './pages/Patients';
+import Events from './pages/Events';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
@@ -41,6 +43,8 @@ const AppRoutes: React.FC = () => {
                 <Route path="documents" element={<Documents />} />
                 <Route path="rota" element={<Rota />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="patients" element={<Patients />} />
+                <Route path="events" element={<Events />} />
             </Route>
             <Route path="*" element={<NotFound />} />
         </Routes>

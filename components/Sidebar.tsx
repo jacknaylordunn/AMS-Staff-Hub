@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon } from './icons';
+import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon } from './icons';
 
 const Sidebar: React.FC = () => {
   const navLinkClasses = ({ isActive }: { isActive: boolean }): string =>
@@ -33,6 +33,15 @@ const Sidebar: React.FC = () => {
           <NavLink to="/rota" className={navLinkClasses}>
             <RotaIcon className="w-6 h-6 mr-3" />
             Rota
+          </NavLink>
+          <div className="px-6 py-4 text-gray-400 text-sm uppercase">Clinical</div>
+           <NavLink to="/patients" className={navLinkClasses}>
+            <PatientsIcon className="w-6 h-6 mr-3" />
+            Patients
+          </NavLink>
+           <NavLink to="/events" className={navLinkClasses}>
+            <EventsIcon className="w-6 h-6 mr-3" />
+            Events
           </NavLink>
         </nav>
       </div>
