@@ -22,6 +22,7 @@ const PatientDetail: React.FC = () => {
     const [eprfs, setEprfs] = useState<EPRFForm[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEPRF, setSelectedEPRF] = useState<EPRFForm | null>(null);
+    const [isApproving, setIsApproving] = useState(false);
 
     const fetchData = async () => {
         if (!patientId) {
@@ -66,6 +67,7 @@ const PatientDetail: React.FC = () => {
     
     const handleApprove = async () => {
         if (!selectedEPRF || !user) return;
+        setIsApproving(true);
         try {
             await approveEPRF(selectedEPRF.id!, { uid: user.uid, name: user.displayName || user.email! });
             showToast("ePRF Approved!", "success");
@@ -73,6 +75,8 @@ const PatientDetail: React.FC = () => {
         } catch (error) {
             console.error("Failed to approve ePRF:", error);
             showToast("Could not approve ePRF.", "error");
+        } finally {
+            setIsApproving(false);
         }
     };
 
@@ -100,8 +104,8 @@ const PatientDetail: React.FC = () => {
                 <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200">{patient.firstName} {patient.lastName}</h1>
                 <div className="flex items-center gap-4 flex-wrap">
                     {isManager && selectedEPRF?.status === 'Pending Review' && (
-                        <button onClick={handleApprove} className="flex items-center gap-2 px-4 py-2 bg-ams-light-blue text-white rounded-md hover:bg-opacity-90">
-                            <CheckIcon className="w-5 h-5"/>Approve ePRF
+                        <button onClick={handleApprove} disabled={isApproving} className="flex items-center gap-2 px-4 py-2 bg-ams-light-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 min-w-[150px] justify-center">
+                            {isApproving ? <SpinnerIcon className="w-5 h-5"/> : <><CheckIcon className="w-5 h-5"/>Approve ePRF</>}
                         </button>
                     )}
                     <button

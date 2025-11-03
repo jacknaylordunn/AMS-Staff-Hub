@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import type { EventLog } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getEvents, createEvent, updateEvent } from '../services/firestoreService';
-import { SpinnerIcon, CheckIcon, PlusIcon } from '../components/icons';
+import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/firestoreService';
+import { SpinnerIcon, CheckIcon, PlusIcon, TrashIcon } from '../components/icons';
 import EventModal from '../components/EventModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { showToast } from '../components/Toast';
 
 const Events: React.FC = () => {
@@ -12,8 +13,11 @@ const Events: React.FC = () => {
     const { activeEvent, setActiveEvent, clearActiveEvent } = useAppContext();
     const [events, setEvents] = useState<EventLog[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setEditModalOpen] = useState(false);
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<EventLog | null>(null);
+    const [eventToDelete, setEventToDelete] = useState<EventLog | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchEvents = async () => {
         setLoading(true);
@@ -34,10 +38,15 @@ const Events: React.FC = () => {
         }
     };
     
-    const handleOpenModal = (event: EventLog | null) => {
+    const handleOpenEditModal = (event: EventLog | null) => {
         setSelectedEvent(event);
-        setIsModalOpen(true);
+        setEditModalOpen(true);
     };
+
+    const handleOpenDeleteModal = (event: EventLog) => {
+        setEventToDelete(event);
+        setDeleteModalOpen(true);
+    }
 
     const handleSaveEvent = async (eventData: Omit<EventLog, 'id'>) => {
         try {
@@ -52,10 +61,26 @@ const Events: React.FC = () => {
         } catch (e) {
             showToast("Failed to save event.", "error");
         } finally {
-            setIsModalOpen(false);
+            setEditModalOpen(false);
             setSelectedEvent(null);
         }
     };
+
+    const handleDeleteConfirm = async () => {
+        if (!eventToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteEvent(eventToDelete.id!);
+            showToast("Event deleted successfully.", "success");
+            setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
+        } catch(e) {
+            showToast("Failed to delete event.", "error");
+        } finally {
+            setIsDeleting(false);
+            setDeleteModalOpen(false);
+            setEventToDelete(null);
+        }
+    }
 
     const getStatusColor = (status: EventLog['status']) => {
         switch (status) {
@@ -68,11 +93,20 @@ const Events: React.FC = () => {
 
     return (
         <div>
-            {isManager && <EventModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedEvent(null); }} onSave={handleSaveEvent} event={selectedEvent} />}
+            {isManager && <EventModal isOpen={isEditModalOpen} onClose={() => { setEditModalOpen(false); setSelectedEvent(null); }} onSave={handleSaveEvent} event={selectedEvent} />}
+            <ConfirmationModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Event"
+                message={`Are you sure you want to delete the event "${eventToDelete?.name}"? This will not affect existing ePRFs but cannot be undone.`}
+                confirmText="Delete"
+                isLoading={isDeleting}
+            />
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                  <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Event Logon</h1>
                  {isManager && (
-                    <button onClick={() => handleOpenModal(null)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
+                    <button onClick={() => handleOpenEditModal(null)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
                         <PlusIcon className="w-5 h-5 mr-2" /> Create New Event
                     </button>
                 )}
@@ -113,7 +147,10 @@ const Events: React.FC = () => {
                                     {isCurrent ? 'Log Off' : 'Logon to Event'}
                                 </button>
                                 {isManager && (
-                                    <button onClick={() => handleOpenModal(event)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Edit</button>
+                                    <>
+                                        <button onClick={() => handleOpenEditModal(event)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Edit</button>
+                                        <button onClick={() => handleOpenDeleteModal(event)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                    </>
                                 )}
                             </div>
                         </div>

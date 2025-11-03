@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { CompanyDocument } from '../types';
-import { getDocuments, createDocument } from '../services/firestoreService';
-import { SpinnerIcon, PlusIcon } from '../components/icons';
+import { getDocuments, createDocument, deleteDocument } from '../services/firestoreService';
+import { SpinnerIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import DocumentUploadModal from '../components/DocumentUploadModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { showToast } from '../components/Toast';
 
 const Documents: React.FC = () => {
@@ -12,7 +13,10 @@ const Documents: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'SOP' | 'Guideline' | 'Procedure'>('all');
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isUploadModalOpen, setUploadModalOpen] = useState(false);
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [docToDelete, setDocToDelete] = useState<CompanyDocument | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchDocs = async () => {
         setLoading(true);
@@ -20,6 +24,7 @@ const Documents: React.FC = () => {
             const docs = await getDocuments();
             setDocuments(docs);
         } catch (error) {
+            showToast("Failed to fetch documents.", "error");
             console.error("Failed to fetch documents:", error);
         } finally {
             setLoading(false);
@@ -46,9 +51,30 @@ const Documents: React.FC = () => {
         } catch(e) {
             showToast("Failed to upload document.", "error");
         } finally {
-            setIsModalOpen(false);
+            setUploadModalOpen(false);
         }
     };
+
+    const openDeleteModal = (doc: CompanyDocument) => {
+        setDocToDelete(doc);
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!docToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deleteDocument(docToDelete.id);
+            showToast("Document deleted successfully.", "success");
+            setDocuments(prev => prev.filter(d => d.id !== docToDelete.id));
+        } catch (error) {
+            showToast("Failed to delete document.", "error");
+        } finally {
+            setIsDeleting(false);
+            setDeleteModalOpen(false);
+            setDocToDelete(null);
+        }
+    }
 
     const getCategoryColor = (category: CompanyDocument['category']) => {
         switch (category) {
@@ -62,12 +88,21 @@ const Documents: React.FC = () => {
 
     return (
         <div>
-            {isManager && <DocumentUploadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveDocument} />}
+            {isManager && <DocumentUploadModal isOpen={isUploadModalOpen} onClose={() => setUploadModalOpen(false)} onSave={handleSaveDocument} />}
+            <ConfirmationModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Document"
+                message={`Are you sure you want to delete "${docToDelete?.title}"? This action cannot be undone.`}
+                confirmText="Delete"
+                isLoading={isDeleting}
+            />
 
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Documents Library</h1>
                  {isManager && (
-                    <button onClick={() => setIsModalOpen(true)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
+                    <button onClick={() => setUploadModalOpen(true)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
                         <PlusIcon className="w-5 h-5 mr-2" /> Upload New Document
                     </button>
                 )}
@@ -102,9 +137,9 @@ const Documents: React.FC = () => {
                 <div className="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-md">
                     <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                         {filteredDocuments.map(doc => (
-                            <li key={doc.id}>
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <div className="px-4 py-4 sm:px-6">
+                            <li key={doc.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700">
+                               <div className="px-4 py-4 sm:px-6 flex items-center justify-between">
+                                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex-grow">
                                         <div className="flex items-center justify-between">
                                             <p className="text-md font-medium text-ams-blue dark:text-ams-light-blue truncate">{doc.title}</p>
                                             <div className="ml-2 flex-shrink-0 flex">
@@ -120,8 +155,17 @@ const Documents: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
-                                </a>
+                                    </a>
+                                     {isManager && (
+                                        <button 
+                                            onClick={() => openDeleteModal(doc)} 
+                                            className="ml-4 p-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Delete document"
+                                        >
+                                            <TrashIcon className="w-5 h-5"/>
+                                        </button>
+                                    )}
+                               </div>
                             </li>
                         ))}
                     </ul>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
+import ConfirmationModal from './ConfirmationModal';
+import { showToast } from './Toast';
 
 interface ShiftModalProps {
     isOpen: boolean;
@@ -25,6 +27,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         assignedStaffUids: [] as string[],
     });
     const [loading, setLoading] = useState(false);
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         const selectedDate = shift?.start.toDate() || date || new Date();
@@ -75,7 +79,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             const staffMember = staff.find(s => s.uid === uid);
             return { uid, name: staffMember?.displayName || 'Unknown' };
         });
-        const shiftData: Omit<Shift, 'id'> = {
+        const shiftData: Omit<Shift, 'id' | 'assignedStaffUids'> & { assignedStaff: { uid: string, name: string }[] } = {
             eventId: formData.eventId,
             eventName: formData.eventName,
             start: Timestamp.fromDate(new Date(formData.start)),
@@ -84,9 +88,23 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             notes: formData.notes,
             assignedStaff,
         };
-        await onSave(shiftData);
+        await onSave(shiftData as Omit<Shift, 'id'>);
         setLoading(false);
     };
+
+    const handleDeleteConfirm = async () => {
+        if (!shift) return;
+        setIsDeleting(true);
+        try {
+            await onDelete(shift.id!);
+            showToast("Shift deleted successfully.", "success");
+        } catch (error) {
+            showToast("Failed to delete shift.", "error");
+        } finally {
+            setIsDeleting(false);
+            setDeleteModalOpen(false);
+        }
+    }
 
     if (!isOpen) return null;
 
@@ -95,6 +113,15 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
+            <ConfirmationModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Shift"
+                message="Are you sure you want to delete this shift? This will remove it from the rota for all assigned staff."
+                confirmText="Delete"
+                isLoading={isDeleting}
+            />
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">{shift ? 'Edit Shift' : 'Create New Shift'}</h2>
                 <form onSubmit={handleSubmit}>
@@ -139,7 +166,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                     <div className="flex justify-between items-center gap-4 mt-6">
                          <div>
                             {shift?.id && (
-                                <button type="button" onClick={() => onDelete(shift.id!)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center">
+                                <button type="button" onClick={() => setDeleteModalOpen(true)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center">
                                     <TrashIcon className="w-5 h-5 mr-2" /> Delete
                                 </button>
                             )}

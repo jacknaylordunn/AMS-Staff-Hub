@@ -89,16 +89,14 @@ const Rota: React.FC = () => {
     };
 
     const handleDeleteShift = async (shiftId: string) => {
-        if (window.confirm("Are you sure you want to delete this shift?")) {
-            setLoading(true);
-            await deleteShift(shiftId);
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const updatedShifts = isManager ? await getShiftsForMonth(year, month) : await getShiftsForUser(user!.uid, year, month);
-            setShifts(updatedShifts);
-            setLoading(false);
-            handleCloseModal();
-        }
+        setLoading(true);
+        await deleteShift(shiftId);
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const updatedShifts = isManager ? await getShiftsForMonth(year, month) : await getShiftsForUser(user!.uid, year, month);
+        setShifts(updatedShifts);
+        setLoading(false);
+        handleCloseModal();
     }
 
     const shiftsForDay = (date: Date) => {
@@ -166,10 +164,11 @@ const Rota: React.FC = () => {
                                 </div>
                                 <div className="mt-1 space-y-1 overflow-y-auto max-h-24">
                                     {dayShifts.map(shift => (
-                                        <div key={shift.id} onClick={() => isManager && handleOpenModal(shift)} className={`p-1 rounded text-white text-xs ${isManager ? 'cursor-pointer' : ''} bg-ams-blue`}>
+                                        <div key={shift.id} onClick={() => isManager && handleOpenModal(shift)} className={`p-1.5 rounded text-white text-xs ${isManager ? 'cursor-pointer' : ''} bg-ams-blue`}>
                                             <p className="font-semibold truncate">{shift.eventName}</p>
                                             <p className="truncate">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                             {isManager && <p className="text-xs truncate text-gray-300">{shift.assignedStaff.length} crew</p>}
+                                             {!isManager && <p className="text-xs truncate text-gray-300">{shift.roleRequired}</p>}
                                         </div>
                                     ))}
                                 </div>

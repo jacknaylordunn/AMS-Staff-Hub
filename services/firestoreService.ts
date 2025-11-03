@@ -179,6 +179,9 @@ export const createEvent = async (eventData: Omit<EventLog, 'id'>): Promise<void
 export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventLog, 'id'>>): Promise<void> => {
     await db.collection('events').doc(eventId).update(eventData);
 }
+export const deleteEvent = async (eventId: string): Promise<void> => {
+    await db.collection('events').doc(eventId).delete();
+}
 
 // Document Functions
 export const getDocuments = async (): Promise<CompanyDocument[]> => {
@@ -188,6 +191,9 @@ export const getDocuments = async (): Promise<CompanyDocument[]> => {
 };
 export const createDocument = async (docData: Omit<CompanyDocument, 'id'>): Promise<void> => {
     await db.collection('documents').add(docData);
+}
+export const deleteDocument = async (docId: string): Promise<void> => {
+    await db.collection('documents').doc(docId).delete();
 }
 
 
@@ -199,25 +205,30 @@ export const getShiftsForMonth = async (year: number, month: number): Promise<Sh
     const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
 };
+
 export const getShiftsForUser = async (uid: string, year: number, month: number): Promise<Shift[]> => {
     const start = Timestamp.fromDate(new Date(year, month, 1));
     const end = Timestamp.fromDate(new Date(year, month + 1, 1));
     const q = db.collection('shifts')
-        .where('assignedStaff', 'array-contains', { uid, name: firebase.auth().currentUser?.displayName || '' }) // This is a simplification, a better query would use just uid.
+        .where('assignedStaffUids', 'array-contains', uid)
         .where('start', '>=', start)
         .where('start', '<', end);
+    
+    const snapshot = await q.get();
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+};
 
-    // Firestore doesn't support array-contains with other where clauses on different fields easily.
-    // So we fetch all shifts for the month and filter client-side for non-managers. A more scalable solution would use a subcollection of users on each shift doc.
-    const allShiftsInMonth = await getShiftsForMonth(year, month);
-    return allShiftsInMonth.filter(shift => shift.assignedStaff.some(staff => staff.uid === uid));
-};
 export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> => {
-    await db.collection('shifts').add(shiftData);
+    const assignedStaffUids = shiftData.assignedStaff.map(s => s.uid);
+    await db.collection('shifts').add({ ...shiftData, assignedStaffUids });
 };
+
 export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift, 'id'>>): Promise<void> => {
-    await db.collection('shifts').doc(shiftId).update(shiftData);
+    const assignedStaffUids = shiftData.assignedStaff?.map(s => s.uid);
+    const dataToUpdate = assignedStaffUids ? { ...shiftData, assignedStaffUids } : shiftData;
+    await db.collection('shifts').doc(shiftId).update(dataToUpdate);
 };
+
 export const deleteShift = async (shiftId: string): Promise<void> => {
     await db.collection('shifts').doc(shiftId).delete();
 };

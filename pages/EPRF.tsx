@@ -10,6 +10,7 @@ import { showToast } from '../components/Toast';
 import PatientModal from '../components/PatientModal';
 import { calculateNews2Score, getNews2RiskColor } from '../utils/news2Calculator';
 import InteractiveBodyMap from '../components/InteractiveBodyMap';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 // Reducer for complex form state management
 const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
@@ -171,7 +172,9 @@ const EPRF: React.FC = () => {
     const [searchResults, setSearchResults] = useState<Patient[]>([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isPatientModalOpen, setPatientModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isFormLoading, setIsFormLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     
@@ -313,20 +316,22 @@ const EPRF: React.FC = () => {
         }
     };
     
-    const handleDelete = async () => {
+    const handleDeleteConfirm = async () => {
         if (!state.id) return;
-         if (window.confirm("Are you sure you want to delete this draft? This action cannot be undone.")) {
-            try {
-                await deleteEPRF(state.id);
-                showToast("Draft deleted.", "success");
-                dispatch({ type: 'CLEAR_FORM', payload: getInitialFormState() });
-                 // Manually trigger a re-creation of a new draft.
-                const newDraft = await createDraftEPRF(getInitialFormState());
-                dispatch({ type: 'LOAD_DRAFT', payload: newDraft });
-            } catch (error) {
-                console.error("Failed to delete draft:", error);
-                showToast("Could not delete draft.", "error");
-            }
+        setIsDeleting(true);
+        try {
+            await deleteEPRF(state.id);
+            showToast("Draft deleted.", "success");
+            setIsDeleteModalOpen(false);
+            dispatch({ type: 'CLEAR_FORM', payload: getInitialFormState() });
+            // Manually trigger a re-creation of a new draft.
+            const newDraft = await createDraftEPRF(getInitialFormState());
+            dispatch({ type: 'LOAD_DRAFT', payload: newDraft });
+        } catch (error) {
+            console.error("Failed to delete draft:", error);
+            showToast("Could not delete draft.", "error");
+        } finally {
+            setIsDeleting(false);
         }
     }
     
@@ -348,6 +353,15 @@ const EPRF: React.FC = () => {
         <div className="eprf-form-container">
              <SaveStatusIndicator status={saveStatus} />
              <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
+             <ConfirmationModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Draft"
+                message="Are you sure you want to delete this draft? This action cannot be undone."
+                confirmText="Delete"
+                isLoading={isDeleting}
+             />
             <form onSubmit={(e) => e.preventDefault()}>
                 <Section title="Patient Selection">
                    <FieldWrapper className="lg:col-span-3 relative">
@@ -513,7 +527,7 @@ const EPRF: React.FC = () => {
                 </Section>
                 
                 <div className="flex justify-between items-center gap-4 mt-8">
-                    <button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-400 flex items-center">
+                    <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-400 flex items-center">
                         <TrashIcon className="w-5 h-5 mr-2" />
                         Delete Draft
                     </button>

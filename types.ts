@@ -146,6 +146,7 @@ export interface Shift {
   start: firebase.firestore.Timestamp;
   end: firebase.firestore.Timestamp;
   assignedStaff: { uid: string; name: string; }[];
+  assignedStaffUids: string[]; // For efficient querying
   roleRequired: string;
   notes?: string;
 }
