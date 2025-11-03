@@ -62,7 +62,14 @@ const Login: React.FC = () => {
         // Fix: Use v8 `user.sendEmailVerification` method
         await userCredential.user.sendEmailVerification();
         setMessage('Account created. Please check your email to verify your account before logging in.');
-        setIsLogin(true);
+        
+        // UX Improvement: Clear registration-specific fields after success.
+        // Keep email pre-filled for the login form.
+        setDisplayName('');
+        setPassword('');
+        setRegistrationNumber('');
+
+        setIsLogin(true); // Switch to login view
       }
     } catch (err: any) {
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
