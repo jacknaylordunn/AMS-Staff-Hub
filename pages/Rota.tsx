@@ -166,6 +166,7 @@ const Rota: React.FC = () => {
                  <div className="md:hidden space-y-4">
                     {sortedShiftsForMonth.length > 0 ? sortedShiftsForMonth.map(shift => {
                         const colleagues = shift.assignedStaff.filter(s => s.uid !== user!.uid).map(s => s.name).join(', ');
+                        const assignedNames = shift.assignedStaff.map(s => s.name.split(' ')[0]).join(', ');
                         return (
                          <div key={shift.id} onClick={() => isManager && isOnline && handleOpenModal(shift)} className={`p-4 rounded-lg shadow text-white ${isManager && isOnline ? 'cursor-pointer' : ''} bg-ams-blue`}>
                              <div className="font-bold text-lg">{shift.eventName}</div>
@@ -177,7 +178,7 @@ const Rota: React.FC = () => {
                                     <span className="text-gray-300">Working with:</span> {colleagues || 'N/A'}
                                 </div>
                              )}
-                             {isManager && <div className="text-xs mt-1 text-gray-300">{shift.assignedStaff.length} crew assigned</div>}
+                             {isManager && <div className="text-xs mt-1 text-gray-300 truncate" title={`Crew: ${shift.assignedStaff.map(s => s.name).join(', ')}`}>Crew: {assignedNames || 'Unassigned'}</div>}
                          </div>
                     )}) : (
                         <p className="text-center text-gray-500 dark:text-gray-400 py-8">No shifts scheduled for this month.</p>

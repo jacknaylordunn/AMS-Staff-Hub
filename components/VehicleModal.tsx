@@ -53,9 +53,15 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ isOpen, onClose, onSave, ve
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" 
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="vehicle-modal-title"
+        >
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">{vehicle ? 'Edit Vehicle' : 'Add New Vehicle'}</h2>
+                <h2 id="vehicle-modal-title" className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">{vehicle ? 'Edit Vehicle' : 'Add New Vehicle'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         <div>

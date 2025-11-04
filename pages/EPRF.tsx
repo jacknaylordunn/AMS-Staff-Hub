@@ -784,7 +784,7 @@ const EPRF: React.FC = () => {
                                             )}
                                             <td className="p-1 text-center"><input type="checkbox" name="onOxygen" checked={v.onOxygen} onChange={e => handleVitalChange(i, e)} className="h-5 w-5 rounded"/></td>
                                             <td className="p-1 text-center"><span className={`px-2 py-1 font-bold rounded-full text-white text-sm ${getNews2RiskColor(v.news2)}`}>{v.news2 ?? '-'}</span></td>
-                                            <td className="p-1 text-center"><button type="button" onClick={() => removeVitalSign(i)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button></td>
+                                            <td className="p-1 text-center"><button type="button" onClick={() => removeVitalSign(i)} aria-label="Remove vital sign" className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -836,7 +836,7 @@ const EPRF: React.FC = () => {
                                         )
                                     )}
                                 </div>
-                                <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                                <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} aria-label="Remove medication" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
                             </div>
                             )
                         })}
@@ -854,7 +854,7 @@ const EPRF: React.FC = () => {
                                 <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-3`} />
                                 <input type="text" name="intervention" placeholder="Intervention" value={item.intervention} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
                                 <input type="text" name="details" placeholder="Details" value={item.details} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
-                                <button type="button" onClick={() => removeDynamicListItem('interventions', index)} className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                                <button type="button" onClick={() => removeDynamicListItem('interventions', index)} aria-label="Remove intervention" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
                             </div>
                         ))}
                         </div>
@@ -925,15 +925,15 @@ const EPRF: React.FC = () => {
                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                     <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Safeguarding & Capacity</h2>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                             <h3 className={labelBaseClasses}>Safeguarding Concerns</h3>
+                        <fieldset>
+                             <legend className={labelBaseClasses}>Safeguarding Concerns</legend>
                              <div className="mt-2 space-y-2">
                                  {['Child', 'Adult', 'Domestic Abuse', 'Vulnerable Adult'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.safeguarding.concerns.includes(c as any)} onChange={e => handleCheckboxArrayChange('safeguarding', 'concerns', e)} />)}
                              </div>
                              <textarea name="details" value={state.safeguarding.details} onChange={e => handleNestedChange('safeguarding', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of concerns..."/>
-                        </div>
-                         <div>
-                             <h3 className={labelBaseClasses}>Mental Capacity Assessment</h3>
+                        </fieldset>
+                         <fieldset>
+                             <legend className={labelBaseClasses}>Mental Capacity Assessment</legend>
                              <div className="mt-2 space-y-2">
                                 {['Understands', 'Retains', 'Weighs', 'Communicates'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.mentalCapacity.assessment.includes(c as any)} onChange={e => handleCheckboxArrayChange('mentalCapacity', 'assessment', e)} />)}
                             </div>
@@ -941,7 +941,7 @@ const EPRF: React.FC = () => {
                                 <option>Not Assessed</option><option>Has Capacity</option><option>Lacks Capacity</option><option>Fluctuating</option>
                             </select>
                              <textarea name="details" value={state.mentalCapacity.details} onChange={e => handleNestedChange('mentalCapacity', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of assessment..."/>
-                        </div>
+                        </fieldset>
                      </div>
                  </div>
 
@@ -971,6 +971,7 @@ const EPRF: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveAttachment(att.id)}
+                                        aria-label="Remove attachment"
                                         className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                         <TrashIcon className="w-4 h-4" />
@@ -1005,7 +1006,7 @@ const EPRF: React.FC = () => {
                                 {state.crewMembers.map(c => (
                                     <li key={c.uid} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
                                         <span className="dark:text-gray-200">{c.name}</span>
-                                        <button type="button" onClick={() => handleRemoveCrewMember(c.uid)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                        <button type="button" onClick={() => handleRemoveCrewMember(c.uid)} aria-label="Remove crew member" className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
                                     </li>
                                 ))}
                              </ul>

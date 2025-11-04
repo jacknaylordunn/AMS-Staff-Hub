@@ -25,10 +25,17 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" 
+            onClick={onClose}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirmation-modal-title"
+            aria-describedby="confirmation-modal-message"
+        >
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{title}</h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+                <h2 id="confirmation-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">{title}</h2>
+                <p id="confirmation-modal-message" className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
                 <div className="flex justify-end gap-4">
                     <button
                         type="button"

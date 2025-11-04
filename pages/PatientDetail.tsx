@@ -114,10 +114,17 @@ const ReturnToDraftModal: React.FC<{ isOpen: boolean, onClose: () => void, onCon
     };
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" 
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="return-modal-title"
+            aria-describedby="return-modal-description"
+        >
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Return ePRF for Correction</h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">Please provide a reason for returning this ePRF to draft status. The clinician will be notified.</p>
+                <h2 id="return-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">Return ePRF for Correction</h2>
+                <p id="return-modal-description" className="text-gray-600 dark:text-gray-300 mb-4">Please provide a reason for returning this ePRF to draft status. The clinician will be notified.</p>
                 <textarea
                     value={reason}
                     onChange={e => setReason(e.target.value)}

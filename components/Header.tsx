@@ -61,11 +61,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   return (
     <header className="flex items-center justify-between h-20 px-4 sm:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30">
         <div className="flex items-center gap-2 sm:gap-4">
-            <button onClick={onMenuClick} className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button onClick={onMenuClick} className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Open menu">
                 <MenuIcon className="w-6 h-6" />
             </button>
             {isSubPage && (
-                 <button onClick={() => navigate(-1)} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                 <button onClick={() => navigate(-1)} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Go back">
                     <BackIcon className="w-6 h-6" />
                 </button>
             )}
@@ -83,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 <WifiOfflineIcon className="w-6 h-6" />
             </div>
           )}
-          <button onClick={toggleTheme} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <button onClick={toggleTheme} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
             {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
           </button>
         <div className="relative">

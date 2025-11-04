@@ -36,10 +36,10 @@ const NotificationsPanel: React.FC<{ notifications: Notification[], onDismiss: (
                     {notifications.length > 0 ? notifications.map(notif => (
                         <div key={notif.id} className="group p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-start gap-2">
                            <div onClick={() => handleNotificationClick(notif)} className={`flex-grow ${notif.link ? 'cursor-pointer' : ''}`}>
-                                <p className="text-sm text-gray-700 dark:text-gray-300">{notif.message}</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{notif.message}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notif.createdAt.toDate().toLocaleString()}</p>
                            </div>
-                            <button onClick={() => onDismiss(notif.id!)} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => onDismiss(notif.id!)} aria-label="Dismiss notification" className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <TrashIcon className="w-4 h-4" />
                             </button>
                         </div>
@@ -93,7 +93,7 @@ const Dashboard: React.FC = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome, {user?.firstName || user?.email}!</h1>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome back, {user?.firstName || 'team member'}!</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
