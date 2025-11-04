@@ -3,6 +3,8 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppProvider } from './hooks/useAppContext';
 import { ThemeProvider } from './hooks/useTheme';
+import { OnlineStatusProvider } from './hooks/useOnlineStatus';
+import { DataSyncProvider } from './hooks/useDataSync';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -17,6 +19,9 @@ import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
 import Events from './pages/Events';
 import EPRFReviews from './pages/EPRFReviews';
+import Assets from './pages/Assets';
+import VehicleDetail from './pages/VehicleDetail';
+import Reports from './pages/Reports';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
@@ -57,6 +62,30 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
+                <Route 
+                    path="assets" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <Assets />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="assets/vehicle/:vehicleId" 
+                    element={
+                        <ProtectedRoute>
+                            <VehicleDetail />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="reports" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <Reports />
+                        </ProtectedRoute>
+                    } 
+                />
             </Route>
             <Route path="*" element={<NotFound />} />
         </Routes>
@@ -68,9 +97,13 @@ const App: React.FC = () => {
         <ThemeProvider>
             <AuthProvider>
                 <AppProvider>
-                    <HashRouter>
-                        <AppRoutes />
-                    </HashRouter>
+                    <OnlineStatusProvider>
+                        <DataSyncProvider>
+                            <HashRouter>
+                                <AppRoutes />
+                            </HashRouter>
+                        </DataSyncProvider>
+                    </OnlineStatusProvider>
                 </AppProvider>
             </AuthProvider>
         </ThemeProvider>

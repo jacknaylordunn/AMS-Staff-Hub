@@ -1,11 +1,14 @@
-const CACHE_NAME = 'aegis-hub-cache-v1';
+const CACHE_NAME = 'aegis-hub-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/favicon.svg',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/index.tsx',
-  // Add other static assets like icons, css files if you have them
-  // For example: '/styles.css', '/logo.png'
-  'https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Logo%20FINAL%20(2).png'
+  'https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Logo%20FINAL%20(2).png',
+  'https://cdn.tailwindcss.com'
 ];
 
 self.addEventListener('install', event => {
@@ -20,6 +23,11 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Let Firebase handle its own network requests for authentication and data sync.
+  if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('firebaseapp.com')) {
+    return; // Do not cache these requests.
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -36,8 +44,9 @@ self.addEventListener('fetch', event => {
 
         return fetch(fetchRequest).then(
           response => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            // Check if we received a valid response.
+            // We also cache opaque responses from CDNs, which are essential for offline functionality.
+            if (!response || (response.status !== 200 && response.type !== 'opaque')) {
               return response;
             }
 

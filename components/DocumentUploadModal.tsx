@@ -33,7 +33,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ isOpen, onClo
 
     if (!isOpen) return null;
 
-    const inputClasses = "mt-1 w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
+    const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
     return (
@@ -48,7 +48,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ isOpen, onClo
                         </div>
                         <div>
                             <label className={labelClasses}>Category</label>
-                             <select name="category" value={formData.category} onChange={handleChange} className={`${inputClasses} bg-white dark:bg-gray-700`}>
+                             <select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>
                                 <option>SOP</option>
                                 <option>Guideline</option>
                                 <option>Procedure</option>
@@ -60,7 +60,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ isOpen, onClo
                         </div>
                         <div>
                             <label className={labelClasses}>File</label>
-                            <input type="file" required className={`${inputClasses} p-1.5`}/>
+                            <input type="file" required className={`${inputClasses} p-1.5 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-ams-light-blue/10 file:text-ams-light-blue hover:file:bg-ams-light-blue/20 dark:file:bg-ams-light-blue/20 dark:file:text-ams-light-blue dark:hover:file:bg-ams-light-blue/30`}/>
                             <p className="text-xs text-gray-500 mt-1">Note: File upload is for demonstration. This will use a placeholder URL.</p>
                         </div>
                     </div>

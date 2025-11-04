@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 // Fix: `updateProfile` is a method on the user object in v8, not a separate import.
@@ -9,14 +8,16 @@ import { SpinnerIcon } from '../components/icons';
 
 const Profile: React.FC = () => {
     const { user } = useAuth();
-    const [displayName, setDisplayName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [role, setRole] = useState('');
     const [registrationNumber, setRegistrationNumber] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if(user) {
-            setDisplayName(user.displayName || '');
+            setFirstName(user.firstName || '');
+            setLastName(user.lastName || '');
             setRole(user.role || '');
             setRegistrationNumber(user.registrationNumber || '');
         }
@@ -25,23 +26,25 @@ const Profile: React.FC = () => {
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!displayName.trim() || !role) {
-            showToast('Display name and role cannot be empty.', 'error');
+        if (!firstName.trim() || !lastName.trim() || !role) {
+            showToast('First name, last name, and role cannot be empty.', 'error');
             return;
         }
 
         if (auth.currentUser) {
             setLoading(true);
             try {
+                const newDisplayName = `${firstName} ${lastName}`.trim();
                 // Update Firebase Auth profile
-                if(auth.currentUser.displayName !== displayName) {
+                if(auth.currentUser.displayName !== newDisplayName) {
                     // Fix: Use v8 `user.updateProfile()` method
-                    await auth.currentUser.updateProfile({ displayName });
+                    await auth.currentUser.updateProfile({ displayName: newDisplayName });
                 }
                 
                 // Update Firestore profile
                 await updateUserProfile(auth.currentUser.uid, {
-                    displayName,
+                    firstName,
+                    lastName,
                     role: role as any,
                     registrationNumber
                 });
@@ -56,7 +59,7 @@ const Profile: React.FC = () => {
         }
     };
     
-    const inputClasses = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
+    const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
     if(!user) {
@@ -73,27 +76,41 @@ const Profile: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleUpdateProfile}>
-                    <div className="mb-4">
-                        <label htmlFor="displayName" className={labelClasses}>Full Name</label>
-                        <input
-                            type="text"
-                            id="displayName"
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            className={inputClasses}
-                            placeholder="Enter your full name"
-                        />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label htmlFor="firstName" className={labelClasses}>First Name</label>
+                            <input
+                                type="text"
+                                id="firstName"
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                                className={inputClasses}
+                                placeholder="Enter your first name"
+                            />
+                        </div>
+                         <div>
+                            <label htmlFor="lastName" className={labelClasses}>Last Name</label>
+                            <input
+                                type="text"
+                                id="lastName"
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                                className={inputClasses}
+                                placeholder="Enter your last name"
+                            />
+                        </div>
                     </div>
 
                     <div className="mb-4">
                         <label htmlFor="role" className={labelClasses}>Clinical Role</label>
-                         <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClasses} bg-white dark:bg-gray-700`}>
+                         <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={inputClasses}>
                             <option>First Aider</option>
                             <option>EMT</option>
                             <option>Nurse</option>
                             <option>Paramedic</option>
                             <option>Welfare</option>
                             <option>Admin</option>
+                            <option>Manager</option>
                         </select>
                     </div>
 

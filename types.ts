@@ -4,7 +4,8 @@ import 'firebase/compat/firestore';
 export interface User {
   uid: string;
   email: string | null;
-  displayName?: string | null;
+  firstName: string;
+  lastName: string;
   role?: 'Paramedic' | 'EMT' | 'Nurse' | 'First Aider' | 'Welfare' | 'Manager' | 'Admin';
   registrationNumber?: string;
 }
@@ -31,6 +32,24 @@ export interface EventLog {
     status: 'Upcoming' | 'Active' | 'Completed';
 }
 
+export interface AuditEntry {
+  timestamp: firebase.firestore.Timestamp;
+  user: {
+    uid: string;
+    name: string;
+  };
+  action: string;
+  details?: string;
+}
+
+export interface Attachment {
+  id: string;
+  base64Data: string;
+  mimeType: string;
+  description: string;
+}
+
+
 export interface EPRFForm {
   id?: string;
   status?: 'Draft' | 'Pending Review' | 'Reviewed';
@@ -38,14 +57,22 @@ export interface EPRFForm {
   patientId: string | null;
   eventId: string | null;
   eventName: string | null;
+
+  presentationType: 'Medical/Trauma' | 'Minor Injury' | 'Welfare/Intox';
   
   // Incident
   incidentNumber: string;
   incidentDate: string;
   incidentTime: string;
   incidentLocation: string;
+  timeOfCall?: string;
+  onSceneTime?: string;
+  atPatientTime?: string;
+  leftSceneTime?: string;
+  atDestinationTime?: string;
+  clearDestinationTime?: string;
   
-  // Patient Demographics (will be populated from Patient object)
+  // Patient Demographics
   patientName: string;
   patientAge: string;
   patientGender: 'Male' | 'Female' | 'Other' | 'Unknown';
@@ -59,6 +86,15 @@ export interface EPRFForm {
   allergies: string;
   medications: string;
   pastMedicalHistory: string;
+  
+  painAssessment: {
+    onset: string;
+    provocation: string;
+    quality: string;
+    radiation: string;
+    severity: number;
+    time: string;
+  };
 
   // Primary Survey (ABCDE)
   airway: string;
@@ -81,17 +117,50 @@ export interface EPRFForm {
   secondarySurvey: string;
   injuries: Injury[];
 
-  // Treatment & Handover
+  // Treatment & Disposition
+  impressions: string[];
   medicationsAdministered: MedicationAdministered[];
   interventions: Intervention[];
-  disposal: string;
+  disposal?: string; // Legacy field, replaced by disposition
+  disposition: 'Not Set' | 'Conveyed to ED' | 'Left at Home (Own Consent)' | 'Left at Home (Against Advice)' | 'Referred to Other Service' | 'Deceased on Scene';
+  dispositionDetails: {
+    destination: string;
+    receivingClinician: string;
+    referralDetails: string;
+  };
   handoverDetails: string;
+
+  // Refusal of Care
+  refusalOfCare: {
+    refusedTreatment: boolean;
+    refusedTransport: boolean;
+    risksExplained: boolean;
+    capacityDemonstrated: boolean;
+    details: string;
+  };
+
+  safeguarding: {
+    concerns: ('Child' | 'Adult' | 'Domestic Abuse' | 'Vulnerable Adult')[];
+    details: string;
+  };
+
+  mentalCapacity: {
+    assessment: ('Understands' | 'Retains' | 'Weighs' | 'Communicates')[];
+    outcome: 'Has Capacity' | 'Lacks Capacity' | 'Fluctuating' | 'Not Assessed';
+    details: string;
+  };
+  
+  welfareLog: WelfareLogEntry[];
+  
+  attachments: Attachment[];
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];
   createdAt: firebase.firestore.Timestamp;
   createdBy: { uid: string; name: string; };
   reviewedBy?: { uid: string; name: string; date: firebase.firestore.Timestamp; };
+  reviewNotes?: string;
+  auditLog: AuditEntry[];
 }
 
 export interface VitalSign {
@@ -106,6 +175,12 @@ export interface VitalSign {
   avpu: 'Alert' | 'Voice' | 'Pain' | 'Unresponsive';
   onOxygen: boolean;
   news2?: number;
+}
+
+export interface WelfareLogEntry {
+  id: string;
+  time: string;
+  observation: string;
 }
 
 
@@ -149,4 +224,47 @@ export interface Shift {
   assignedStaffUids: string[]; // For efficient querying
   roleRequired: string;
   notes?: string;
+  isUnavailability?: boolean;
+  unavailabilityReason?: string;
+}
+
+export interface Notification {
+  id?: string;
+  userId: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  createdAt: firebase.firestore.Timestamp;
+}
+
+export interface ClinicalSuggestion {
+    impressions: string[];
+    interventions: string[];
+}
+
+export interface Vehicle {
+  id?: string;
+  name: string; // e.g., 'Ambulance 1', 'RRV 3'
+  registration: string;
+  type: 'Ambulance' | 'RRV' | 'Car' | 'Buggy';
+  status: 'In Service' | 'Maintenance Required' | 'Out of Service';
+  lastCheck?: {
+    date: firebase.firestore.Timestamp;
+    user: { uid: string; name:string; };
+    status: 'Pass' | 'Issues Found';
+  };
+  createdAt: firebase.firestore.Timestamp;
+}
+
+export interface VehicleCheck {
+    id?: string;
+    vehicleId: string;
+    vehicleName: string;
+    date: firebase.firestore.Timestamp;
+    user: { uid: string; name: string; };
+    mileage: number;
+    fuelLevel: 'Full' | '3/4' | '1/2' | '1/4' | 'Empty';
+    checklist: { [key: string]: 'Pass' | 'Fail' | 'N/A' };
+    notes: string;
+    overallStatus: 'Pass' | 'Issues Found';
 }

@@ -3,12 +3,14 @@ import type { CompanyDocument } from '../types';
 import { getDocuments, createDocument, deleteDocument } from '../services/firestoreService';
 import { SpinnerIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import DocumentUploadModal from '../components/DocumentUploadModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { showToast } from '../components/Toast';
 
 const Documents: React.FC = () => {
     const { isManager } = useAuth();
+    const { isOnline } = useOnlineStatus();
     const [documents, setDocuments] = useState<CompanyDocument[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,8 +26,10 @@ const Documents: React.FC = () => {
             const docs = await getDocuments();
             setDocuments(docs);
         } catch (error) {
-            showToast("Failed to fetch documents.", "error");
-            console.error("Failed to fetch documents:", error);
+            if (isOnline) {
+                showToast("Failed to fetch documents.", "error");
+                console.error("Failed to fetch documents:", error);
+            }
         } finally {
             setLoading(false);
         }
@@ -33,7 +37,7 @@ const Documents: React.FC = () => {
 
     useEffect(() => {
         fetchDocs();
-    }, []);
+    }, [isOnline]);
 
     const filteredDocuments = useMemo(() => {
         return documents
@@ -42,8 +46,6 @@ const Documents: React.FC = () => {
     }, [searchTerm, filter, documents]);
 
     const handleSaveDocument = async (docData: Omit<CompanyDocument, 'id'>) => {
-        // NOTE: In a real app, you would handle file upload to Firebase Storage here
-        // and get a download URL to save in Firestore. We are mocking this part.
         try {
             await createDocument(docData);
             showToast("Document uploaded successfully.", "success");
@@ -102,11 +104,20 @@ const Documents: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Documents Library</h1>
                  {isManager && (
-                    <button onClick={() => setUploadModalOpen(true)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
+                    <button 
+                        onClick={() => setUploadModalOpen(true)} 
+                        disabled={!isOnline}
+                        className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
                         <PlusIcon className="w-5 h-5 mr-2" /> Upload New Document
                     </button>
                 )}
             </div>
+            
+            {!isOnline && (
+                <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
+                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached documents. Please reconnect to upload or delete documents.</p>
+                </div>
+            )}
 
             <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <input
@@ -159,7 +170,8 @@ const Documents: React.FC = () => {
                                      {isManager && (
                                         <button 
                                             onClick={() => openDeleteModal(doc)} 
-                                            className="ml-4 p-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            disabled={!isOnline}
+                                            className="ml-4 p-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
                                             title="Delete document"
                                         >
                                             <TrashIcon className="w-5 h-5"/>

@@ -1,6 +1,7 @@
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { EventLog } from '../types';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import type { EventLog, Shift } from '../types';
+import { useAuth } from './useAuth';
+import { getShiftsForUser } from '../services/firestoreService';
 
 interface AppContextType {
   activeEvent: EventLog | null;
@@ -11,10 +12,46 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [activeEvent, setActiveEventState] = useState<EventLog | null>(() => {
-    const savedEvent = sessionStorage.getItem('activeEvent');
-    return savedEvent ? JSON.parse(savedEvent) : null;
+    try {
+      const savedEvent = sessionStorage.getItem('activeEvent');
+      return savedEvent ? JSON.parse(savedEvent) : null;
+    } catch (e) {
+      return null;
+    }
   });
+
+  // Auto-logon to event if user has an active shift
+  useEffect(() => {
+    const checkActiveShift = async (uid: string) => {
+      const now = new Date();
+      // Check today's shifts
+      const shifts = await getShiftsForUser(uid, now.getFullYear(), now.getMonth());
+      const activeShift = shifts.find(s => {
+          const start = s.start.toDate();
+          const end = s.end.toDate();
+          return now >= start && now <= end;
+      });
+
+      if (activeShift) {
+        // Construct a partial EventLog from shift data for the context
+        const eventLog: EventLog = {
+          id: activeShift.eventId,
+          name: activeShift.eventName,
+          date: activeShift.start.toDate().toISOString().split('T')[0],
+          location: '', // Location is not on shift object, this is acceptable for context
+          status: 'Active'
+        };
+        setActiveEvent(eventLog);
+      }
+    };
+    
+    // Only run if user is logged in and no event is manually set
+    if (user && !activeEvent) {
+      checkActiveShift(user.uid);
+    }
+  }, [user]);
 
   const setActiveEvent = (event: EventLog) => {
     sessionStorage.setItem('activeEvent', JSON.stringify(event));

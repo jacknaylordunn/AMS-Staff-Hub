@@ -69,6 +69,20 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write: if isManager();
     }
+    
+    // Vehicle & Vehicle Checks
+    // - All authenticated users can read vehicle data and create checks.
+    // - Managers can create/update/delete vehicles.
+    // - Nobody can edit or delete a vehicle check once submitted.
+    match /vehicles/{vehicleId} {
+        allow read: if request.auth != null;
+        allow write: if isManager(); // create, update, delete for vehicle doc
+        
+        match /checks/{checkId} {
+            allow read, create: if request.auth != null;
+            // No update/delete to preserve audit trail
+        }
+    }
   }
 }
 ```

@@ -31,7 +31,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
            setUser({
               uid: firebaseUser.uid,
               email: firebaseUser.email,
-              displayName: userProfile.displayName,
+              firstName: userProfile.firstName,
+              lastName: userProfile.lastName,
               role: userProfile.role,
               registrationNumber: userProfile.registrationNumber
            });
@@ -40,7 +41,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
              setUser({
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
-                displayName: firebaseUser.displayName,
+                // These will be undefined but the type allows it temporarily during signup
+                firstName: '',
+                lastName: '',
             });
         }
       } else {

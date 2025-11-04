@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent } from 'react';
 import type { Patient } from '../types';
 import { SpinnerIcon } from './icons';
@@ -30,7 +29,7 @@ const PatientModal: React.FC<PatientModalProps> = ({ isOpen, onClose, onSave }) 
 
     if (!isOpen) return null;
 
-    const inputClasses = "mt-1 w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
+    const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
     return (
@@ -53,7 +52,7 @@ const PatientModal: React.FC<PatientModalProps> = ({ isOpen, onClose, onSave }) 
                         </div>
                         <div>
                             <label className={labelClasses}>Gender</label>
-                            <select name="gender" value={patient.gender} onChange={handleChange} className={`${inputClasses} bg-white dark:bg-gray-700`}>
+                            <select name="gender" value={patient.gender} onChange={handleChange} className={inputClasses}>
                                 <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
                             </select>
                         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { EventLog } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/firestoreService';
 import { SpinnerIcon, CheckIcon, PlusIcon, TrashIcon } from '../components/icons';
 import EventModal from '../components/EventModal';
@@ -11,6 +12,7 @@ import { showToast } from '../components/Toast';
 const Events: React.FC = () => {
     const { user, isManager } = useAuth();
     const { activeEvent, setActiveEvent, clearActiveEvent } = useAppContext();
+    const { isOnline } = useOnlineStatus();
     const [events, setEvents] = useState<EventLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
@@ -21,14 +23,21 @@ const Events: React.FC = () => {
 
     const fetchEvents = async () => {
         setLoading(true);
-        const eventList = await getEvents();
-        setEvents(eventList);
-        setLoading(false);
+        try {
+            const eventList = await getEvents();
+            setEvents(eventList);
+        } catch (error) {
+            if (isOnline) {
+                showToast("Failed to fetch events.", "error");
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
         fetchEvents();
-    }, []);
+    }, [isOnline]);
     
     const handleLogon = (event: EventLog) => {
         if (activeEvent?.id === event.id) {
@@ -106,11 +115,18 @@ const Events: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                  <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Event Logon</h1>
                  {isManager && (
-                    <button onClick={() => handleOpenEditModal(null)} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
+                    <button onClick={() => handleOpenEditModal(null)} disabled={!isOnline} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
                         <PlusIcon className="w-5 h-5 mr-2" /> Create New Event
                     </button>
                 )}
             </div>
+            
+            {!isOnline && (
+                <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
+                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached events. Please reconnect to see live updates or create new events.</p>
+                </div>
+            )}
+
 
             <p className="text-gray-600 dark:text-gray-400 mb-8">Select an active event to log on as crew. This will attach your user details to all ePRFs you create during this shift.</p>
             
@@ -148,8 +164,8 @@ const Events: React.FC = () => {
                                 </button>
                                 {isManager && (
                                     <>
-                                        <button onClick={() => handleOpenEditModal(event)} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">Edit</button>
-                                        <button onClick={() => handleOpenDeleteModal(event)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                        <button onClick={() => handleOpenEditModal(event)} disabled={!isOnline} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:bg-gray-400">Edit</button>
+                                        <button onClick={() => handleOpenDeleteModal(event)} disabled={!isOnline} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400"><TrashIcon className="w-5 h-5"/></button>
                                     </>
                                 )}
                             </div>

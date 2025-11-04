@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 // Fix: Remove v9 imports, use methods on `auth` and `user` objects for v8
@@ -10,7 +9,8 @@ const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [role, setRole] = useState('First Aider');
   const [registrationNumber, setRegistrationNumber] = useState('');
 
@@ -38,8 +38,8 @@ const Login: React.FC = () => {
         navigate('/');
       } else {
         // Register
-        if (!displayName || !role) {
-            setError('Please provide your full name and role.');
+        if (!firstName || !lastName || !role) {
+            setError('Please provide your first name, last name, and role.');
             setLoading(false);
             return;
         }
@@ -49,12 +49,15 @@ const Login: React.FC = () => {
         if (!userCredential.user) {
           throw new Error("User could not be created.");
         }
+        
+        const displayName = `${firstName} ${lastName}`.trim();
 
         // Fix: Use v8 `user.updateProfile` method
         await userCredential.user.updateProfile({ displayName });
         await createUserProfile(userCredential.user.uid, {
             email: userCredential.user.email!,
-            displayName,
+            firstName,
+            lastName,
             role: role as any,
             registrationNumber
         });
@@ -63,9 +66,8 @@ const Login: React.FC = () => {
         await userCredential.user.sendEmailVerification();
         setMessage('Account created. Please check your email to verify your account before logging in.');
         
-        // UX Improvement: Clear registration-specific fields after success.
-        // Keep email pre-filled for the login form.
-        setDisplayName('');
+        setFirstName('');
+        setLastName('');
         setPassword('');
         setRegistrationNumber('');
 
@@ -88,8 +90,8 @@ const Login: React.FC = () => {
     }
   };
 
-  const inputClasses = "w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-ams-light-blue focus:border-ams-light-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200";
-  const labelClasses = "text-sm font-medium text-gray-700 dark:text-gray-300";
+  const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
+  const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-ams-gray dark:bg-gray-900">
@@ -105,19 +107,26 @@ const Login: React.FC = () => {
         <form className="space-y-4" onSubmit={handleSubmit}>
           {!isLogin && (
              <>
-                <div>
-                    <label htmlFor="displayName" className={labelClasses}>Full Name</label>
-                    <input id="displayName" name="displayName" type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClasses} />
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="firstName" className={labelClasses}>First Name</label>
+                        <input id="firstName" name="firstName" type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClasses} />
+                    </div>
+                     <div>
+                        <label htmlFor="lastName" className={labelClasses}>Last Name</label>
+                        <input id="lastName" name="lastName" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
+                    </div>
                 </div>
                  <div>
                     <label htmlFor="role" className={labelClasses}>Clinical Role</label>
-                    <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClasses} bg-white dark:bg-gray-700`}>
+                    <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={inputClasses}>
                         <option>First Aider</option>
                         <option>EMT</option>
                         <option>Nurse</option>
                         <option>Paramedic</option>
                         <option>Welfare</option>
                         <option>Admin</option>
+                        <option>Manager</option>
                     </select>
                 </div>
                  <div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Patient } from '../types';
@@ -42,6 +41,9 @@ const Patients: React.FC = () => {
         }
     };
 
+    const inputClasses = "w-full md:w-1/2 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
+
+
     return (
         <div>
             <PatientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveNewPatient} />
@@ -54,7 +56,7 @@ const Patients: React.FC = () => {
                         placeholder="Search by name or DOB (YYYY-MM-DD)..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full md:w-1/2 px-4 py-2 border rounded-md focus:ring-ams-light-blue focus:border-ams-light-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                        className={inputClasses}
                     />
                     <button type="submit" className="px-4 py-2 bg-ams-light-blue text-white rounded-md hover:bg-opacity-90">
                         Search

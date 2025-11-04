@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 // Fix: `signOut` is a method on the auth object in v8, not a separate import.
@@ -6,20 +5,30 @@ import { auth } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useTheme } from '../hooks/useTheme';
-import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon } from './icons';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon } from './icons';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    onMenuClick: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { user } = useAuth();
   const { activeEvent, clearActiveEvent } = useAppContext();
   const { theme, toggleTheme } = useTheme();
+  const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const isSubPage = pathSegments.length > 1 && pathSegments[0] !== 'dashboard';
+
+
   const getPageTitle = () => {
-    const path = location.pathname.split('/')[1];
     if (location.pathname.includes('/patients/')) return 'Patient Details';
+    const path = pathSegments[0];
     if (!path || path === 'dashboard') return 'Dashboard';
     return path.charAt(0).toUpperCase() + path.slice(1);
   };
@@ -46,11 +55,21 @@ const Header: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  const userFullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'User';
 
   return (
-    <header className="flex items-center justify-between h-20 px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30">
-        <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">{getPageTitle()}</h1>
+    <header className="flex items-center justify-between h-20 px-4 sm:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30">
+        <div className="flex items-center gap-2 sm:gap-4">
+            <button onClick={onMenuClick} className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <MenuIcon className="w-6 h-6" />
+            </button>
+            {isSubPage && (
+                 <button onClick={() => navigate(-1)} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <BackIcon className="w-6 h-6" />
+                </button>
+            )}
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200">{getPageTitle()}</h1>
             {activeEvent && (
                 <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm">
                     <EventsIcon className="w-4 h-4" />
@@ -58,7 +77,12 @@ const Header: React.FC = () => {
                 </div>
             )}
         </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
+          {!isOnline && (
+            <div className="p-2 rounded-full text-red-500" title="Offline Mode: Changes are being saved locally.">
+                <WifiOfflineIcon className="w-6 h-6" />
+            </div>
+          )}
           <button onClick={toggleTheme} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
             {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
           </button>
@@ -72,7 +96,7 @@ const Header: React.FC = () => {
           {dropdownOpen && (
             <div ref={dropdownRef} className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-700 rounded-md overflow-hidden shadow-xl z-20">
               <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
-                <p className="font-semibold">{user?.displayName || 'User'}</p>
+                <p className="font-semibold">{userFullName}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                 <p className="text-xs text-ams-blue dark:text-ams-light-blue font-bold mt-1">{user?.role}</p>
               </div>
