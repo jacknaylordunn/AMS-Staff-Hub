@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/firestoreService';
 import { SpinnerIcon } from '../components/icons';
+import type { User } from '../types';
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,7 +12,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState('First Aider');
+  const [role, setRole] = useState<User['role']>('First Aider');
   const [registrationNumber, setRegistrationNumber] = useState('');
 
   const [error, setError] = useState('');
@@ -119,14 +120,16 @@ const Login: React.FC = () => {
                 </div>
                  <div>
                     <label htmlFor="role" className={labelClasses}>Clinical Role</label>
-                    <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={inputClasses}>
+                    <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value as User['role'])} className={inputClasses}>
                         <option>First Aider</option>
-                        <option>EMT</option>
-                        <option>Nurse</option>
+                        <option>FREC3</option>
+                        <option>FREC4/ECA</option>
+                        <option>FREC5/EMT/AAP</option>
                         <option>Paramedic</option>
+                        <option>Nurse</option>
+                        <option>Doctor</option>
                         <option>Welfare</option>
                         <option>Admin</option>
-                        <option>Manager</option>
                     </select>
                 </div>
                  <div>

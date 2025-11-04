@@ -22,6 +22,7 @@ import EPRFReviews from './pages/EPRFReviews';
 import Assets from './pages/Assets';
 import VehicleDetail from './pages/VehicleDetail';
 import Reports from './pages/Reports';
+import Announcements from './pages/Announcements';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
@@ -83,6 +84,14 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
                             <Reports />
+                        </ProtectedRoute>
+                    } 
+                />
+                <Route 
+                    path="announcements" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <Announcements />
                         </ProtectedRoute>
                     } 
                 />

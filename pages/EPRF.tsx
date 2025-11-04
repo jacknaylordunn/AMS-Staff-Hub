@@ -16,6 +16,9 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SpeechEnabledTextArea from '../components/SpeechEnabledTextArea';
 import ValidationModal from '../components/ValidationModal';
 
+const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
+const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
+
 // Reducer for complex form state management
 const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
   switch (action.type) {
@@ -435,7 +438,20 @@ const EPRF: React.FC = () => {
     const removeDynamicListItem = (listName: 'medicationsAdministered' | 'interventions' | 'welfareLog', index: number) => {
         dispatch({type: 'UPDATE_DYNAMIC_LIST', listName, payload: state[listName].filter((_, i) => i !== index)});
     }
-    
+
+    const handleAuthoriseMed = (index: number) => {
+        if (!user) return;
+        const newList = [...state.medicationsAdministered];
+        newList[index] = {
+            ...newList[index],
+            authorisedBy: {
+                uid: user.uid,
+                name: `${user.firstName} ${user.lastName}`.trim()
+            }
+        };
+        dispatch({ type: 'UPDATE_DYNAMIC_LIST', listName: 'medicationsAdministered', payload: newList });
+    };
+
     const handleInjuriesChange = (newInjuries: Injury[]) => {
         dispatch({ type: 'UPDATE_INJURIES', payload: newInjuries });
     };
@@ -600,6 +616,14 @@ const EPRF: React.FC = () => {
         }
         if (state.crewMembers.length === 0) {
             errors.push("At least one crew member must be on the report.");
+        }
+
+        const unauthorisedMeds = state.medicationsAdministered
+            .filter(med => RESTRICTED_MEDICATIONS.includes(med.medication) && !med.authorisedBy)
+            .map(med => med.medication);
+        
+        if (unauthorisedMeds.length > 0) {
+            errors.push(`The following medications require authorisation by a senior clinician: ${unauthorisedMeds.join(', ')}.`);
         }
 
         if (errors.length > 0) {
@@ -780,6 +804,60 @@ const EPRF: React.FC = () => {
                 <Section title="Treatment & Disposition">
                     <FieldWrapper className="md:col-span-2 lg:col-span-4">
                         <ImpressionsInput value={state.impressions} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })} />
+                    </FieldWrapper>
+
+                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className={labelBaseClasses}>Medications Administered</h3>
+                            <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Med</button>
+                        </div>
+                        <div className="space-y-2">
+                        {state.medicationsAdministered.map((med, index) => {
+                            const isRestricted = RESTRICTED_MEDICATIONS.includes(med.medication);
+                            const canAuthorise = user && SENIOR_CLINICIAN_ROLES.includes(user.role) && state.crewMembers.some(cm => cm.uid === user.uid);
+                            return (
+                            <div key={med.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
+                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} />
+                                <input type="text" name="dose" placeholder="Dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
+                                <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-5 md:col-span-2`}>
+                                    <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
+                                </select>
+                                <div className={`flex items-center justify-center ${isRestricted ? 'col-span-2 md:col-span-2' : 'col-span-3 md:col-span-2'}`}>
+                                    {isRestricted && (
+                                        med.authorisedBy ? (
+                                            <div className="text-xs text-center text-green-700 dark:text-green-300"><p className="font-bold">Authorised</p><p>by {med.authorisedBy.name.split(' ')[0]}</p></div>
+                                        ) : (
+                                            canAuthorise ? (
+                                                <button type="button" onClick={() => handleAuthoriseMed(index)} className="w-full px-2 py-1 text-sm bg-green-500 text-white font-semibold rounded-md hover:bg-green-600">Authorise</button>
+                                            ) : (
+                                                <p className="text-xs text-center text-yellow-600 dark:text-yellow-400 font-semibold">Pending Auth</p>
+                                            )
+                                        )
+                                    )}
+                                </div>
+                                <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                            </div>
+                            )
+                        })}
+                        </div>
+                    </FieldWrapper>
+
+                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                        <div className="flex justify-between items-center mb-2 mt-4">
+                            <h3 className={labelBaseClasses}>Interventions</h3>
+                            <button type="button" onClick={() => addDynamicListItem('interventions')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Intervention</button>
+                        </div>
+                        <div className="space-y-2">
+                        {state.interventions.map((item, index) => (
+                            <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-3`} />
+                                <input type="text" name="intervention" placeholder="Intervention" value={item.intervention} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
+                                <input type="text" name="details" placeholder="Details" value={item.details} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
+                                <button type="button" onClick={() => removeDynamicListItem('interventions', index)} className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                            </div>
+                        ))}
+                        </div>
                     </FieldWrapper>
 
                     <FieldWrapper className="md:col-span-2 lg:col-span-4">

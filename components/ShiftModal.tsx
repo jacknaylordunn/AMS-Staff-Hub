@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
-import { showToast } from '../components/Toast';
+import { showToast } from './Toast';
 
 interface ShiftModalProps {
     isOpen: boolean;
@@ -158,12 +158,15 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                             <label className={labelClasses}>Role Required</label>
                              <select name="roleRequired" value={formData.roleRequired} onChange={handleChange} required className={inputClasses}>
                                 <option>First Aider</option>
-                                <option>EMT</option>
-                                <option>Nurse</option>
+                                <option>FREC3</option>
+                                <option>FREC4/ECA</option>
+                                <option>FREC5/EMT/AAP</option>
                                 <option>Paramedic</option>
+                                <option>Nurse</option>
+                                <option>Doctor</option>
                                 <option>Welfare</option>
-                                <option>Manager</option>
                                 <option>Admin</option>
+                                <option>Manager</option>
                             </select>
                         </div>
                         <div>

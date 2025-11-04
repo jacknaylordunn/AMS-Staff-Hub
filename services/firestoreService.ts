@@ -1,6 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { db } from './firebase';
-import type { User, Patient, EventLog, CompanyDocument, EPRFForm, Shift, AuditEntry, Notification, Vehicle, VehicleCheck } from '../types';
+import type { User, Patient, EventLog, CompanyDocument, EPRFForm, Shift, AuditEntry, Notification, Vehicle, VehicleCheck, Announcement } from '../types';
 
 const { Timestamp } = firebase.firestore;
 
@@ -368,4 +368,38 @@ export const addVehicleCheck = async (vehicleId: string, checkData: Omit<Vehicle
         'lastCheck.status': checkData.overallStatus,
         status: checkData.overallStatus === 'Issues Found' ? 'Maintenance Required' : 'In Service'
     });
+};
+
+// Announcement Functions
+export const getAnnouncements = async (): Promise<Announcement[]> => {
+    const snapshot = await db.collection('announcements').orderBy('createdAt', 'desc').limit(20).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
+}
+
+export const sendAnnouncementToAllUsers = async (message: string, sender: { uid: string; name: string; }): Promise<void> => {
+    const announcementData = {
+        message,
+        sentBy: sender,
+        createdAt: Timestamp.now(),
+    };
+    // 1. Save the announcement to its own collection for history
+    await db.collection('announcements').add(announcementData);
+
+    // 2. Create notifications for all users
+    const usersSnapshot = await db.collection('users').get();
+    const batch = db.batch();
+
+    usersSnapshot.docs.forEach(userDoc => {
+        const notificationsRef = db.collection('notifications').doc();
+        const truncatedMessage = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+        batch.set(notificationsRef, {
+            userId: userDoc.id,
+            message: `New Hub Announcement: "${truncatedMessage}"`,
+            read: false,
+            createdAt: Timestamp.now(),
+            link: '/dashboard'
+        });
+    });
+    
+    await batch.commit();
 }

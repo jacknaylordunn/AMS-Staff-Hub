@@ -5,12 +5,13 @@ import { auth } from '../services/firebase';
 import { updateUserProfile } from '../services/firestoreService';
 import { showToast } from '../components/Toast';
 import { SpinnerIcon } from '../components/icons';
+import type { User } from '../types';
 
 const Profile: React.FC = () => {
     const { user } = useAuth();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [role, setRole] = useState('');
+    const [role, setRole] = useState<User['role']>('First Aider');
     const [registrationNumber, setRegistrationNumber] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,7 @@ const Profile: React.FC = () => {
         if(user) {
             setFirstName(user.firstName || '');
             setLastName(user.lastName || '');
-            setRole(user.role || '');
+            setRole(user.role || 'First Aider');
             setRegistrationNumber(user.registrationNumber || '');
         }
     }, [user]);
@@ -103,15 +104,19 @@ const Profile: React.FC = () => {
 
                     <div className="mb-4">
                         <label htmlFor="role" className={labelClasses}>Clinical Role</label>
-                         <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value)} className={inputClasses}>
+                         <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value as User['role'])} className={inputClasses}>
                             <option>First Aider</option>
-                            <option>EMT</option>
-                            <option>Nurse</option>
+                            <option>FREC3</option>
+                            <option>FREC4/ECA</option>
+                            <option>FREC5/EMT/AAP</option>
                             <option>Paramedic</option>
+                            <option>Nurse</option>
+                            <option>Doctor</option>
                             <option>Welfare</option>
                             <option>Admin</option>
                             <option>Manager</option>
                         </select>
+                        <p className="text-xs text-gray-500 mt-1">Note: Role changes must be approved by an administrator.</p>
                     </div>
 
                      <div className="mb-4">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon } from './icons';
+import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 
 interface SidebarProps {
@@ -77,6 +77,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 <NavLink to="/reports" className={navLinkClasses} onClick={handleLinkClick}>
                   <ChartIcon className="w-6 h-6 mr-3" />
                   Reporting
+                </NavLink>
+                <NavLink to="/announcements" className={navLinkClasses} onClick={handleLinkClick}>
+                    <MegaphoneIcon className="w-6 h-6 mr-3" />
+                    Announcements
                 </NavLink>
               </>
             )}

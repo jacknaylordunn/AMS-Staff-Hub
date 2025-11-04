@@ -6,7 +6,7 @@ export interface User {
   email: string | null;
   firstName: string;
   lastName: string;
-  role?: 'Paramedic' | 'EMT' | 'Nurse' | 'First Aider' | 'Welfare' | 'Manager' | 'Admin';
+  role?: 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   registrationNumber?: string;
 }
 
@@ -190,6 +190,7 @@ export interface MedicationAdministered {
     medication: string;
     dose: string;
     route: 'PO' | 'IV' | 'IM' | 'SC' | 'SL' | 'PR' | 'Nebulised' | 'Other';
+    authorisedBy?: { uid: string; name: string; };
 }
 
 export interface Intervention {
@@ -240,6 +241,13 @@ export interface Notification {
 export interface ClinicalSuggestion {
     impressions: string[];
     interventions: string[];
+}
+
+export interface Announcement {
+    id?: string;
+    message: string;
+    sentBy: { uid: string; name: string; };
+    createdAt: firebase.firestore.Timestamp;
 }
 
 export interface Vehicle {
