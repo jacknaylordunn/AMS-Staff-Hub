@@ -6,6 +6,8 @@ import { createUserProfile } from '../services/firestoreService';
 import { SpinnerIcon } from '../components/icons';
 import type { User } from '../types';
 
+declare const grecaptcha: any;
+
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -32,62 +34,80 @@ const Login: React.FC = () => {
       return;
     }
 
-    try {
-      if (isLogin) {
-        // Fix: Use v8 `auth.signInWithEmailAndPassword` method
-        await auth.signInWithEmailAndPassword(email, password);
-        navigate('/');
-      } else {
+    if (isLogin) {
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            navigate('/');
+        } catch (err: any) {
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                setError('Invalid email or password.');
+            } else {
+                setError('An unexpected error occurred. Please try again.');
+                console.error(err);
+            }
+        } finally {
+            setLoading(false);
+        }
+    } else {
         // Register
         if (!firstName || !lastName || !role) {
             setError('Please provide your first name, last name, and role.');
             setLoading(false);
             return;
         }
-        // Fix: Use v8 `auth.createUserWithEmailAndPassword` method
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        
-        if (!userCredential.user) {
-          throw new Error("User could not be created.");
+
+        if (typeof grecaptcha === 'undefined' || !grecaptcha.enterprise) {
+            setError('reCAPTCHA could not be loaded. Please check your connection or browser settings.');
+            setLoading(false);
+            return;
         }
         
-        const displayName = `${firstName} ${lastName}`.trim();
+        grecaptcha.enterprise.ready(async () => {
+            try {
+                const token = await grecaptcha.enterprise.execute('6Le1gAIsAAAAAD3DTUOjQ43zpdLDXmBl-86T0B2G', {action: 'SIGNUP'});
+                console.log('reCAPTCHA token:', token); // In a real app, send this to your backend for verification.
 
-        // Fix: Use v8 `user.updateProfile` method
-        await userCredential.user.updateProfile({ displayName });
-        await createUserProfile(userCredential.user.uid, {
-            email: userCredential.user.email!,
-            firstName,
-            lastName,
-            role: role as any,
-            registrationNumber
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                
+                if (!userCredential.user) {
+                  throw new Error("User could not be created.");
+                }
+                
+                const displayName = `${firstName} ${lastName}`.trim();
+
+                await userCredential.user.updateProfile({ displayName });
+                await createUserProfile(userCredential.user.uid, {
+                    email: userCredential.user.email!,
+                    firstName,
+                    lastName,
+                    role: role as any,
+                    registrationNumber
+                });
+
+                await userCredential.user.sendEmailVerification();
+                setMessage('Account created. Please check your email to verify your account before logging in.');
+                
+                setFirstName('');
+                setLastName('');
+                setPassword('');
+                setEmail('');
+                setRegistrationNumber('');
+
+                setIsLogin(true); // Switch to login view
+            } catch (err: any) {
+                if (err.code === 'auth/email-already-in-use') {
+                    setError('An account with this email already exists.');
+                } else if (err.code === 'auth/weak-password') {
+                    setError('Password should be at least 6 characters.');
+                }
+                else {
+                    setError('An unexpected error occurred during registration. Please try again.');
+                    console.error(err);
+                }
+            } finally {
+                setLoading(false);
+            }
         });
-
-        // Fix: Use v8 `user.sendEmailVerification` method
-        await userCredential.user.sendEmailVerification();
-        setMessage('Account created. Please check your email to verify your account before logging in.');
-        
-        setFirstName('');
-        setLastName('');
-        setPassword('');
-        setRegistrationNumber('');
-
-        setIsLogin(true); // Switch to login view
-      }
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password.');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('An account with this email already exists.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters.');
-      }
-      else {
-        setError('An unexpected error occurred. Please try again.');
-        console.error(err);
-      }
-    } finally {
-        setLoading(false);
     }
   };
 

@@ -102,6 +102,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             roleRequired: formData.roleRequired,
             notes: formData.notes,
             assignedStaff,
+            // Fix: Added missing assignedStaffUids to match the Shift type definition
+            assignedStaffUids: formData.assignedStaffUids,
             isUnavailability: formData.isUnavailability,
             unavailabilityReason: formData.unavailabilityReason,
         };
