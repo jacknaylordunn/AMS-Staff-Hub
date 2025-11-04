@@ -8,6 +8,27 @@ import type { User } from '../types';
 
 declare const grecaptcha: any;
 
+const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    if (password.length < 6) {
+        errors.push("Must be at least 6 characters long.");
+    }
+    if (!/[a-z]/.test(password)) {
+        errors.push("Must contain a lowercase letter.");
+    }
+    if (!/[A-Z]/.test(password)) {
+        errors.push("Must contain an uppercase letter.");
+    }
+    if (!/[0-9]/.test(password)) {
+        errors.push("Must contain a number.");
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+        errors.push("Must contain a special character.");
+    }
+    return errors;
+};
+
+
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -52,6 +73,13 @@ const Login: React.FC = () => {
         // Register
         if (!firstName || !lastName || !role) {
             setError('Please provide your first name, last name, and role.');
+            setLoading(false);
+            return;
+        }
+
+        const passwordErrors = validatePassword(password);
+        if (passwordErrors.length > 0) {
+            setError(`Password does not meet requirements:\n• ${passwordErrors.join('\n• ')}`);
             setLoading(false);
             return;
         }
@@ -122,7 +150,7 @@ const Login: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-center text-ams-blue dark:text-white">{isLogin ? 'Staff Hub Login' : 'Create Account'}</h2>
         
-        {error && <p className="text-red-500 text-sm text-center font-semibold">{error}</p>}
+        {error && <p className="text-red-500 text-sm text-center font-semibold whitespace-pre-line">{error}</p>}
         {message && <p className="text-green-600 text-sm text-center font-semibold">{message}</p>}
         
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -165,6 +193,11 @@ const Login: React.FC = () => {
           <div>
             <label htmlFor="password"  className={labelClasses}>Password</label>
             <input id="password" name="password" type="password" autoComplete={isLogin ? "current-password" : "new-password"} required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClasses} />
+             {!isLogin && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Must be at least 6 characters and include an uppercase letter, a lowercase letter, a number, and a special character.
+                </p>
+            )}
           </div>
           <div>
             <button type="submit" disabled={loading} className="w-full px-4 py-2 font-semibold text-white bg-ams-blue rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ams-blue disabled:bg-gray-400 flex items-center justify-center">

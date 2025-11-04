@@ -81,7 +81,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     };
     
     const handleStaffSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedUids = Array.from(e.target.selectedOptions, option => option.value);
+        // Fix: Explicitly cast the 'option' to HTMLOptionElement to resolve an issue
+        // where its type was inferred as 'unknown', preventing access to the 'value' property.
+        const selectedUids = Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value);
         setFormData(prev => ({...prev, assignedStaffUids: selectedUids}));
     };
 
@@ -102,7 +104,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             roleRequired: formData.roleRequired,
             notes: formData.notes,
             assignedStaff,
-            // Fix: Added missing assignedStaffUids to match the Shift type definition
             assignedStaffUids: formData.assignedStaffUids,
             isUnavailability: formData.isUnavailability,
             unavailabilityReason: formData.unavailabilityReason,
