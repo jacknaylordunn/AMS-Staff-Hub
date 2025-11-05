@@ -638,7 +638,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
             />
 
             {/* Stepper UI */}
-            <div className="mb-4 sticky top-[136px] z-10 bg-ams-gray dark:bg-gray-900 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="mb-4 sticky top-[144px] z-10 bg-ams-gray dark:bg-gray-900 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-start justify-center">
                     {steps.map((step, index) => (
                         <React.Fragment key={step}>

@@ -15,14 +15,13 @@ service cloud.firestore {
     // Helper function to check if a given user is a Manager or Admin
     function isManagerOrAdmin(uid) {
       let userData = getUserData(uid);
-      return 'role' in userData && userData.role in ['Manager', 'Admin'];
+      return userData != null && 'role' in userData && userData.role in ['Manager', 'Admin'];
     }
 
     // Helper function to check for senior clinical roles for a given user
     function isSeniorClinician(uid) {
       let userData = getUserData(uid);
-      let role = userData.role;
-      return 'role' in userData && role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
+      return userData != null && 'role' in userData && userData.role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
     }
 
     // Users Collection
@@ -31,38 +30,34 @@ service cloud.firestore {
       allow create: if request.auth.uid == userId;
       allow delete: if isManagerOrAdmin(request.auth.uid);
       
-      // Rule 1: A manager or admin can update any user's profile.
-      allow update: if isManagerOrAdmin(request.auth.uid);
-      
-      // Rule 2: A user can update their own profile, but they cannot change their 'role'.
-      // This allows them to change their name or request a role change via 'pendingRole'.
-      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
+      // A manager or admin can update any user's profile.
+      // A user can update their own profile, but they cannot change their 'role'.
+      allow update: if isManagerOrAdmin(request.auth.uid) || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
     }
 
     // Patients Collection
     // - Authenticated users can create patients.
     // - Authenticated users (staff) can read all patient data.
-    // - Only managers should be able to update/delete patient records (TBD).
+    // - Only managers/admins can update/delete patient records.
     match /patients/{patientId} {
       allow read, create: if request.auth != null;
-      // allow update, delete: if isManagerOrAdmin(request.auth.uid); // Future enhancement
+      allow update, delete: if isManagerOrAdmin(request.auth.uid);
     }
 
     // ePRFs Collection
     // - Staff can create ePRFs.
-    // - Staff can read/update their own draft ePRFs.
-    // - Once status is not 'Draft', the creator cannot edit it.
-    // - Managers can read all ePRFs.
-    // - Managers can update an ePRF to set the review status.
+    // - Staff can only read their own ePRFs.
+    // - Managers/Admins can read all ePRFs.
+    // - Staff can only update their own ePRFs if they are in 'Draft' status.
+    // - Managers can update any ePRF (e.g., for review).
     match /eprfs/{eprfId} {
-        allow read: if request.auth != null;
+        allow read: if resource.data.createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
         allow create: if request.auth.uid == request.resource.data.createdBy.uid;
-        allow update: if (resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft')
-                        || (isManagerOrAdmin(request.auth.uid) && ("status" in request.resource.data || "reviewNotes" in request.resource.data));
+        allow update: if (resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft') || isManagerOrAdmin(request.auth.uid);
         allow delete: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft';
     }
 
-    // Events, Documents, Shifts Collections
+    // Events, Documents Collections
     // - All authenticated users can read.
     // - Only Managers/Admins can create, update, or delete.
     match /events/{eventId} {
@@ -75,9 +70,15 @@ service cloud.firestore {
         allow write: if isManagerOrAdmin(request.auth.uid);
     }
 
+    // Shifts Collection
     match /shifts/{shiftId} {
         allow read: if request.auth != null;
-        allow write: if isManagerOrAdmin(request.auth.uid) || request.resource.data.isUnavailability == true; // allow users to add unavailability
+        // Managers can create any shift. Users can create their own unavailability.
+        allow create: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.isUnavailability == true && request.auth.uid in request.resource.data.assignedStaffUids);
+        // Managers can update any shift. Users can update the 'bids' array to bid on shifts.
+        allow update: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bids']));
+        // Managers can delete shifts. Users can delete their own unavailability.
+        allow delete: if isManagerOrAdmin(request.auth.uid) || (resource.data.isUnavailability == true && request.auth.uid in resource.data.assignedStaffUids);
     }
     
     // Vehicle & Vehicle Checks
@@ -90,7 +91,7 @@ service cloud.firestore {
         
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
-            // No update/delete to preserve audit trail
+            allow update, delete: if false;
         }
     }
     
