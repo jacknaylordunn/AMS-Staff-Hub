@@ -1,6 +1,6 @@
 
-// FIX: Corrected Firebase v9+ imports to ensure proper module resolution.
-import { initializeApp } from 'firebase/app';
+// FIX: Changed to a namespace import for `firebase/app` to resolve an issue where `initializeApp` might not be correctly resolved as a named export in some environments.
+import * as firebaseApp from 'firebase/app';
 // import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
@@ -18,7 +18,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize services
 // getAnalytics(app);

@@ -7,32 +7,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
+    // Helper function to get a user's data safely
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
     // Helper function to check if user is a Manager or Admin
     function isManager() {
-      return getUserRole() in ['Manager', 'Admin'];
+      let userData = getUserData(request.auth.uid);
+      // Make it robust: check if role field exists before checking its value
+      return 'role' in userData && userData.role in ['Manager', 'Admin'];
     }
 
     // Helper function to check for senior clinical roles
     function isSeniorClinician() {
-      let role = getUserRole();
-      return role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
-    }
-    
-    // Helper function to get the user's role from the users collection
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      let userData = getUserData(request.auth.uid);
+      let role = userData.role;
+      return 'role' in userData && role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
     }
 
     // Users Collection
-    // - Users can read their own profile.
-    // - Managers/Admins can read any user profile.
-    // - Users can update their own profile, but cannot change their own role.
-    // - Managers/Admins can update any user profile, including roles.
     match /users/{userId} {
       allow read: if request.auth.uid == userId || isManager();
       allow create: if request.auth.uid == userId;
-      allow update: if (request.auth.uid == userId && !("role" in request.resource.data))
-                      || isManager();
+      // Allow update if:
+      // 1. The requester is a manager (can do anything).
+      // OR
+      // 2. The requester is updating their own profile, BUT they are not changing their main 'role' field.
+      //    (They are allowed to change other fields like name, or request a role change by setting 'pendingRole').
+      allow update: if isManager() || (
+        request.auth.uid == userId && 
+        request.resource.data.role == resource.data.role
+      );
     }
 
     // Patients Collection
