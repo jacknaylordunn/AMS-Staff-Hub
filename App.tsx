@@ -32,6 +32,7 @@ import KitDetail from './pages/KitDetail';
 import ControlledDrugs from './pages/ControlledDrugs';
 import Wellbeing from './pages/Wellbeing';
 import Quality from './pages/Quality';
+import Staff from './pages/Staff';
 import { signOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { showToast } from './components/Toast';
@@ -188,6 +189,14 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
                             <EPRFReviews />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <ReactRouterDOM.Route 
+                    path="staff" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <Staff />
                         </ProtectedRoute>
                     } 
                 />

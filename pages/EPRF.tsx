@@ -212,63 +212,14 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
     return new Blob([u8arr], { type: mime });
 };
 
-
-const EventSelector: React.FC<{ onEventSelect: (event: EventLog) => void }> = ({ onEventSelect }) => {
-    const [events, setEvents] = useState<EventLog[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchActiveEvents = async () => {
-            setLoading(true);
-            try {
-                const allEvents = await getEvents();
-                // Show events that are 'Active' or 'Upcoming'
-                setEvents(allEvents.filter(e => e.status !== 'Completed'));
-            } catch (error) {
-                showToast("Could not fetch events.", "error");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchActiveEvents();
-    }, []);
-
-    return (
-        <div className="flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow h-full">
-            <EventsIcon className="w-20 h-20 text-ams-blue dark:text-ams-light-blue mb-4" />
-            <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-4">Select Event for this Report</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">Please select the event this patient report is for. If you are on duty, your active event should be highlighted.</p>
-            {loading ? (
-                <SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />
-            ) : (
-                <div className="w-full max-w-lg space-y-3">
-                    {events.length > 0 ? events.map(event => (
-                        <button
-                            key={event.id}
-                            onClick={() => onEventSelect(event)}
-                            className="w-full text-left p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-ams-light-blue hover:text-white dark:hover:bg-ams-light-blue transition-colors shadow"
-                        >
-                            <p className="font-bold text-lg">{event.name}</p>
-                            <p className="text-sm">{event.location} - {event.date}</p>
-                        </button>
-                    )) : <p>No active or upcoming events found.</p>}
-                </div>
-            )}
-        </div>
-    );
-};
-
-
 const EPRF: React.FC = () => {
     const { user } = useAuth();
-    const { activeEvent: contextEvent } = useAppContext();
+    const { activeEvent } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = ReactRouterDOM.useNavigate();
     
     const clinicianSigRef = useRef<SignaturePadRef>(null);
     const patientSigRef = useRef<SignaturePadRef>(null);
-
-    const [eventForEPRF, setEventForEPRF] = useState<EventLog | null>(contextEvent);
     
     const getInitialFormState = useCallback((event: EventLog | null, user: AppUser | null): EPRFForm => {
       const now = new Date();
@@ -331,7 +282,7 @@ const EPRF: React.FC = () => {
       }
     }, []);
 
-    const [state, dispatch] = useReducer(eprfReducer, getInitialFormState(eventForEPRF, user));
+    const [state, dispatch] = useReducer(eprfReducer, getInitialFormState(activeEvent, user));
     
     const [patientSearch, setPatientSearch] = useState('');
     const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -360,7 +311,6 @@ const EPRF: React.FC = () => {
         getUsers().then(setAllStaff);
     }, []);
 
-    // Load or create draft ePRF once an event is selected
     const loadOrCreateDraft = useCallback(async (event: EventLog) => {
         if (!user) return;
         
@@ -382,12 +332,12 @@ const EPRF: React.FC = () => {
     }, [user, getInitialFormState]);
 
     useEffect(() => {
-        if (eventForEPRF) {
-            loadOrCreateDraft(eventForEPRF);
+        if (activeEvent) {
+            loadOrCreateDraft(activeEvent);
         } else {
-            setIsFormLoading(false); // No event, so not loading a form
+            setIsFormLoading(false);
         }
-    }, [eventForEPRF, loadOrCreateDraft]);
+    }, [activeEvent, loadOrCreateDraft]);
 
     // Auto-save form
     useEffect(() => {
@@ -802,10 +752,9 @@ const EPRF: React.FC = () => {
         try {
             await deleteEPRF(state.id);
             showToast("Draft ePRF deleted.", "success");
-            // Instead of creating new draft, go back to event selection
-            setEventForEPRF(null);
-            // reset state to initial
-            dispatch({ type: 'LOAD_DRAFT', payload: getInitialFormState(null, user) });
+            dispatch({ type: 'LOAD_DRAFT', payload: getInitialFormState(activeEvent, user) });
+            // Reload to reset state fully
+            window.location.reload();
         } catch (error) {
             console.error("Delete failed:", error);
             showToast("Could not delete draft.", "error");
@@ -830,17 +779,30 @@ const EPRF: React.FC = () => {
     if (isFormLoading) {
         return <div className="flex items-center justify-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /><span className="ml-4 text-lg dark:text-gray-300">Loading Patient Report Form...</span></div>;
     }
-
-    if (!eventForEPRF) {
-        return <EventSelector onEventSelect={setEventForEPRF} />;
+    
+    if (!activeEvent) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow h-full">
+                <EventsIcon className="w-20 h-20 text-ams-blue dark:text-ams-light-blue mb-4" />
+                <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-4">No Active Duty</h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">You must be logged on to an event or shift to create a new ePRF.</p>
+                <button
+                    onClick={() => navigate('/events')}
+                    className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
+                >
+                    Go to Duty Logon
+                </button>
+            </div>
+        );
     }
+
 
     if (loadingError) {
         return (
             <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Form</h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">{loadingError}</p>
-                <button onClick={() => {if(eventForEPRF) loadOrCreateDraft(eventForEPRF)}} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
+                <button onClick={() => {if(activeEvent) loadOrCreateDraft(activeEvent)}} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
                     Retry
                 </button>
             </div>

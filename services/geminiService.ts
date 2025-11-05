@@ -1,15 +1,14 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { showToast } from '../components/Toast';
 
-// FIX: Define a named interface for aistudio to avoid declaration conflicts with other global types.
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
+// FIX: Define the aistudio property with an inline type on the Window interface to prevent declaration conflicts.
 declare global {
   interface Window {
-    aistudio: AIStudio;
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
   }
 }
 

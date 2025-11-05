@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { updateUserProfile } from '../services/userService';
+import { requestRoleChange, updateUserProfile } from '../services/userService';
 import { showToast } from '../components/Toast';
 import { SpinnerIcon } from '../components/icons';
 import type { User } from '../types';
@@ -12,6 +12,7 @@ const Profile: React.FC = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [role, setRole] = useState<User['role']>('First Aider');
+    const [pendingRole, setPendingRole] = useState<User['role'] | undefined>(undefined);
     const [registrationNumber, setRegistrationNumber] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -20,6 +21,7 @@ const Profile: React.FC = () => {
             setFirstName(user.firstName || '');
             setLastName(user.lastName || '');
             setRole(user.role || 'First Aider');
+            setPendingRole(user.pendingRole);
             setRegistrationNumber(user.registrationNumber || '');
         }
     }, [user]);
@@ -32,7 +34,7 @@ const Profile: React.FC = () => {
             return;
         }
 
-        if (auth.currentUser) {
+        if (auth.currentUser && user) {
             setLoading(true);
             try {
                 const newDisplayName = `${firstName} ${lastName}`.trim();
@@ -41,15 +43,22 @@ const Profile: React.FC = () => {
                     await updateProfile(auth.currentUser, { displayName: newDisplayName });
                 }
                 
-                // Update Firestore profile
+                // Update Firestore profile (non-role fields)
                 await updateUserProfile(auth.currentUser.uid, {
                     firstName,
                     lastName,
-                    role: role as any,
                     registrationNumber
                 });
 
-                showToast('Profile updated successfully!', 'success');
+                // Handle role change request
+                if (role !== user.role) {
+                    await requestRoleChange(user.uid, role);
+                    setPendingRole(role);
+                    showToast('Profile updated. Your role change request has been sent for approval.', 'success');
+                } else {
+                     showToast('Profile updated successfully!', 'success');
+                }
+
             } catch (err) {
                 showToast('Failed to update profile. Please try again.', 'error');
                 console.error(err);
@@ -112,10 +121,12 @@ const Profile: React.FC = () => {
                             <option>Nurse</option>
                             <option>Doctor</option>
                             <option>Welfare</option>
-                            <option>Admin</option>
-                            <option>Manager</option>
                         </select>
-                        <p className="text-xs text-gray-500 mt-1">Note: Role changes must be approved by an administrator.</p>
+                        {pendingRole && (
+                            <p className="mt-2 p-2 text-sm bg-yellow-100 text-yellow-800 rounded-md">
+                                Your request to change role to <strong>{pendingRole}</strong> is pending manager approval. Your current role is <strong>{user.role}</strong>.
+                            </p>
+                        )}
                     </div>
 
                      <div className="mb-4">

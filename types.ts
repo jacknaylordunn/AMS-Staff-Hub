@@ -6,6 +6,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role?: 'Pending' | 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
+  pendingRole?: User['role'];
   registrationNumber?: string;
   createdAt?: Timestamp;
 }
@@ -228,8 +229,10 @@ export interface Shift {
   eventName: string;
   start: Timestamp;
   end: Timestamp;
+  status: 'Open' | 'Assigned' | 'Completed';
   assignedStaff: { uid: string; name: string; }[];
   assignedStaffUids: string[]; // For efficient querying
+  bids: { uid: string; name: string; timestamp: Timestamp; }[];
   roleRequired: string;
   notes?: string;
   isUnavailability?: boolean;
