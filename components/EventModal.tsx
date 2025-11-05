@@ -5,7 +5,7 @@ import { SpinnerIcon } from './icons';
 interface EventModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (event: Omit<EventLog, 'id'>) => Promise<void>;
+    onSave: (event: Omit<EventLog, 'id' | 'status'>) => Promise<void>;
     event: EventLog | null;
 }
 
@@ -14,7 +14,6 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event 
         name: '',
         date: '',
         location: '',
-        status: 'Upcoming' as EventLog['status'],
     });
     const [loading, setLoading] = useState(false);
 
@@ -24,14 +23,12 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event 
                 name: event.name,
                 date: event.date,
                 location: event.location,
-                status: event.status,
             });
         } else {
             setFormData({
                 name: '',
                 date: new Date().toISOString().split('T')[0],
                 location: '',
-                status: 'Upcoming',
             });
         }
     }, [event]);
@@ -75,14 +72,6 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event 
                         <div>
                             <label className={labelClasses}>Location</label>
                             <input type="text" name="location" value={formData.location} onChange={handleChange} required className={inputClasses}/>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Status</label>
-                            <select name="status" value={formData.status} onChange={handleChange} className={inputClasses}>
-                                <option>Upcoming</option>
-                                <option>Active</option>
-                                <option>Completed</option>
-                            </select>
                         </div>
                     </div>
                     <div className="flex justify-end gap-4 mt-6">

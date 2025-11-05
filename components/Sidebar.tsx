@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon, ShieldExclamationIcon, BoxIcon, PillIcon, HeartIcon, QualityIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 
@@ -40,77 +40,77 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         </div>
         <div className="flex flex-col flex-1 overflow-y-auto">
           <nav className="flex-1 px-2 py-4">
-            <NavLink to="/dashboard" className={navLinkClasses} onClick={handleLinkClick}>
+            <ReactRouterDOM.NavLink to="/dashboard" className={navLinkClasses} onClick={handleLinkClick}>
               <DashboardIcon className="w-6 h-6 mr-3" />
               Dashboard
-            </NavLink>
-            <NavLink to="/eprf" className={navLinkClasses} onClick={handleLinkClick}>
+            </ReactRouterDOM.NavLink>
+            <ReactRouterDOM.NavLink to="/eprf" className={navLinkClasses} onClick={handleLinkClick}>
               <EprfIcon className="w-6 h-6 mr-3" />
               ePRF
-            </NavLink>
-            <NavLink to="/documents" className={navLinkClasses} onClick={handleLinkClick}>
+            </ReactRouterDOM.NavLink>
+            <ReactRouterDOM.NavLink to="/documents" className={navLinkClasses} onClick={handleLinkClick}>
               <DocsIcon className="w-6 h-6 mr-3" />
               Documents
-            </NavLink>
-            <NavLink to="/rota" className={navLinkClasses} onClick={handleLinkClick}>
+            </ReactRouterDOM.NavLink>
+            <ReactRouterDOM.NavLink to="/rota" className={navLinkClasses} onClick={handleLinkClick}>
               <RotaIcon className="w-6 h-6 mr-3" />
               Rota
-            </NavLink>
-            <NavLink to="/cpd" className={navLinkClasses} onClick={handleLinkClick}>
+            </ReactRouterDOM.NavLink>
+            <ReactRouterDOM.NavLink to="/cpd" className={navLinkClasses} onClick={handleLinkClick}>
               <CPDIcon className="w-6 h-6 mr-3" />
               CPD Log
-            </NavLink>
-            <NavLink to="/wellbeing" className={navLinkClasses} onClick={handleLinkClick}>
+            </ReactRouterDOM.NavLink>
+            <ReactRouterDOM.NavLink to="/wellbeing" className={navLinkClasses} onClick={handleLinkClick}>
               <HeartIcon className="w-6 h-6 mr-3" />
               Wellbeing
-            </NavLink>
+            </ReactRouterDOM.NavLink>
             <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Clinical</div>
-            <NavLink to="/patients" className={navLinkClasses} onClick={handleLinkClick}>
+            <ReactRouterDOM.NavLink to="/patients" className={navLinkClasses} onClick={handleLinkClick}>
               <PatientsIcon className="w-6 h-6 mr-3" />
               Patients
-            </NavLink>
+            </ReactRouterDOM.NavLink>
             {isSeniorClinician && (
-                <NavLink to="/controlled-drugs" className={navLinkClasses} onClick={handleLinkClick}>
+                <ReactRouterDOM.NavLink to="/controlled-drugs" className={navLinkClasses} onClick={handleLinkClick}>
                     <PillIcon className="w-6 h-6 mr-3" />
                     Controlled Drugs
-                </NavLink>
+                </ReactRouterDOM.NavLink>
             )}
-            <NavLink to="/events" className={navLinkClasses} onClick={handleLinkClick}>
+            <ReactRouterDOM.NavLink to="/events" className={navLinkClasses} onClick={handleLinkClick}>
               <EventsIcon className="w-6 h-6 mr-3" />
-              Events
-            </NavLink>
+              Duty Logon
+            </ReactRouterDOM.NavLink>
             {isManager && (
               <>
                 <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Management</div>
-                <NavLink to="/major-incidents" className={navLinkClasses} onClick={handleLinkClick}>
+                <ReactRouterDOM.NavLink to="/major-incidents" className={navLinkClasses} onClick={handleLinkClick}>
                   <ShieldExclamationIcon className="w-6 h-6 mr-3" />
                   Major Incidents
-                </NavLink>
-                <NavLink to="/reviews" className={navLinkClasses} onClick={handleLinkClick}>
+                </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/reviews" className={navLinkClasses} onClick={handleLinkClick}>
                   <CheckIcon className="w-6 h-6 mr-3" />
                   ePRF Reviews
-                </NavLink>
-                <NavLink to="/inventory" className={navLinkClasses} onClick={handleLinkClick}>
+                </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/inventory" className={navLinkClasses} onClick={handleLinkClick}>
                   <BoxIcon className="w-6 h-6 mr-3" />
                   Inventory
-                </NavLink>
-                <NavLink to="/reports" className={navLinkClasses} onClick={handleLinkClick}>
+                </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/reports" className={navLinkClasses} onClick={handleLinkClick}>
                   <ChartIcon className="w-6 h-6 mr-3" />
                   Reporting
-                </NavLink>
-                <NavLink to="/quality" className={navLinkClasses} onClick={handleLinkClick}>
+                </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/quality" className={navLinkClasses} onClick={handleLinkClick}>
                   <QualityIcon className="w-6 h-6 mr-3" />
                   Quality Audit
-                </NavLink>
-                <NavLink to="/announcements" className={navLinkClasses} onClick={handleLinkClick}>
+                </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/announcements" className={navLinkClasses} onClick={handleLinkClick}>
                     <MegaphoneIcon className="w-6 h-6 mr-3" />
                     Announcements
-                </NavLink>
+                </ReactRouterDOM.NavLink>
                 {isAdmin && (
-                    <NavLink to="/admin" className={navLinkClasses} onClick={handleLinkClick}>
+                    <ReactRouterDOM.NavLink to="/admin" className={navLinkClasses} onClick={handleLinkClick}>
                         <AdminIcon className="w-6 h-6 mr-3" />
                         Admin
-                    </NavLink>
+                    </ReactRouterDOM.NavLink>
                 )}
               </>
             )}

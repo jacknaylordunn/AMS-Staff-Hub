@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppProvider } from './hooks/useAppContext';
 import { ThemeProvider } from './hooks/useTheme';
@@ -37,7 +37,7 @@ import { auth } from './services/firebase';
 
 const PendingApproval: React.FC = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const handleLogout = async () => {
         try {
             await signOut(auth);
@@ -81,20 +81,20 @@ const AppRoutes: React.FC = () => {
 
     if (user && user.role === 'Pending') {
         return (
-            <Routes>
-                <Route path="/pending-approval" element={<PendingApproval />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="*" element={<Navigate to="/pending-approval" replace />} />
-            </Routes>
+            <ReactRouterDOM.Routes>
+                <ReactRouterDOM.Route path="/pending-approval" element={<PendingApproval />} />
+                <ReactRouterDOM.Route path="/login" element={<Login />} />
+                <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/pending-approval" replace />} />
+            </ReactRouterDOM.Routes>
         )
     }
 
 
     return (
-        <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/pending-approval" element={<Navigate to="/dashboard" replace />} />
-            <Route
+        <ReactRouterDOM.Routes>
+            <ReactRouterDOM.Route path="/login" element={<Login />} />
+            <ReactRouterDOM.Route path="/pending-approval" element={<ReactRouterDOM.Navigate to="/dashboard" replace />} />
+            <ReactRouterDOM.Route
                 path="/"
                 element={
                     <ProtectedRoute>
@@ -102,18 +102,18 @@ const AppRoutes: React.FC = () => {
                     </ProtectedRoute>
                 }
             >
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="eprf" element={<EPRF />} />
-                <Route path="documents" element={<Documents />} />
-                <Route path="rota" element={<Rota />} />
-                <Route path="cpd" element={<CPD />} />
-                <Route path="wellbeing" element={<Wellbeing />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="patients" element={<Patients />} />
-                <Route path="patients/:patientId" element={<PatientDetail />} />
-                <Route path="events" element={<Events />} />
-                 <Route 
+                <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="/dashboard" replace />} />
+                <ReactRouterDOM.Route path="dashboard" element={<Dashboard />} />
+                <ReactRouterDOM.Route path="eprf" element={<EPRF />} />
+                <ReactRouterDOM.Route path="documents" element={<Documents />} />
+                <ReactRouterDOM.Route path="rota" element={<Rota />} />
+                <ReactRouterDOM.Route path="cpd" element={<CPD />} />
+                <ReactRouterDOM.Route path="wellbeing" element={<Wellbeing />} />
+                <ReactRouterDOM.Route path="profile" element={<Profile />} />
+                <ReactRouterDOM.Route path="patients" element={<Patients />} />
+                <ReactRouterDOM.Route path="patients/:patientId" element={<PatientDetail />} />
+                <ReactRouterDOM.Route path="events" element={<Events />} />
+                 <ReactRouterDOM.Route 
                     path="reviews" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -121,7 +121,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                <Route 
+                <ReactRouterDOM.Route 
                     path="inventory" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -129,7 +129,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="inventory/vehicle/:vehicleId" 
                     element={
                         <ProtectedRoute>
@@ -137,7 +137,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="inventory/kit/:kitId" 
                     element={
                         <ProtectedRoute>
@@ -145,7 +145,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="reports" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -153,7 +153,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="quality" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -161,7 +161,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                <Route 
+                <ReactRouterDOM.Route 
                     path="announcements" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -169,7 +169,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="admin" 
                     element={
                         <ProtectedRoute roles={['Admin']}>
@@ -177,7 +177,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="major-incidents" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
@@ -185,7 +185,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                 <Route 
+                 <ReactRouterDOM.Route 
                     path="major-incidents/:incidentId" 
                     element={
                         <ProtectedRoute>
@@ -193,7 +193,7 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-                <Route 
+                <ReactRouterDOM.Route 
                     path="controlled-drugs" 
                     element={
                         <ProtectedRoute roles={['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin']}>
@@ -201,9 +201,9 @@ const AppRoutes: React.FC = () => {
                         </ProtectedRoute>
                     } 
                 />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-        </Routes>
+            </ReactRouterDOM.Route>
+            <ReactRouterDOM.Route path="*" element={<NotFound />} />
+        </ReactRouterDOM.Routes>
     );
 };
 
@@ -214,9 +214,9 @@ const App: React.FC = () => {
                 <AppProvider>
                     <OnlineStatusProvider>
                         <DataSyncProvider>
-                            <HashRouter>
+                            <ReactRouterDOM.HashRouter>
                                 <AppRoutes />
-                            </HashRouter>
+                            </ReactRouterDOM.HashRouter>
                         </DataSyncProvider>
                     </OnlineStatusProvider>
                 </AppProvider>

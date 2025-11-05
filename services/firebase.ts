@@ -1,8 +1,6 @@
-
-// FIX: Use namespace import for firebase/app to resolve potential module resolution issues.
-import * as firebaseApp from 'firebase/app';
-// FIX: Use namespace import for firebase/analytics to resolve potential module resolution issues.
-import * as firebaseAnalytics from 'firebase/analytics';
+// FIX: Use standard named imports for Firebase v9+
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -19,12 +17,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// FIX: Call initializeApp from the imported namespace.
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Initialize services
-// FIX: Call getAnalytics from the imported namespace.
-firebaseAnalytics.getAnalytics(app);
+getAnalytics(app);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

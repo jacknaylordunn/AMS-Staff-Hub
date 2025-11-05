@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import type { EPRFForm } from '../types';
 // FIX: Corrected import path for EPRF service functions.
 import { getPendingEPRFs } from '../services/eprfService';
@@ -9,7 +10,7 @@ import { SpinnerIcon } from '../components/icons';
 const EPRFReviews: React.FC = () => {
     const [reviews, setReviews] = useState<EPRFForm[]>([]);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     useEffect(() => {
         const fetchReviews = async () => {

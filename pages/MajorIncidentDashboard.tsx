@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { getIncidentById, getIncidentMethaneReports, getIncidentStaffCheckins, standDownIncident } from '../services/majorIncidentService';
 import type { MajorIncident, METHANEreport, StaffCheckin } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -15,7 +15,7 @@ const InfoCard: React.FC<{ title: string; children: React.ReactNode, className?:
 );
 
 const MajorIncidentDashboard: React.FC = () => {
-    const { incidentId } = useParams<{ incidentId: string }>();
+    const { incidentId } = ReactRouterDOM.useParams<{ incidentId: string }>();
     const { isManager } = useAuth();
     const [incident, setIncident] = useState<MajorIncident | null>(null);
     const [reports, setReports] = useState<METHANEreport[]>([]);

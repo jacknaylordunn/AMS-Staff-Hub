@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { getIncidents } from '../services/majorIncidentService';
 import type { MajorIncident } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -12,7 +12,7 @@ const MajorIncidents: React.FC = () => {
     const [incidents, setIncidents] = useState<MajorIncident[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setModalOpen] = useState(false);
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const fetchIncidents = async () => {
         setLoading(true);

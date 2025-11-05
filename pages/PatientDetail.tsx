@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
 import { getEPRFsForPatient, approveEPRF, returnEPRFToDraft } from '../services/eprfService';
 import type { Patient, EPRFForm, VitalSign, MedicationAdministered, Intervention, AuditEntry } from '../types';
@@ -150,7 +151,7 @@ const ReturnToDraftModal: React.FC<{ isOpen: boolean, onClose: () => void, onCon
 
 
 const PatientDetail: React.FC = () => {
-    const { patientId } = useParams<{ patientId: string }>();
+    const { patientId } = ReactRouterDOM.useParams<{ patientId: string }>();
     const { user, isManager } = useAuth();
     const [patient, setPatient] = useState<Patient | null>(null);
     const [eprfs, setEprfs] = useState<EPRFForm[]>([]);

@@ -11,6 +11,23 @@ import EventModal from '../components/EventModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { showToast } from '../components/Toast';
 
+const getEventStatus = (eventDateStr: string): EventLog['status'] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [year, month, day] = eventDateStr.split('-').map(Number);
+    const eventDate = new Date(year, month - 1, day);
+
+    if (eventDate.getTime() < today.getTime()) {
+        return 'Completed';
+    } else if (eventDate.getTime() === today.getTime()) {
+        return 'Active';
+    } else {
+        return 'Upcoming';
+    }
+};
+
+
 const DutyLogon: React.FC = () => {
     const { user, isManager } = useAuth();
     const { activeEvent, activeShift, setActiveEvent, setActiveShift, clearActiveSession } = useAppContext();
@@ -36,7 +53,8 @@ const DutyLogon: React.FC = () => {
                 getEvents(),
                 getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
             ]);
-            setAllEvents(eventList);
+            const eventsWithStatus = eventList.map(e => ({ ...e, status: getEventStatus(e.date) }));
+            setAllEvents(eventsWithStatus);
             setUserShifts(shiftList.filter(s => !s.isUnavailability));
         } catch (error) {
             if (isOnline) {
@@ -51,13 +69,12 @@ const DutyLogon: React.FC = () => {
         fetchData();
     }, [isOnline, user]);
 
-    const { currentShifts, upcomingShifts, otherActiveEvents } = useMemo(() => {
+    const { currentShifts, upcomingShifts } = useMemo(() => {
         const now = new Date();
         const currentShifts = userShifts.filter(s => s.start.toDate() <= now && s.end.toDate() >= now);
         const upcomingShifts = userShifts.filter(s => s.start.toDate() > now).sort((a,b) => a.start.toMillis() - b.start.toMillis());
-        const otherActiveEvents = allEvents.filter(e => e.status === 'Active' && !userShifts.some(s => s.eventId === e.id));
-        return { currentShifts, upcomingShifts, otherActiveEvents };
-    }, [userShifts, allEvents]);
+        return { currentShifts, upcomingShifts };
+    }, [userShifts]);
     
     const handleLogon = (logonItem: Shift | EventLog) => {
         if ('eventId' in logonItem) { // It's a Shift
@@ -70,7 +87,7 @@ const DutyLogon: React.FC = () => {
     // Modal handling logic
     const handleOpenEditModal = (event: EventLog | null) => { setSelectedEvent(event); setEditModalOpen(true); };
     const handleOpenDeleteModal = (event: EventLog) => { setEventToDelete(event); setDeleteModalOpen(true); }
-    const handleSaveEvent = async (eventData: Omit<EventLog, 'id'>) => {
+    const handleSaveEvent = async (eventData: Omit<EventLog, 'id' | 'status'>) => {
         try {
             if (selectedEvent) {
                 await updateEvent(selectedEvent.id!, eventData);
@@ -94,23 +111,18 @@ const DutyLogon: React.FC = () => {
         finally { setIsDeleting(false); setDeleteModalOpen(false); setEventToDelete(null); }
     }
 
-    const DutyCard: React.FC<{item: Shift | EventLog, onLogon: () => void, onLogoff: () => void, isActive: boolean}> = ({item, onLogon, onLogoff, isActive}) => {
-        const isShift = 'eventId' in item;
-        const title = isShift ? item.eventName : item.name;
-        const startTime = isShift ? item.start.toDate() : new Date(item.date);
+    const DutyCard: React.FC<{item: Shift, onLogon: () => void, onLogoff: () => void, isActive: boolean}> = ({item, onLogon, onLogoff, isActive}) => {
+        const title = item.eventName;
+        const startTime = item.start.toDate();
         
         return (
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col justify-between border-l-4 border-ams-blue dark:border-ams-light-blue">
                 <div>
                     <h3 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">{title}</h3>
-                    {isShift ? (
-                        <>
-                            <p className="text-gray-700 dark:text-gray-300 font-semibold">{item.roleRequired}</p>
-                            <p className="text-gray-500 dark:text-gray-400 mt-1">
-                                {startTime.toLocaleDateString()} @ {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {item.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </p>
-                        </>
-                    ) : <p className="text-gray-500 dark:text-gray-400 mt-1">{item.date}</p>}
+                    <p className="text-gray-700 dark:text-gray-300 font-semibold">{item.roleRequired}</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                        {startTime.toLocaleDateString()} @ {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {item.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </p>
                 </div>
                  <button 
                     onClick={isActive ? onLogoff : onLogon}
@@ -166,19 +178,9 @@ const DutyLogon: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Other Active Events */}
-                    {otherActiveEvents.length > 0 && (
-                         <div>
-                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2">Other Active Events</h2>
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {otherActiveEvents.map(event => <DutyCard key={event.id} item={event} onLogon={() => handleLogon(event)} onLogoff={clearActiveSession} isActive={activeEvent?.id === event.id && !activeShift}/>)}
-                             </div>
-                        </div>
-                    )}
-
-                    {currentShifts.length === 0 && upcomingShifts.length === 0 && otherActiveEvents.length === 0 && (
+                    {currentShifts.length === 0 && upcomingShifts.length === 0 && (
                          <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                            No shifts or active events found.
+                            You have no current or upcoming shifts.
                         </div>
                     )}
                 </div>

@@ -167,8 +167,8 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
   doc.text(crewString, 14, yPos);
   
   // Add page numbers
-  // FIX: Replaced `doc.internal.getNumberOfPages()` with `doc.internal.pages.length` which is compatible with the inferred type definition.
-  const pageCount = doc.internal.pages.length;
+  // FIX: Replaced incorrect `doc.internal.pages.length` with the correct method `doc.internal.getNumberOfPages()`.
+  const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);

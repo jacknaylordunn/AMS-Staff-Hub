@@ -1,8 +1,9 @@
 
 
 
+
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { getActiveDraftForUser, getRecentEPRFsForUser } from '../services/eprfService';
@@ -17,7 +18,7 @@ import StaffCheckInModal from '../components/StaffCheckInModal';
 import MethaneReportModal from '../components/MethaneReportModal';
 
 const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string, description: string }> = ({ to, icon, title, description }) => (
-    <Link to={to} className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+    <ReactRouterDOM.Link to={to} className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
         <div className="flex items-center">
             {icon}
             <div className="ml-4">
@@ -25,7 +26,7 @@ const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string
                 <p className="text-gray-600 dark:text-gray-400">{description}</p>
             </div>
         </div>
-    </Link>
+    </ReactRouterDOM.Link>
 );
 
 const DashboardButtonCard: React.FC<{ onClick: () => void, icon: React.ReactNode, title: string, description: string }> = ({ onClick, icon, title, description }) => (
@@ -41,7 +42,7 @@ const DashboardButtonCard: React.FC<{ onClick: () => void, icon: React.ReactNode
 );
 
 const NotificationsPanel: React.FC<{ notifications: Notification[], onDismiss: (id: string) => void }> = ({ notifications, onDismiss }) => {
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const handleNotificationClick = (notification: Notification) => {
         if (notification.link) {
@@ -79,10 +80,10 @@ const RecentPatientsPanel: React.FC<{ eprfs: EPRFForm[] }> = ({ eprfs }) => (
         </h3>
         <div className="space-y-3 max-h-48 overflow-y-auto">
             {eprfs.length > 0 ? eprfs.map(eprf => (
-                <Link to={`/patients/${eprf.patientId}`} key={eprf.id} className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600">
+                <ReactRouterDOM.Link to={`/patients/${eprf.patientId}`} key={eprf.id} className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600">
                     <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{eprf.patientName}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{eprf.incidentDate} at {eprf.eventName}</p>
-                </Link>
+                </ReactRouterDOM.Link>
             )) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No recent patient reports found.</p>
             )}
@@ -94,7 +95,7 @@ const RecentPatientsPanel: React.FC<{ eprfs: EPRFForm[] }> = ({ eprfs }) => (
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const { activeEvent, activeShift, clearActiveSession } = useAppContext();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const [activeDraft, setActiveDraft] = useState<EPRFForm | null>(null);
     const [nextShift, setNextShift] = useState<Shift | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -216,7 +217,7 @@ const Dashboard: React.FC = () => {
                         </button>
                     </div>
                  ) : nextShift && (
-                     <Link to="/rota" className="block p-6 bg-blue-100 border-l-4 border-blue-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-blue-900 dark:border-blue-600">
+                     <ReactRouterDOM.Link to="/rota" className="block p-6 bg-blue-100 border-l-4 border-blue-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-blue-900 dark:border-blue-600">
                         <div className="flex items-center">
                             <RotaIcon className="w-12 h-12 text-blue-700 dark:text-blue-400" />
                             <div className="ml-4">
@@ -226,11 +227,11 @@ const Dashboard: React.FC = () => {
                                 </p>
                             </div>
                         </div>
-                    </Link>
+                    </ReactRouterDOM.Link>
                 )}
 
                 {activeDraft && (
-                     <Link to="/eprf" className="block p-6 bg-yellow-100 border-l-4 border-yellow-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-yellow-900 dark:border-yellow-600">
+                     <ReactRouterDOM.Link to="/eprf" className="block p-6 bg-yellow-100 border-l-4 border-yellow-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-yellow-900 dark:border-yellow-600">
                         <div className="flex items-center">
                             <EprfIcon className="w-12 h-12 text-yellow-700 dark:text-yellow-400" />
                             <div className="ml-4">
@@ -238,7 +239,7 @@ const Dashboard: React.FC = () => {
                                 <p className="text-yellow-700 dark:text-yellow-300">You have an unfinished report for {activeDraft.patientName || 'an unnamed patient'} from {activeDraft.incidentDate}.</p>
                             </div>
                         </div>
-                    </Link>
+                    </ReactRouterDOM.Link>
                 )}
                
                 <DashboardCard 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import type { Patient } from '../types';
 import { getPatients, addPatient } from '../services/patientService';
 import { SpinnerIcon } from '../components/icons';
@@ -11,7 +11,7 @@ const Patients: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     
     useEffect(() => {
         fetchPatients();

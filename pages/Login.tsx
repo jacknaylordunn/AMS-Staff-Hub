@@ -1,5 +1,5 @@
 import React, { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword, 
@@ -46,7 +46,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
 
   const handlePasswordReset = async () => {
     if (!email) {

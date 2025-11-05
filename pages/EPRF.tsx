@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
 import { GoogleGenAI } from "@google/genai";
 import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../types';
@@ -262,7 +262,7 @@ const EPRF: React.FC = () => {
     const { user } = useAuth();
     const { activeEvent: contextEvent } = useAppContext();
     const { isOnline } = useOnlineStatus();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     
     const clinicianSigRef = useRef<SignaturePadRef>(null);
     const patientSigRef = useRef<SignaturePadRef>(null);

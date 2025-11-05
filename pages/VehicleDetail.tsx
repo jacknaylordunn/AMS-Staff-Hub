@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import type { Vehicle, VehicleCheck } from '../types';
 // FIX: Corrected import path for asset service functions.
 import { getVehicleById, getVehicleChecks, addVehicleCheck } from '../services/assetService';
@@ -11,7 +12,7 @@ import { showToast } from '../components/Toast';
 import VehicleCheckModal from '../components/VehicleCheckModal';
 
 const VehicleDetail: React.FC = () => {
-    const { vehicleId } = useParams<{ vehicleId: string }>();
+    const { vehicleId } = ReactRouterDOM.useParams<{ vehicleId: string }>();
     const { user } = useAuth();
     const { isOnline } = useOnlineStatus();
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);

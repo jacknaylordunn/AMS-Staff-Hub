@@ -29,7 +29,7 @@ export interface EventLog {
     name: string;
     date: string;
     location: string;
-    status: 'Upcoming' | 'Active' | 'Completed';
+    status?: 'Upcoming' | 'Active' | 'Completed';
 }
 
 export interface AuditEntry {
