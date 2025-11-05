@@ -15,11 +15,11 @@ import InteractiveBodyMap from '../components/InteractiveBodyMap';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SpeechEnabledTextArea from '../components/SpeechEnabledTextArea';
 import ValidationModal from '../components/ValidationModal';
+import TaggableInput from '../components/TaggableInput';
+import { DRUG_DATABASE } from '../utils/drugDatabase';
 
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
 const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
-
-const COMMON_MEDICATIONS = ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Salbutamol', 'Ipratropium Bromide', 'GTN', 'Glucagon', 'Glucose 40%', 'Entonox', 'Ondansetron', 'Adrenaline 1:1000', 'Morphine Sulphate', 'Ketamine', 'Midazolam', 'Benzylpenicillin', 'Hydrocortisone', 'Chlorphenamine', 'Naloxone'];
 
 // Reducer for complex form state management
 const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
@@ -74,14 +74,18 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return { ...state, [action.listName]: action.payload };
     case 'SELECT_PATIENT':
         const age = action.payload.dob ? new Date().getFullYear() - new Date(action.payload.dob).getFullYear() : '';
+        const stringToArray = (str: string | null | undefined): string[] => {
+            if (!str) return [];
+            return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        };
         return {
             ...state,
             patientId: action.payload.id,
             patientName: `${action.payload.firstName} ${action.payload.lastName}`,
             patientAge: age.toString(),
             patientGender: action.payload.gender,
-            allergies: action.payload.allergies,
-            medications: action.payload.medications,
+            allergies: stringToArray(action.payload.allergies),
+            medications: stringToArray(action.payload.medications),
             pastMedicalHistory: action.payload.medicalHistory,
         };
     case 'CLEAR_FORM':
@@ -177,62 +181,6 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 
 const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA', 'Drug Overdose', 'Ethanol Intoxication', 'Fall', 'Fracture', 'GI Bleed', 'Head Injury', 'Hypoglycaemia', 'Mental Health Crisis', 'Minor Injury', 'Post-ictal', 'Seizure', 'Sepsis', 'Shortness of Breath', 'Syncope', 'Trauma' ];
 
-const ImpressionsInput: React.FC<{ value: string[], onChange: (value: string[]) => void }> = ({ value, onChange }) => {
-    const [inputValue, setInputValue] = useState('');
-    const filteredImpressions = commonImpressions.filter(
-        i => i.toLowerCase().includes(inputValue.toLowerCase()) && !value.includes(i) && inputValue
-    );
-
-    const addImpression = (impression: string) => {
-        if (impression && !value.includes(impression)) {
-            onChange([...value, impression]);
-        }
-        setInputValue('');
-    };
-    
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && inputValue) {
-            e.preventDefault();
-            addImpression(inputValue);
-        }
-    };
-
-    const removeImpression = (impression: string) => {
-        onChange(value.filter(i => i !== impression));
-    };
-
-    return (
-        <div className="relative">
-            <label className={labelBaseClasses}>Working Impressions</label>
-            <div className="flex flex-wrap gap-2 p-2 mt-1 border border-gray-300 dark:border-gray-600 rounded-md min-h-[42px]">
-                {value.map(imp => (
-                    <span key={imp} className="flex items-center gap-2 bg-ams-blue text-white text-sm font-semibold px-2 py-1 rounded-full">
-                        {imp}
-                        <button type="button" onClick={() => removeImpression(imp)} className="text-white hover:text-red-300">&times;</button>
-                    </span>
-                ))}
-                <input
-                    type="text"
-                    value={inputValue}
-                    onChange={e => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="flex-grow bg-transparent focus:outline-none dark:text-gray-200"
-                    placeholder={value.length === 0 ? "e.g., Asthma, Fall..." : ""}
-                />
-            </div>
-            {filteredImpressions.length > 0 && (
-                <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
-                    {filteredImpressions.map(imp => (
-                        <li key={imp} onClick={() => addImpression(imp)} className="px-4 py-2 cursor-pointer hover:bg-ams-light-blue hover:text-white dark:text-gray-200">
-                            {imp}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
-
 
 const EPRF: React.FC = () => {
     const { user } = useAuth();
@@ -265,8 +213,8 @@ const EPRF: React.FC = () => {
         presentingComplaint: '',
         history: '',
         mechanismOfInjury: '',
-        allergies: '',
-        medications: '',
+        allergies: [],
+        medications: [],
         pastMedicalHistory: '',
         lastOralIntake: '',
         painAssessment: { onset: '', provocation: '', quality: '', radiation: '', severity: 0, time: '' },
@@ -565,8 +513,8 @@ const EPRF: React.FC = () => {
                 Presenting Complaint: ${state.presentingComplaint}
                 History: ${state.history}
                 Past Medical History: ${state.pastMedicalHistory}
-                Allergies: ${state.allergies}
-                Medications: ${state.medications}
+                Allergies: ${state.allergies.join(', ')}
+                Medications: ${state.medications.join(', ')}
                 Latest Vitals: 
                 - HR: ${latestVitals.hr}
                 - RR: ${latestVitals.rr}
@@ -766,8 +714,20 @@ const EPRF: React.FC = () => {
                     <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
                     <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} />
                     <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury ?? ''} onChange={handleChange} />
-                    <TextAreaField label="Allergies" name="allergies" value={state.allergies} onChange={handleChange} rows={2}/>
-                    <TextAreaField label="Current Medications" name="medications" value={state.medications} onChange={handleChange} rows={2}/>
+                    <TaggableInput 
+                        label="Allergies"
+                        value={state.allergies}
+                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'allergies', payload: v })}
+                        suggestions={DRUG_DATABASE}
+                        placeholder="Type to search for drug allergies..."
+                    />
+                    <TaggableInput 
+                        label="Current Medications"
+                        value={state.medications}
+                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'medications', payload: v })}
+                        suggestions={DRUG_DATABASE}
+                        placeholder="Type to search for medications..."
+                    />
                     <TextAreaField label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} rows={2}/>
                     <TextAreaField label="Last Meal / Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} rows={2}/>
                 </Section>
@@ -859,17 +819,21 @@ const EPRF: React.FC = () => {
                 }
                 
                 <Section title="Treatment & Disposition">
-                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <ImpressionsInput value={state.impressions} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })} />
-                    </FieldWrapper>
+                    <TaggableInput
+                        label="Working Impressions"
+                        value={state.impressions}
+                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })}
+                        suggestions={commonImpressions}
+                        placeholder="e.g., Asthma, Fall..."
+                    />
 
                     <FieldWrapper className="md:col-span-2 lg:col-span-4">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className={labelBaseClasses}>Medications Administered</h3>
                             <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Med</button>
                         </div>
-                        <datalist id="common-meds">
-                            {COMMON_MEDICATIONS.map(med => <option key={med} value={med} />)}
+                        <datalist id="drug-db-list">
+                            {DRUG_DATABASE.map(med => <option key={med} value={med} />)}
                         </datalist>
                         <div className="space-y-2">
                         {state.medicationsAdministered.map((med, index) => {
@@ -878,7 +842,7 @@ const EPRF: React.FC = () => {
                             return (
                             <div key={med.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                                 <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
-                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} list="common-meds" />
+                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} list="drug-db-list" />
                                 <input type="text" name="dose" placeholder="Dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
                                 <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-5 md:col-span-2`}>
                                     <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>

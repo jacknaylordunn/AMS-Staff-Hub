@@ -83,8 +83,8 @@ export interface EPRFForm {
   mechanismOfInjury?: string;
   
   // SAMPLE history
-  allergies: string;
-  medications: string;
+  allergies: string[];
+  medications: string[];
   pastMedicalHistory: string;
   lastOralIntake: string;
   

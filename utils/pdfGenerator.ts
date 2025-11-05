@@ -86,10 +86,13 @@ export const generateHandoverPdf = (eprf: EPRFForm, patient: Patient) => {
         }
     };
     
+    const allergiesText = eprf.allergies.length > 0 ? eprf.allergies.join(', ') : patient.allergies || 'None Known';
+    const medicationsText = eprf.medications.length > 0 ? eprf.medications.join(', ') : patient.medications || 'None';
+
     const sampleData = [
         ['History of Complaint', eprf.history],
-        ['Allergies', eprf.allergies || patient.allergies || 'None Known'],
-        ['Medications', eprf.medications || patient.medications || 'None'],
+        ['Allergies', allergiesText],
+        ['Medications', medicationsText],
         ['Past Medical History', eprf.pastMedicalHistory || patient.medicalHistory || 'None'],
         ['Last Oral Intake', eprf.lastOralIntake || 'N/A'],
     ];
