@@ -119,10 +119,12 @@ service cloud.firestore {
 
     // Notifications
     // - Users can read and update their own notifications (e.g., mark as read).
-    // - Users cannot create or delete their own notifications (system responsibility).
+    // - Notifications are created by the system (any authenticated user acting on its behalf).
+    // - Users cannot delete notifications.
     match /notifications/{notificationId} {
         allow read, update: if request.auth.uid == resource.data.userId;
-        allow create, delete: if false;
+        allow create: if request.auth != null;
+        allow delete: if false;
     }
 
     // CPD Collection

@@ -11,10 +11,9 @@ interface SpeechEnabledTextAreaProps {
     onBlur?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
 }
 
-// Check for browser support
-// FIX: Cast window to 'any' to access vendor-prefixed or non-standard SpeechRecognition API
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
 if (recognition) {
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -22,64 +21,68 @@ if (recognition) {
 
 const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, name, value, onChange, rows = 3, className = "md:col-span-2 lg:col-span-4", onBlur }) => {
     const [isListening, setIsListening] = useState(false);
+    const listeningIntentRef = useRef(false);
     const [speechSupported, setSpeechSupported] = useState(!!recognition);
 
     const handleListen = () => {
         if (!recognition) return;
-
+        
         if (isListening) {
+            listeningIntentRef.current = false;
             recognition.stop();
-            setIsListening(false);
         } else {
+            listeningIntentRef.current = true;
             recognition.start();
-            setIsListening(true);
         }
     };
 
     useEffect(() => {
         if (!recognition) return;
 
-        // FIX: Use 'any' type for the event as SpeechRecognitionEvent is not available in default TS types.
+        recognition.onstart = () => {
+            setIsListening(true);
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+            // If the user intended to keep listening (i.e., didn't manually stop), restart it.
+            if (listeningIntentRef.current) {
+                recognition.start();
+            }
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error('Speech recognition error:', event.error);
+            listeningIntentRef.current = false;
+            setIsListening(false);
+        };
+        
         recognition.onresult = (event: any) => {
             let finalTranscript = '';
-
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
                     finalTranscript += event.results[i][0].transcript;
                 }
             }
             
-            if(finalTranscript){
-                const event_ = {
+            if (finalTranscript) {
+                const syntheticEvent = {
                     target: {
                         name: name,
                         value: value + (value ? ' ' : '') + finalTranscript.trim()
                     }
                 } as React.ChangeEvent<HTMLTextAreaElement>;
-                onChange(event_);
-            }
-        };
-
-        recognition.onend = () => {
-            if (isListening) {
-              setIsListening(false);
-            }
-        };
-
-        // FIX: Use 'any' type for the event as SpeechRecognitionErrorEvent is not available in default TS types.
-        recognition.onerror = (event: any) => {
-            console.error('Speech recognition error:', event.error);
-             if (isListening) {
-                setIsListening(false);
+                onChange(syntheticEvent);
             }
         };
         
         return () => {
             if (recognition) {
+                listeningIntentRef.current = false;
                 recognition.stop();
             }
         };
-    }, [name, onChange, value, isListening]);
+    }, [name, onChange, value]);
     
     const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
     const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";

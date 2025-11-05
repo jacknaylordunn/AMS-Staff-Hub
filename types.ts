@@ -267,6 +267,7 @@ export interface Vehicle {
     status: 'Pass' | 'Issues Found';
   };
   createdAt: Timestamp;
+  qrCodeValue?: string;
 }
 
 export interface VehicleCheck {

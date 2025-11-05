@@ -4,13 +4,6 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
 
-// Extend jsPDF with the autoTable plugin's type definitions
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
-
 // Function to fetch an image and convert it to Base64
 const getLogoBase64 = async (url: string): Promise<string> => {
     try {
@@ -103,14 +96,15 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
 
   // Vital Signs Table
   if (eprf.vitals.length > 0) {
-    doc.autoTable({
+    // FIX: Cast to any to bypass module augmentation error for autoTable.
+    (doc as any).autoTable({
       startY: yPos,
       head: [['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'NEWS2']],
       body: eprf.vitals.map(v => [v.time, v.hr, v.rr, v.bp, `${v.spo2}%`, `${v.temp}°C`, v.news2 ?? 'N/A']),
       theme: 'grid',
       styles: { fontSize: 8 },
       headStyles: { fillColor: [0, 51, 102] }, // AMS Blue
-      didDrawPage: (data) => {
+      didDrawPage: (data: any) => {
         yPos = data.cursor?.y ?? yPos;
       }
     });
@@ -126,28 +120,30 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
      yPos += 6;
 
      if (eprf.medicationsAdministered.length > 0) {
-        doc.autoTable({
+        // FIX: Cast to any to bypass module augmentation error for autoTable.
+        (doc as any).autoTable({
             startY: yPos,
             head: [['Time', 'Medication', 'Dose', 'Route']],
             body: eprf.medicationsAdministered.map(m => [m.time, m.medication, m.dose, m.route]),
             theme: 'striped',
             styles: { fontSize: 8 },
             headStyles: { fillColor: [0, 168, 232] }, // AMS Light Blue
-            didDrawPage: (data) => {
+            didDrawPage: (data: any) => {
                 yPos = data.cursor?.y ?? yPos;
             }
         });
      }
      
      if (eprf.interventions.length > 0) {
-        doc.autoTable({
+        // FIX: Cast to any to bypass module augmentation error for autoTable.
+        (doc as any).autoTable({
             startY: yPos,
             head: [['Time', 'Intervention', 'Details']],
             body: eprf.interventions.map(i => [i.time, i.intervention, i.details]),
             theme: 'striped',
             styles: { fontSize: 8 },
             headStyles: { fillColor: [0, 168, 232] },
-             didDrawPage: (data) => {
+             didDrawPage: (data: any) => {
                 yPos = data.cursor?.y ?? yPos;
             }
         });

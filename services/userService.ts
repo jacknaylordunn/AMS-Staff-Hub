@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc, deleteField } from 'firebase/firestore';
 import { db } from './firebase';
 import type { User } from '../types';
 import { createNotification } from './notificationService';
@@ -62,7 +62,7 @@ export const approveRoleChange = async (uid: string, newRole: User['role']) => {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, {
         role: newRole,
-        pendingRole: null // Or use deleteField()
+        pendingRole: deleteField()
     });
     await createNotification(uid, `Your role has been updated to ${newRole}.`, '/profile');
 };
@@ -70,7 +70,7 @@ export const approveRoleChange = async (uid: string, newRole: User['role']) => {
 export const rejectRoleChange = async (uid: string) => {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, {
-        pendingRole: null // Or use deleteField()
+        pendingRole: deleteField()
     });
      await createNotification(uid, `Your recent role change request was not approved.`, '/profile');
 };

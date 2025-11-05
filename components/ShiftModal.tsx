@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
@@ -18,9 +16,11 @@ interface ShiftModalProps {
     staff: AppUser[];
     type: 'shift' | 'unavailability';
     currentUser: AppUser;
+    // FIX: Added 'refreshShifts' prop to match usage in Rota.tsx.
+    refreshShifts: () => Promise<void>;
 }
 
-const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, events, staff, type, currentUser }) => {
+const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, events, staff, type, currentUser, refreshShifts }) => {
     const [formData, setFormData] = useState({
         eventId: '',
         eventName: '',
@@ -92,8 +92,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         setLoading(true);
         try {
             const assignedStaff = formData.assignedStaffUids.map(uid => {
-                const staffMember = staff.find(s => s.uid === uid);
-                const userFullName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}`.trim() : `${currentUser.firstName} ${currentUser.lastName}`.trim();
+                const staffMember = staff.find(s => s.uid === uid) || (currentUser.uid === uid ? currentUser : null);
+                const userFullName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}`.trim() : 'Unknown User';
                 return { uid, name: userFullName };
             });
             
@@ -110,10 +110,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 unavailabilityReason: formData.unavailabilityReason,
             };
             await onSave(shiftData as Omit<Shift, 'id'>);
-            onClose(); // Close the modal on successful save
+            onClose();
         } catch (error) {
             console.error("Failed to save shift from modal:", error);
-            // Error toast should be handled by the onSave implementation
+            showToast('Failed to save shift.', 'error');
         } finally {
             setLoading(false);
         }

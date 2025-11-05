@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Shift, EventLog, User as AppUser } from '../types';
-import { getShiftsForMonth, createShift, updateShift, deleteShift, getShiftsForUser } from '../services/rotaService';
+import { getShiftsForMonth, createShift, updateShift, deleteShift, getShiftsForUser, bidOnShift, cancelBidOnShift } from '../services/rotaService';
 import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { SpinnerIcon, PlusIcon } from '../components/icons';
 import ShiftModal from '../components/ShiftModal';
+import { isRoleOrHigher } from '../utils/roleHelper';
+import { showToast } from '../components/Toast';
 
 const Rota: React.FC = () => {
     const { user, isManager } = useAuth();
@@ -30,7 +32,8 @@ const Rota: React.FC = () => {
         const month = currentDate.getMonth();
 
         try {
-            if (isManager) {
+            // Managers see all shifts, staff see only their own + all unavailabilities for visual context
+             if (isManager) {
                 const [shiftsData, eventsData, staffData] = await Promise.all([
                     getShiftsForMonth(year, month),
                     getEvents(),
@@ -40,13 +43,13 @@ const Rota: React.FC = () => {
                 setEvents(eventsData);
                 setStaff(staffData);
             } else {
-                // Fetch both user's shifts and their unavailability
-                const shiftsData = await getShiftsForUser(user.uid, year, month);
-                setShifts(shiftsData);
+                const allShifts = await getShiftsForMonth(year, month);
+                setShifts(allShifts);
             }
         } catch (error) {
              if (isOnline) {
                 console.error("Failed to fetch rota data:", error);
+                showToast("Failed to fetch rota data.", "error");
              }
         } finally {
             setLoading(false);
@@ -72,8 +75,9 @@ const Rota: React.FC = () => {
     }, [currentDate]);
     
     const sortedShiftsForMonth = useMemo(() => {
-        return shifts.filter(s => !s.isUnavailability).sort((a,b) => a.start.toMillis() - b.start.toMillis());
-    }, [shifts]);
+        if (!user) return [];
+        return shifts.filter(s => !s.isUnavailability && s.assignedStaffUids.includes(user.uid)).sort((a,b) => a.start.toMillis() - b.start.toMillis());
+    }, [shifts, user]);
 
     const changeMonth = (offset: number) => {
         setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -105,7 +109,7 @@ const Rota: React.FC = () => {
     const handleDeleteShift = async (shiftId: string) => {
         setLoading(true);
         await deleteShift(shiftId);
-        fetchRotaData();
+        await fetchRotaData();
         handleCloseModal();
     }
 
@@ -132,6 +136,7 @@ const Rota: React.FC = () => {
                     staff={staff}
                     type={modalType}
                     currentUser={user!}
+                    refreshShifts={fetchRotaData}
                 />
             )}
             <div className="flex justify-between items-center mb-4">
@@ -166,19 +171,17 @@ const Rota: React.FC = () => {
                  <div className="md:hidden space-y-4">
                     {sortedShiftsForMonth.length > 0 ? sortedShiftsForMonth.map(shift => {
                         const colleagues = shift.assignedStaff.filter(s => s.uid !== user!.uid).map(s => s.name).join(', ');
-                        const assignedNames = shift.assignedStaff.map(s => s.name.split(' ')[0]).join(', ');
                         return (
-                         <div key={shift.id} onClick={() => isManager && isOnline && handleOpenModal(shift)} className={`p-4 rounded-lg shadow text-white ${isManager && isOnline ? 'cursor-pointer' : ''} bg-ams-blue`}>
+                         <div key={shift.id} onClick={() => isOnline && handleOpenModal(shift)} className={`p-4 rounded-lg shadow text-white ${isOnline ? 'cursor-pointer' : ''} bg-ams-blue`}>
                              <div className="font-bold text-lg">{shift.eventName}</div>
                              <div className="text-gray-200">{shift.start.toDate().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
                              <div className="mt-2">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                               <div className="text-sm mt-1 text-ams-light-blue font-semibold">{shift.roleRequired}</div>
-                             {!isManager && shift.assignedStaff.length > 1 && (
+                             {shift.assignedStaff.length > 1 && (
                                 <div className="text-sm mt-2 pt-2 border-t border-white/20">
                                     <span className="text-gray-300">Working with:</span> {colleagues || 'N/A'}
                                 </div>
                              )}
-                             {isManager && <div className="text-xs mt-1 text-gray-300 truncate" title={`Crew: ${shift.assignedStaff.map(s => s.name).join(', ')}`}>Crew: {assignedNames || 'Unassigned'}</div>}
                          </div>
                     )}) : (
                         <p className="text-center text-gray-500 dark:text-gray-400 py-8">No shifts scheduled for this month.</p>
@@ -209,27 +212,43 @@ const Rota: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="space-y-1 overflow-y-auto max-h-28">
-                                    {dayShifts.map(shift => (
-                                        <div key={shift.id} onClick={() => (isManager || shift.assignedStaffUids.includes(user!.uid)) && isOnline && handleOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift')} 
-                                            className={`p-1.5 rounded text-white text-xs ${isOnline && (isManager || shift.assignedStaffUids.includes(user!.uid)) ? 'cursor-pointer' : 'cursor-default'} ${shift.isUnavailability ? 'bg-red-500' : 'bg-ams-blue'}`}>
+                                    {dayShifts.map(shift => {
+                                        const isMyShift = user ? shift.assignedStaffUids.includes(user.uid) : false;
+                                        // FIX: 'User' was not defined. Replaced with imported alias 'AppUser'.
+                                        const isBiddable = !isManager && !shift.isUnavailability && shift.assignedStaffUids.length === 0 && isRoleOrHigher(user?.role, shift.roleRequired as AppUser['role']);
+                                        const isUnassigned = !shift.isUnavailability && shift.assignedStaffUids.length === 0;
+
+                                        let bgColor = 'bg-gray-400 dark:bg-gray-600';
+                                        if (shift.isUnavailability) bgColor = 'bg-red-400 dark:bg-red-700';
+                                        else if (isMyShift) bgColor = 'bg-ams-blue';
+                                        else if (isBiddable) bgColor = 'bg-green-500';
+                                        else if (isManager && isUnassigned) bgColor = 'bg-yellow-500';
+                                        
+                                        const canOpenModal = isOnline && (isManager || isMyShift || isBiddable || (shift.isUnavailability && isMyShift));
+
+                                        return (
+                                        <div key={shift.id} onClick={() => canOpenModal && handleOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift')} 
+                                            className={`p-1.5 rounded text-white text-xs ${canOpenModal ? 'cursor-pointer' : 'cursor-default'} ${bgColor}`}>
                                             
                                             {shift.isUnavailability ? (
-                                                <p className="font-semibold truncate">Unavailable</p>
+                                                <p className="font-semibold truncate">{isManager || isMyShift ? 'Unavailable' : 'Booked Off'}</p>
                                             ) : (
                                                 <>
                                                     <p className="font-semibold truncate">{shift.eventName}</p>
-                                                    <p className="truncate">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                                    {isManager ? (
-                                                        <p className="text-xs truncate text-gray-300">
+                                                     { (isManager || isMyShift || isBiddable) && <p className="truncate">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p> }
+                                                     {isManager ? (
+                                                        <p className="text-xs truncate text-gray-200 dark:text-gray-300">
                                                             {shift.assignedStaff.map(s => s.name.split(' ')[0]).join(', ') || 'Unassigned'}
                                                         </p>
-                                                    ) : (
-                                                        <p className="text-xs truncate text-gray-300">{shift.roleRequired}</p>
-                                                    )}
+                                                     ) : isMyShift || isBiddable ? (
+                                                        <p className="text-xs truncate text-gray-200 dark:text-gray-300">{shift.roleRequired}</p>
+                                                     ): (
+                                                        <p className="text-xs truncate text-gray-200 dark:text-gray-300">Filled</p>
+                                                     )}
                                                 </>
                                             )}
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
                         );

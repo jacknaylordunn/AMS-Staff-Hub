@@ -1,13 +1,10 @@
-
-
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import type { Vehicle, VehicleCheck } from '../types';
-// FIX: Corrected import path for asset service functions.
 import { getVehicleById, getVehicleChecks, addVehicleCheck } from '../services/assetService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import VehicleCheckModal from '../components/VehicleCheckModal';
 
@@ -56,6 +53,25 @@ const VehicleDetail: React.FC = () => {
         }
     }
 
+    const handlePrintQr = () => {
+        const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
+        if (qrImg && vehicle) {
+            const printWindow = window.open('', '_blank');
+            printWindow?.document.write(`
+                <html>
+                    <head><title>Print QR Code</title></head>
+                    <body style="text-align: center; margin-top: 50px;">
+                        <h2>${vehicle.name} - ${vehicle.registration}</h2>
+                        <img src="${qrImg.src}" alt="QR Code" />
+                        <p>${vehicle.qrCodeValue}</p>
+                        <script>window.onload = function() { window.print(); window.close(); }</script>
+                    </body>
+                </html>
+            `);
+            printWindow?.document.close();
+        }
+    };
+
     if (loading) {
         return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /></div>;
     }
@@ -91,17 +107,29 @@ const VehicleDetail: React.FC = () => {
             </div>
             
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
-                    <p><strong>Type:</strong> {vehicle.type}</p>
-                    <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(vehicle.status)}`}>{vehicle.status}</span></p>
-                    {vehicle.lastCheck && (
-                         <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                             <p className="font-semibold">Last Check:</p>
-                             <p>{vehicle.lastCheck.date.toDate().toLocaleString()}</p>
-                             <p>by {vehicle.lastCheck.user.name}</p>
-                             <p className={`font-bold ${vehicle.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{vehicle.lastCheck.status}</p>
-                         </div>
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
+                        <p><strong>Type:</strong> {vehicle.type}</p>
+                        <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(vehicle.status)}`}>{vehicle.status}</span></p>
+                        {vehicle.lastCheck && (
+                            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <p className="font-semibold">Last Check:</p>
+                                <p>{vehicle.lastCheck.date.toDate().toLocaleString()}</p>
+                                <p>by {vehicle.lastCheck.user.name}</p>
+                                <p className={`font-bold ${vehicle.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{vehicle.lastCheck.status}</p>
+                            </div>
+                        )}
+                    </div>
+                    {vehicle.qrCodeValue && (
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow text-center">
+                            <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Asset QR Code</h3>
+                            <div className="flex justify-center">
+                                <img id="qr-code-img" src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vehicle.qrCodeValue)}`} alt="Vehicle QR Code" />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2 break-all">{vehicle.qrCodeValue}</p>
+                            <button onClick={handlePrintQr} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">Print QR Code</button>
+                        </div>
                     )}
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">

@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, Timestamp, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, Timestamp, doc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Shift } from '../types';
 import { createNotification } from './notificationService';
@@ -32,7 +32,7 @@ export const getShiftsForUser = async (uid: string, year: number, month: number)
 
 export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> => {
     const assignedStaffUids = shiftData.assignedStaff.map(s => s.uid);
-    await addDoc(collection(db, 'shifts'), { ...shiftData, assignedStaffUids });
+    await addDoc(collection(db, 'shifts'), { ...shiftData, assignedStaffUids, bids: [] });
 
     // Notify assigned staff
     for (const staff of shiftData.assignedStaff) {
@@ -56,4 +56,27 @@ export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift
 
 export const deleteShift = async (shiftId: string): Promise<void> => {
     await deleteDoc(doc(db, 'shifts', shiftId));
+};
+
+export const bidOnShift = async (shiftId: string, user: { uid: string; name: string; }): Promise<void> => {
+    const shiftRef = doc(db, 'shifts', shiftId);
+    await updateDoc(shiftRef, {
+        bids: arrayUnion({
+            ...user,
+            timestamp: Timestamp.now(),
+        })
+    });
+};
+
+export const cancelBidOnShift = async (shiftId: string, userId: string): Promise<void> => {
+    const shiftRef = doc(db, 'shifts', shiftId);
+    const shiftSnap = await getDoc(shiftRef);
+    if (!shiftSnap.exists()) {
+        throw new Error("Shift not found");
+    }
+    const shiftData = shiftSnap.data() as Shift;
+    const newBids = (shiftData.bids || []).filter(bid => bid.uid !== userId);
+    await updateDoc(shiftRef, {
+        bids: newBids
+    });
 };

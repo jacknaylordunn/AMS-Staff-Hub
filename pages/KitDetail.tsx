@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { Kit, KitCheck } from '../types';
 import { getKitById, getKitChecks, addKitCheck, updateKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import KitCheckModal from '../components/KitCheckModal';
 
@@ -58,7 +57,26 @@ const KitDetail: React.FC = () => {
     const handleOpenCheckModal = (type: 'Sign Out' | 'Sign In') => {
         setCheckType(type);
         setCheckModalOpen(true);
-    }
+    };
+
+    const handlePrintQr = () => {
+        const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
+        if (qrImg && kit) {
+            const printWindow = window.open('', '_blank');
+            printWindow?.document.write(`
+                <html>
+                    <head><title>Print QR Code</title></head>
+                    <body style="text-align: center; margin-top: 50px;">
+                        <h2>${kit.name}</h2>
+                        <img src="${qrImg.src}" alt="QR Code" />
+                        <p>${kit.qrCodeValue}</p>
+                        <script>window.onload = function() { window.print(); window.close(); }</script>
+                    </body>
+                </html>
+            `);
+            printWindow?.document.close();
+        }
+    };
 
     if (loading) {
         return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /></div>;
@@ -106,17 +124,29 @@ const KitDetail: React.FC = () => {
             </div>
             
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
-                    <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(kit.status)}`}>{kit.status}</span></p>
-                    <p><strong>Assigned To:</strong> {kit.assignedTo?.name || 'In Stores'}</p>
-                    {kit.lastCheck && (
-                         <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                             <p className="font-semibold">Last Check:</p>
-                             <p>{kit.lastCheck.date.toDate().toLocaleString()}</p>
-                             <p>by {kit.lastCheck.user.name}</p>
-                             <p className={`font-bold ${kit.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{kit.lastCheck.status}</p>
-                         </div>
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
+                        <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(kit.status)}`}>{kit.status}</span></p>
+                        <p><strong>Assigned To:</strong> {kit.assignedTo?.name || 'In Stores'}</p>
+                        {kit.lastCheck && (
+                            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <p className="font-semibold">Last Check:</p>
+                                <p>{kit.lastCheck.date.toDate().toLocaleString()}</p>
+                                <p>by {kit.lastCheck.user.name}</p>
+                                <p className={`font-bold ${kit.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{kit.lastCheck.status}</p>
+                            </div>
+                        )}
+                    </div>
+                     {kit.qrCodeValue && (
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow text-center">
+                            <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Asset QR Code</h3>
+                            <div className="flex justify-center">
+                                <img id="qr-code-img" src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}`} alt="Kit QR Code" />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2 break-all">{kit.qrCodeValue}</p>
+                            <button onClick={handlePrintQr} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">Print QR Code</button>
+                        </div>
                     )}
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">

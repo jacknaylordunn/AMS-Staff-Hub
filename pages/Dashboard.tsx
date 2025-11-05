@@ -1,106 +1,69 @@
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getActiveDraftForUser, getRecentEPRFsForUser } from '../services/eprfService';
+import { getActiveDraftForUser, getPendingEPRFs } from '../services/eprfService';
 import { getShiftsForUser } from '../services/rotaService';
-import { getNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
 import { getActiveIncidents } from '../services/majorIncidentService';
-import type { EPRFForm, Shift, Notification, MajorIncident } from '../types';
-import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon, QrCodeIcon, ShieldExclamationIcon } from '../components/icons';
+import { getUsers } from '../services/userService';
+import { getVehicles } from '../services/assetService';
+import type { EPRFForm, Shift, MajorIncident, User as AppUser, Vehicle } from '../types';
+import { EprfIcon, RotaIcon, QrCodeIcon, ShieldExclamationIcon, ClockIcon, ChartIcon, PatientsIcon, AmbulanceIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import QrScannerModal from '../components/QrScannerModal';
 import StaffCheckInModal from '../components/StaffCheckInModal';
 import MethaneReportModal from '../components/MethaneReportModal';
 
-const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string, description: string }> = ({ to, icon, title, description }) => (
-    <ReactRouterDOM.Link to={to} className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+// New Card Components
+const AtAGlanceCard: React.FC<{ icon: React.ReactNode, title: string, text: string, to: string, color: string }> = ({ icon, title, text, to, color }) => (
+    <ReactRouterDOM.Link to={to} className={`block p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-8 ${color}`}>
         <div className="flex items-center">
-            {icon}
-            <div className="ml-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">{title}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{description}</p>
+            <div className="flex-shrink-0">{icon}</div>
+            <div className="ml-5">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</h2>
+                <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">{text}</p>
             </div>
         </div>
     </ReactRouterDOM.Link>
 );
 
-const DashboardButtonCard: React.FC<{ onClick: () => void, icon: React.ReactNode, title: string, description: string }> = ({ onClick, icon, title, description }) => (
-    <button onClick={onClick} className="w-full text-left p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+const ManagerKPICard: React.FC<{ icon: React.ReactNode, value: number, label: string, to: string }> = ({ icon, value, label, to }) => (
+    <ReactRouterDOM.Link to={to} className="block p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
         <div className="flex items-center">
             {icon}
             <div className="ml-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">{title}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{description}</p>
+                <p className="text-3xl font-bold text-ams-blue dark:text-ams-light-blue">{value}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
             </div>
         </div>
-    </button>
+    </ReactRouterDOM.Link>
 );
 
-const NotificationsPanel: React.FC<{ notifications: Notification[], onDismiss: (id: string) => void }> = ({ notifications, onDismiss }) => {
-    const navigate = ReactRouterDOM.useNavigate();
-
-    const handleNotificationClick = (notification: Notification) => {
-        if (notification.link) {
-            navigate(notification.link);
-        }
-        onDismiss(notification.id!);
-    };
-    
-    return (
-        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md h-full">
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center"><BellIcon className="w-6 h-6 mr-2 text-ams-blue dark:text-ams-light-blue"/> My Tasks & Notifications</h3>
-            <div className="space-y-3 max-h-48 overflow-y-auto">
-                {notifications.length > 0 ? notifications.map(notif => (
-                    <div key={notif.id} className="group p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-start gap-2">
-                       <div onClick={() => handleNotificationClick(notif)} className={`flex-grow ${notif.link ? 'cursor-pointer' : ''}`}>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{notif.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notif.createdAt.toDate().toLocaleString()}</p>
-                       </div>
-                        <button onClick={() => onDismiss(notif.id!)} aria-label="Dismiss notification" className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <TrashIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                )) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No new notifications.</p>
-                )}
-            </div>
+const ActionCard: React.FC<{ to?: string, onClick?: () => void, icon: React.ReactNode, title: string, description: string, large?: boolean }> = ({ to, onClick, icon, title, description, large = false }) => {
+    const content = (
+        <div className={`text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 flex flex-col items-center justify-center ${large ? 'h-48' : 'h-full'}`}>
+            {icon}
+            <h2 className={`font-bold text-gray-800 dark:text-gray-200 ${large ? 'text-2xl mt-4' : 'text-lg mt-2'}`}>{title}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{description}</p>
         </div>
-    )
+    );
+
+    return to ? <ReactRouterDOM.Link to={to}>{content}</ReactRouterDOM.Link> : <button onClick={onClick} className="w-full h-full">{content}</button>;
 };
-
-const RecentPatientsPanel: React.FC<{ eprfs: EPRFForm[] }> = ({ eprfs }) => (
-    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md h-full">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-            <PatientsIcon className="w-6 h-6 mr-2 text-ams-blue dark:text-ams-light-blue" /> Recent Patients
-        </h3>
-        <div className="space-y-3 max-h-48 overflow-y-auto">
-            {eprfs.length > 0 ? eprfs.map(eprf => (
-                <ReactRouterDOM.Link to={`/patients/${eprf.patientId}`} key={eprf.id} className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600">
-                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{eprf.patientName}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{eprf.incidentDate} at {eprf.eventName}</p>
-                </ReactRouterDOM.Link>
-            )) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No recent patient reports found.</p>
-            )}
-        </div>
-    </div>
-);
 
 
 const Dashboard: React.FC = () => {
-    const { user } = useAuth();
-    const { activeEvent, activeShift, clearActiveSession } = useAppContext();
+    const { user, isManager } = useAuth();
+    const { activeShift } = useAppContext();
     const navigate = ReactRouterDOM.useNavigate();
+    
+    // Data State
     const [activeDraft, setActiveDraft] = useState<EPRFForm | null>(null);
     const [nextShift, setNextShift] = useState<Shift | null>(null);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [recentEprfs, setRecentEprfs] = useState<EPRFForm[]>([]);
     const [activeIncident, setActiveIncident] = useState<MajorIncident | null>(null);
+    const [pendingReviews, setPendingReviews] = useState<EPRFForm[]>([]);
+    const [pendingStaff, setPendingStaff] = useState<AppUser[]>([]);
+    const [vehiclesRequiringMaintenance, setVehiclesRequiringMaintenance] = useState<Vehicle[]>([]);
     
     // Modals
     const [isScannerOpen, setScannerOpen] = useState(false);
@@ -110,64 +73,107 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         if (user) {
             const fetchData = async () => {
-                try {
-                    const today = new Date();
-                    const [draft, notificationsData, recent, incidents, shifts] = await Promise.all([
-                        getActiveDraftForUser(user.uid),
-                        getNotificationsForUser(user.uid),
-                        getRecentEPRFsForUser(user.uid),
-                        getActiveIncidents(),
-                        getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
-                    ]);
-    
-                    setActiveDraft(draft);
-                    setNotifications(notificationsData);
-                    setRecentEprfs(recent);
-                    setActiveIncident(incidents[0] || null);
-    
+                const today = new Date();
+                const promises: Promise<any>[] = [
+                    getActiveDraftForUser(user.uid),
+                    getActiveIncidents(),
+                    getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
+                ];
+
+                if (isManager) {
+                    promises.push(getPendingEPRFs(), getUsers(), getVehicles());
+                }
+
+                const results = await Promise.allSettled(promises);
+                let hadError = false;
+
+                results.forEach((result, index) => {
+                    if (result.status === 'rejected') {
+                        console.error(`Dashboard data fetch failed for promise ${index}:`, result.reason);
+                        hadError = true;
+                    }
+                });
+
+                if (hadError) showToast("Failed to load some dashboard data.", "error");
+                
+                // Process successful results
+                if (results[0].status === 'fulfilled') setActiveDraft(results[0].value as EPRFForm | null);
+                if (results[1].status === 'fulfilled') setActiveIncident((results[1].value as MajorIncident[])[0] || null);
+                if (results[2].status === 'fulfilled') {
+                    const shifts = results[2].value as Shift[];
                     const upcomingShifts = shifts
                         .filter(s => s.start.toDate() > today && !s.isUnavailability)
                         .sort((a, b) => a.start.toMillis() - b.start.toMillis());
-                    
-                    if (upcomingShifts.length > 0) {
-                        setNextShift(upcomingShifts[0]);
-                    }
-                } catch (error) {
-                    console.error("Dashboard data fetch failed:", error);
-                    showToast("Failed to load some dashboard data.", "error");
+                    if (upcomingShifts.length > 0) setNextShift(upcomingShifts[0]);
+                }
+                
+                if (isManager) {
+                    if (results[3].status === 'fulfilled') setPendingReviews(results[3].value as EPRFForm[]);
+                    if (results[4].status === 'fulfilled') setPendingStaff((results[4].value as AppUser[]).filter(u => u.role === 'Pending'));
+                    if (results[5].status === 'fulfilled') setVehiclesRequiringMaintenance((results[5].value as Vehicle[]).filter(v => v.status === 'Maintenance Required'));
                 }
             };
     
             fetchData();
         }
-    }, [user]);
-    
-    const dismissNotification = async (id: string) => {
-        await markNotificationAsRead(id);
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    };
+    }, [user, isManager]);
 
     const handleQrScan = (qrValue: string) => {
         if (qrValue.startsWith('aegis-vehicle-qr:')) {
-            const vehicleId = qrValue.split(':')[1];
-            if (vehicleId) {
-                navigate(`/inventory/vehicle/${vehicleId}`);
-                showToast(`Loading vehicle...`, 'info');
-            } else {
-                showToast('Invalid vehicle QR code.', 'error');
-            }
+            navigate(`/inventory/vehicle/${qrValue.split(':')[1]}`);
         } else if (qrValue.startsWith('aegis-kit-qr:')) {
-            const kitId = qrValue.split(':')[1];
-            if (kitId) {
-                navigate(`/inventory/kit/${kitId}`);
-                showToast(`Loading kit...`, 'info');
-            } else {
-                showToast('Invalid kit QR code.', 'error');
-            }
+            navigate(`/inventory/kit/${qrValue.split(':')[1]}`);
         } else {
             showToast('Not a valid Aegis QR code.', 'error');
         }
     };
+    
+    const renderAtAGlance = () => {
+        if (activeIncident) {
+            return <AtAGlanceCard 
+                icon={<ShieldExclamationIcon className="w-12 h-12 text-red-500 animate-pulse" />}
+                title="Major Incident Active"
+                text={activeIncident.name}
+                to={`/major-incidents/${activeIncident.id}`}
+                color="border-red-500 bg-red-50 dark:bg-red-900/20"
+            />;
+        }
+        if (activeShift) {
+             return <AtAGlanceCard 
+                icon={<RotaIcon className="w-12 h-12 text-green-500" />}
+                title="Currently On Duty"
+                text={`${activeShift.roleRequired} at ${activeShift.eventName}`}
+                to="/events"
+                color="border-green-500 bg-green-50 dark:bg-green-900/20"
+            />;
+        }
+        if (nextShift) {
+             return <AtAGlanceCard 
+                icon={<ClockIcon className="w-12 h-12 text-blue-500" />}
+                title="Next Shift"
+                text={`${nextShift.start.toDate().toLocaleDateString()} @ ${nextShift.start.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                to="/rota"
+                color="border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+            />;
+        }
+        if (activeDraft) {
+             return <AtAGlanceCard 
+                icon={<EprfIcon className="w-12 h-12 text-yellow-500" />}
+                title="Unfinished ePRF Draft"
+                text={`For ${activeDraft.patientName || 'a patient'} from ${activeDraft.incidentDate}`}
+                to="/eprf"
+                color="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+            />;
+        }
+        return (
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md text-center">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">All Clear!</h2>
+                <p className="text-gray-500 dark:text-gray-400">No immediate tasks or upcoming shifts. You're up to date.</p>
+            </div>
+        );
+    };
+
+    const staffOnDutyToday = 0; // This would require more complex shift logic, placeholder for now.
 
     return (
         <div>
@@ -175,109 +181,45 @@ const Dashboard: React.FC = () => {
             {activeIncident && user && <StaffCheckInModal isOpen={isCheckInOpen} onClose={() => setCheckInOpen(false)} incident={activeIncident} user={user} />}
             {activeIncident && user && <MethaneReportModal isOpen={isMethaneOpen} onClose={() => setMethaneOpen(false)} incident={activeIncident} user={user} />}
 
-            {activeIncident && (
-                <div className="mb-6 p-6 bg-red-100 border-l-4 border-red-500 rounded-lg shadow-lg dark:bg-red-900/50 dark:border-red-600 animate-pulse">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                        <div className="flex items-center">
-                            <ShieldExclamationIcon className="w-12 h-12 text-red-700 dark:text-red-400" />
-                            <div className="ml-4">
-                                <h2 className="text-xl font-bold text-red-800 dark:text-red-200">MAJOR INCIDENT DECLARED</h2>
-                                <p className="text-red-700 dark:text-red-300">
-                                    Incident: <strong>{activeIncident.name}</strong>
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                            <button onClick={() => setCheckInOpen(true)} className="px-4 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90">Check In</button>
-                            <button onClick={() => setMethaneOpen(true)} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700">Submit METHANE</button>
-                        </div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Welcome back, {user?.firstName}!</h1>
+            
+            <div className="mb-8">{renderAtAGlance()}</div>
+            
+            {isManager && (
+                <div className="mb-8">
+                    <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-4">Manager Overview</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <ManagerKPICard icon={<EprfIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />} value={pendingReviews.length} label="ePRF Reviews Pending" to="/reviews" />
+                        <ManagerKPICard icon={<PatientsIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />} value={pendingStaff.length} label="New Staff Registrations" to="/staff" />
+                        <ManagerKPICard icon={<RotaIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />} value={staffOnDutyToday} label="Staff on Duty Today" to="/rota" />
+                        <ManagerKPICard icon={<AmbulanceIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />} value={vehiclesRequiringMaintenance.length} label="Vehicles Needing Check" to="/inventory" />
                     </div>
                 </div>
             )}
-            
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome back, {user?.firstName || 'team member'}!</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {activeEvent ? (
-                    <div className="md:col-span-2 bg-green-100 border-l-4 border-green-500 rounded-lg shadow-md p-6 dark:bg-green-900 dark:border-green-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="flex items-center">
-                            <EventsIcon className="w-12 h-12 text-green-700 dark:text-green-400" />
-                            <div className="ml-4">
-                                <h2 className="text-xl font-bold text-green-800 dark:text-green-200">{activeShift ? 'On Duty' : 'Active Event'}</h2>
-                                <p className="text-green-700 dark:text-green-300">
-                                    You are currently logged on to: <strong>{activeEvent.name}</strong>
-                                </p>
-                                {activeShift && <p className="text-sm text-green-600 dark:text-green-400">Your shift ends at {activeShift.end.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}
-                            </div>
-                        </div>
-                        <button onClick={clearActiveSession} className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
-                            <LogoutIcon className="w-5 h-5 mr-2" /> Log Off
-                        </button>
-                    </div>
-                 ) : nextShift && (
-                     <ReactRouterDOM.Link to="/rota" className="block p-6 bg-blue-100 border-l-4 border-blue-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-blue-900 dark:border-blue-600">
-                        <div className="flex items-center">
-                            <RotaIcon className="w-12 h-12 text-blue-700 dark:text-blue-400" />
-                            <div className="ml-4">
-                                <h2 className="text-xl font-bold text-blue-800 dark:text-blue-200">Your Next Shift</h2>
-                                <p className="text-blue-700 dark:text-blue-300">
-                                    <strong>{nextShift.eventName}</strong> on <strong>{nextShift.start.toDate().toLocaleDateString()}</strong> at {nextShift.start.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                            </div>
-                        </div>
-                    </ReactRouterDOM.Link>
-                )}
-
-                {activeDraft && (
-                     <ReactRouterDOM.Link to="/eprf" className="block p-6 bg-yellow-100 border-l-4 border-yellow-500 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2 dark:bg-yellow-900 dark:border-yellow-600">
-                        <div className="flex items-center">
-                            <EprfIcon className="w-12 h-12 text-yellow-700 dark:text-yellow-400" />
-                            <div className="ml-4">
-                                <h2 className="text-xl font-bold text-yellow-800 dark:text-yellow-200">Continue Active ePRF</h2>
-                                <p className="text-yellow-700 dark:text-yellow-300">You have an unfinished report for {activeDraft.patientName || 'an unnamed patient'} from {activeDraft.incidentDate}.</p>
-                            </div>
-                        </div>
-                    </ReactRouterDOM.Link>
-                )}
-               
-                <DashboardCard 
-                    to="/eprf" 
-                    icon={<EprfIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />} 
-                    title="New ePRF" 
-                    description="Start a new electronic Patient Report Form." 
-                />
-                 <DashboardButtonCard
-                    onClick={() => setScannerOpen(true)}
-                    icon={<QrCodeIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />}
-                    title="Scan Asset"
-                    description="Scan a QR code for a vehicle or kit."
-                />
-                 <DashboardCard 
-                    to="/patients" 
-                    icon={<PatientsIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />} 
-                    title="Patient Records" 
-                    description="Search and manage patient files." 
-                />
-                <DashboardCard 
-                    to="/documents" 
-                    icon={<DocsIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />} 
-                    title="Documents & Guidelines" 
-                    description="Access SOPs, guidelines, and procedures." 
-                />
-                <DashboardCard 
-                    to="/rota" 
-                    icon={<RotaIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />} 
-                    title="Shift Rota" 
-                    description="View your upcoming shifts and schedule." 
-                />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                 <div className="col-span-2">
+                    <ActionCard 
+                        to="/eprf" 
+                        icon={<EprfIcon className="w-16 h-16 text-ams-blue dark:text-ams-light-blue" />} 
+                        title="New ePRF" 
+                        description="Start a new Patient Report Form." 
+                        large
+                    />
                 </div>
-                
-                <div className="lg:col-span-1 space-y-6">
-                    <NotificationsPanel notifications={notifications} onDismiss={dismissNotification} />
-                    <RecentPatientsPanel eprfs={recentEprfs} />
+                 <div className="col-span-2">
+                    <ActionCard
+                        onClick={() => setScannerOpen(true)}
+                        icon={<QrCodeIcon className="w-16 h-16 text-ams-blue dark:text-ams-light-blue" />}
+                        title="Scan Asset"
+                        description="Scan a vehicle or kit QR code."
+                        large
+                    />
                 </div>
+                <ActionCard to="/rota" icon={<RotaIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Rota" description="View upcoming shifts." />
+                <ActionCard to="/patients" icon={<PatientsIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Patients" description="Search patient records." />
+                <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
+                <ActionCard to="/inventory" icon={<AmbulanceIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Inventory" description="Manage vehicles & kits." />
             </div>
         </div>
     );

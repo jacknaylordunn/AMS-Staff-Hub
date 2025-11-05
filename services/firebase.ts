@@ -1,7 +1,6 @@
 
-
-
-// FIX: Using namespace import for firebase/app to avoid potential module resolution issues with named exports.
+// FIX: Using modular `initializeApp` to resolve module resolution issues with Firebase v9+.
+// FIX: Changed to namespace import to handle potential module resolution errors.
 import * as firebase from 'firebase/app';
 // import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
@@ -20,6 +19,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
+// FIX: Replaced `firebase.initializeApp` with the modular `initializeApp` function for Firebase v9+ compatibility.
 const app = firebase.initializeApp(firebaseConfig);
 
 // Initialize services

@@ -13,6 +13,57 @@ interface CPDModalProps {
     user: User;
 }
 
+const resizeImage = (file: File, maxWidth = 1024, maxHeight = 1024): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+            // Not an image, return original file
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            if (!event.target?.result) return reject(new Error("Could not read file."));
+            
+            const img = new Image();
+            img.src = event.target.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let { width, height } = img;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error("Could not get canvas context."));
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                        } else {
+                            reject(new Error('Canvas to Blob conversion failed'));
+                        }
+                    }, 'image/jpeg', 0.8
+                );
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
 const CPDModal: React.FC<CPDModalProps> = ({ isOpen, onClose, onSave, entry, user }) => {
     const [formData, setFormData] = useState({
         title: '',
@@ -67,9 +118,10 @@ const CPDModal: React.FC<CPDModalProps> = ({ isOpen, onClose, onSave, entry, use
             let attachmentFileName: string | undefined = entry?.attachmentFileName;
 
             if (file) {
-                const filePath = `cpd_attachments/${user.uid}/${Date.now()}_${file.name}`;
-                attachmentUrl = await uploadFile(file, filePath);
-                attachmentFileName = file.name;
+                const processedFile = await resizeImage(file);
+                const filePath = `cpd_attachments/${user.uid}/${Date.now()}_${processedFile.name}`;
+                attachmentUrl = await uploadFile(processedFile, filePath);
+                attachmentFileName = processedFile.name;
             }
 
             const hoursAsNumber = parseFloat(formData.hours);
@@ -79,7 +131,7 @@ const CPDModal: React.FC<CPDModalProps> = ({ isOpen, onClose, onSave, entry, use
                 return;
             }
 
-            const entryData = {
+            const entryData: Omit<CPDEntry, 'id' | 'createdAt'> = {
                 ...formData,
                 hours: hoursAsNumber,
                 userId: user.uid,
