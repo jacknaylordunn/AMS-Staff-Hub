@@ -1,34 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import type { EventLog } from '../types';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import type { EventLog, Shift } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/eventService';
-import { SpinnerIcon, CheckIcon, PlusIcon, TrashIcon } from '../components/icons';
+import { getShiftsForUser } from '../services/rotaService';
+import { SpinnerIcon, CheckIcon, PlusIcon, TrashIcon, LogoutIcon } from '../components/icons';
 import EventModal from '../components/EventModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { showToast } from '../components/Toast';
 
-const Events: React.FC = () => {
+const DutyLogon: React.FC = () => {
     const { user, isManager } = useAuth();
-    const { activeEvent, setActiveEvent, clearActiveEvent } = useAppContext();
+    const { activeEvent, activeShift, setActiveEvent, setActiveShift, clearActiveSession } = useAppContext();
     const { isOnline } = useOnlineStatus();
-    const [events, setEvents] = useState<EventLog[]>([]);
+    
+    const [allEvents, setAllEvents] = useState<EventLog[]>([]);
+    const [userShifts, setUserShifts] = useState<Shift[]>([]);
     const [loading, setLoading] = useState(true);
+    
+    // Modal states
     const [isEditModalOpen, setEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<EventLog | null>(null);
     const [eventToDelete, setEventToDelete] = useState<EventLog | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const fetchEvents = async () => {
+    const fetchData = async () => {
+        if (!user) return;
         setLoading(true);
         try {
-            const eventList = await getEvents();
-            setEvents(eventList);
+            const today = new Date();
+            const [eventList, shiftList] = await Promise.all([
+                getEvents(),
+                getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
+            ]);
+            setAllEvents(eventList);
+            setUserShifts(shiftList.filter(s => !s.isUnavailability));
         } catch (error) {
             if (isOnline) {
-                showToast("Failed to fetch events.", "error");
+                showToast("Failed to fetch duty information.", "error");
             }
         } finally {
             setLoading(false);
@@ -36,27 +48,28 @@ const Events: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchEvents();
-    }, [isOnline]);
+        fetchData();
+    }, [isOnline, user]);
+
+    const { currentShifts, upcomingShifts, otherActiveEvents } = useMemo(() => {
+        const now = new Date();
+        const currentShifts = userShifts.filter(s => s.start.toDate() <= now && s.end.toDate() >= now);
+        const upcomingShifts = userShifts.filter(s => s.start.toDate() > now).sort((a,b) => a.start.toMillis() - b.start.toMillis());
+        const otherActiveEvents = allEvents.filter(e => e.status === 'Active' && !userShifts.some(s => s.eventId === e.id));
+        return { currentShifts, upcomingShifts, otherActiveEvents };
+    }, [userShifts, allEvents]);
     
-    const handleLogon = (event: EventLog) => {
-        if (activeEvent?.id === event.id) {
-            clearActiveEvent();
-        } else {
-            setActiveEvent(event);
+    const handleLogon = (logonItem: Shift | EventLog) => {
+        if ('eventId' in logonItem) { // It's a Shift
+            setActiveShift(logonItem);
+        } else { // It's an EventLog
+            setActiveEvent(logonItem);
         }
     };
     
-    const handleOpenEditModal = (event: EventLog | null) => {
-        setSelectedEvent(event);
-        setEditModalOpen(true);
-    };
-
-    const handleOpenDeleteModal = (event: EventLog) => {
-        setEventToDelete(event);
-        setDeleteModalOpen(true);
-    }
-
+    // Modal handling logic
+    const handleOpenEditModal = (event: EventLog | null) => { setSelectedEvent(event); setEditModalOpen(true); };
+    const handleOpenDeleteModal = (event: EventLog) => { setEventToDelete(event); setDeleteModalOpen(true); }
     const handleSaveEvent = async (eventData: Omit<EventLog, 'id'>) => {
         try {
             if (selectedEvent) {
@@ -66,120 +79,112 @@ const Events: React.FC = () => {
                 await createEvent(eventData);
                 showToast("Event created successfully.", "success");
             }
-            fetchEvents();
-        } catch (e) {
-            showToast("Failed to save event.", "error");
-        } finally {
-            setEditModalOpen(false);
-            setSelectedEvent(null);
-        }
+            fetchData();
+        } catch (e) { showToast("Failed to save event.", "error"); }
+        finally { setEditModalOpen(false); setSelectedEvent(null); }
     };
-
     const handleDeleteConfirm = async () => {
         if (!eventToDelete) return;
         setIsDeleting(true);
         try {
             await deleteEvent(eventToDelete.id!);
             showToast("Event deleted successfully.", "success");
-            setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
-        } catch(e) {
-            showToast("Failed to delete event.", "error");
-        } finally {
-            setIsDeleting(false);
-            setDeleteModalOpen(false);
-            setEventToDelete(null);
-        }
+            setAllEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
+        } catch(e) { showToast("Failed to delete event.", "error"); }
+        finally { setIsDeleting(false); setDeleteModalOpen(false); setEventToDelete(null); }
     }
 
-    const getStatusColor = (status: EventLog['status']) => {
-        switch (status) {
-            case 'Active': return 'border-green-500';
-            case 'Upcoming': return 'border-blue-500';
-            case 'Completed': return 'border-gray-400 opacity-70';
-            default: return 'border-gray-200';
-        }
+    const DutyCard: React.FC<{item: Shift | EventLog, onLogon: () => void, onLogoff: () => void, isActive: boolean}> = ({item, onLogon, onLogoff, isActive}) => {
+        const isShift = 'eventId' in item;
+        const title = isShift ? item.eventName : item.name;
+        const startTime = isShift ? item.start.toDate() : new Date(item.date);
+        
+        return (
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col justify-between border-l-4 border-ams-blue dark:border-ams-light-blue">
+                <div>
+                    <h3 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">{title}</h3>
+                    {isShift ? (
+                        <>
+                            <p className="text-gray-700 dark:text-gray-300 font-semibold">{item.roleRequired}</p>
+                            <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                {startTime.toLocaleDateString()} @ {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {item.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </p>
+                        </>
+                    ) : <p className="text-gray-500 dark:text-gray-400 mt-1">{item.date}</p>}
+                </div>
+                 <button 
+                    onClick={isActive ? onLogoff : onLogon}
+                    className={`w-full mt-4 px-4 py-2 font-semibold text-white rounded-md flex items-center justify-center transition-colors ${isActive ? 'bg-red-500 hover:bg-red-600' : 'bg-ams-light-blue hover:bg-opacity-90'}`}
+                >
+                    {isActive ? <><LogoutIcon className="w-5 h-5 mr-2"/> Log Off</> : 'Logon'}
+                 </button>
+            </div>
+        )
     };
 
     return (
         <div>
             {isManager && <EventModal isOpen={isEditModalOpen} onClose={() => { setEditModalOpen(false); setSelectedEvent(null); }} onSave={handleSaveEvent} event={selectedEvent} />}
-            <ConfirmationModal 
-                isOpen={isDeleteModalOpen}
-                onClose={() => setDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Delete Event"
-                message={`Are you sure you want to delete the event "${eventToDelete?.name}"? This will not affect existing ePRFs but cannot be undone.`}
-                confirmText="Delete"
-                isLoading={isDeleting}
-            />
+            <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Delete Event" message={`Are you sure you want to delete "${eventToDelete?.name}"?`} confirmText="Delete" isLoading={isDeleting}/>
+            
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Event Logon</h1>
+                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Duty Logon</h1>
                  {isManager && (
                     <button onClick={() => handleOpenEditModal(null)} disabled={!isOnline} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
-                        <PlusIcon className="w-5 h-5 mr-2" /> Create New Event
+                        <PlusIcon className="w-5 h-5 mr-2" /> Create Event
                     </button>
                 )}
             </div>
             
             {!isOnline && (
                 <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
-                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached events. Please reconnect to see live updates or create new events.</p>
+                    <p><span className="font-bold">Offline Mode:</span> Logon functionality is disabled. Viewing cached duty information.</p>
                 </div>
             )}
-
-
-            <p className="text-gray-600 dark:text-gray-400 mb-8">Select an active event to log on as crew. This will attach your user details to all ePRFs you create during this shift.</p>
             
             {loading ? (
-                <div className="flex justify-center items-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow">
-                    <SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />
-                    <span className="ml-3 text-gray-600 dark:text-gray-300">Loading Events...</span>
-                </div>
+                <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" /></div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {events.map(event => {
-                        const isCurrent = activeEvent?.id === event.id;
-                        return (
-                        <div key={event.id} className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col justify-between border-l-4 ${getStatusColor(event.status)}`}>
-                            <div>
-                                <div className="flex justify-between items-start">
-                                    <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">{event.name}</h2>
-                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${event.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>{event.status}</span>
-                                </div>
-                                <p className="text-gray-500 dark:text-gray-400 mt-1">{event.date}</p>
-                                <p className="text-gray-700 dark:text-gray-300 mt-2">{event.location}</p>
-                            </div>
-                            <div className="mt-4 flex gap-2">
-                                <button 
-                                    onClick={() => handleLogon(event)}
-                                    disabled={event.status === 'Completed'}
-                                    className={`w-full px-4 py-2 font-semibold text-white rounded-md flex items-center justify-center transition-colors
-                                        ${isCurrent 
-                                            ? 'bg-red-500 hover:bg-red-600' 
-                                            : 'bg-ams-light-blue hover:bg-opacity-90'}
-                                        ${event.status === 'Completed' ? 'bg-gray-400 cursor-not-allowed' : ''}`}
-                                >
-                                    {isCurrent && <CheckIcon className="w-5 h-5 mr-2"/>}
-                                    {isCurrent ? 'Log Off' : 'Logon to Event'}
-                                </button>
-                                {isManager && (
-                                    <>
-                                        <button onClick={() => handleOpenEditModal(event)} disabled={!isOnline} className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:bg-gray-400">Edit</button>
-                                        <button onClick={() => handleOpenDeleteModal(event)} disabled={!isOnline} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400"><TrashIcon className="w-5 h-5"/></button>
-                                    </>
-                                )}
-                            </div>
+                <div className="space-y-8">
+                    {/* Current Shifts */}
+                    {currentShifts.length > 0 && (
+                        <div>
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2">Your Current Shift</h2>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {currentShifts.map(shift => <DutyCard key={shift.id} item={shift} onLogon={() => handleLogon(shift)} onLogoff={clearActiveSession} isActive={activeShift?.id === shift.id}/>)}
+                             </div>
                         </div>
-                    )})}
-                </div>
-            )}
-            {!loading && events.length === 0 && (
-                <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                    No active events found.
+                    )}
+
+                     {/* Upcoming Shifts */}
+                    {upcomingShifts.length > 0 && (
+                        <div>
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2">Your Upcoming Shifts</h2>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {upcomingShifts.map(shift => <DutyCard key={shift.id} item={shift} onLogon={() => handleLogon(shift)} onLogoff={clearActiveSession} isActive={activeShift?.id === shift.id}/>)}
+                             </div>
+                        </div>
+                    )}
+
+                    {/* Other Active Events */}
+                    {otherActiveEvents.length > 0 && (
+                         <div>
+                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2">Other Active Events</h2>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {otherActiveEvents.map(event => <DutyCard key={event.id} item={event} onLogon={() => handleLogon(event)} onLogoff={clearActiveSession} isActive={activeEvent?.id === event.id && !activeShift}/>)}
+                             </div>
+                        </div>
+                    )}
+
+                    {currentShifts.length === 0 && upcomingShifts.length === 0 && otherActiveEvents.length === 0 && (
+                         <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                            No shifts or active events found.
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
 };
 
-export default Events;
+export default DutyLogon;

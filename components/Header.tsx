@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -14,7 +15,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { user } = useAuth();
-  const { activeEvent, clearActiveEvent } = useAppContext();
+  const { activeEvent, activeShift, clearActiveSession } = useAppContext();
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     if (path === 'eprf') return 'Patient Report Form';
     if (path === 'reviews') return 'ePRF Reviews';
     if (path === 'reports') return 'Reporting';
+    if (path === 'events') return 'Duty Logon';
     
     // Default/fallback title generation
     if (!path || path === 'dashboard') return 'Dashboard';
@@ -47,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      clearActiveEvent();
+      clearActiveSession();
       navigate('/login');
     } catch (error) {
       console.error('Error signing out: ', error);
@@ -80,7 +82,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 </button>
             )}
             <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200">{getPageTitle()}</h1>
-            {activeEvent && (
+            {activeShift ? (
+                 <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm">
+                    <EventsIcon className="w-4 h-4" />
+                    <span>On Duty: <strong>{activeShift.roleRequired}</strong> at <strong>{activeShift.eventName}</strong></span>
+                </div>
+            ) : activeEvent && (
                 <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm">
                     <EventsIcon className="w-4 h-4" />
                     <span>Logged On: <strong>{activeEvent.name}</strong></span>

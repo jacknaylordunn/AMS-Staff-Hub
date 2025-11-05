@@ -1,6 +1,7 @@
 
 
 
+
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';
@@ -128,13 +129,15 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                      <ViewSection title="Secondary Survey & Injuries">
                         <ViewField label="Assessment Findings" value={eprf.secondarySurvey} />
                          {eprf.injuries?.length > 0 ? (
-                            <ul className="list-disc list-inside mt-2 space-y-1">
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {eprf.injuries.map(injury => (
-                                    <li key={injury.id} className="dark:text-gray-300">
-                                        <span className="font-semibold">{injury.location}:</span> {injury.description}
-                                    </li>
+                                    <div key={injury.id} className="p-2 border rounded-md dark:border-gray-600 flex flex-col">
+                                        <img src={injury.drawingDataUrl} alt={injury.description} className="rounded-md bg-gray-200 dark:bg-gray-700 object-contain mb-2" />
+                                        <p className="font-semibold text-sm dark:text-gray-200 flex-grow">{injury.description}</p>
+                                        <p className="text-xs text-gray-500 capitalize">{injury.view} view</p>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                          ) : <p className="text-gray-500 dark:text-gray-400">No specific injuries logged.</p>}
                     </ViewSection>
                     

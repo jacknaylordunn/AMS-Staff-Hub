@@ -1,16 +1,15 @@
-
-
-
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment } from '../types';
-import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, EventsIcon } from '../components/icons';
+import { GoogleGenAI } from "@google/genai";
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../types';
+import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, EventsIcon, SparklesIcon, QuestionMarkCircleIcon, ShieldExclamationIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { searchPatients, addPatient } from '../services/patientService';
 import { getActiveDraftEPRF, createDraftEPRF, updateEPRF, finalizeEPRF, deleteEPRF } from '../services/eprfService';
+import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { showToast } from '../components/Toast';
@@ -23,6 +22,9 @@ import ValidationModal from '../components/ValidationModal';
 import TaggableInput from '../components/TaggableInput';
 import { DRUG_DATABASE } from '../utils/drugDatabase';
 import SignaturePad, { SignaturePadRef } from '../components/SignaturePad';
+import VitalsChart from '../components/VitalsChart';
+import QuickAddModal from '../components/QuickAddModal';
+import GuidelineAssistantModal from '../components/GuidelineAssistantModal';
 
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
 const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
@@ -49,7 +51,6 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
     case 'UPDATE_CHECKBOX_ARRAY': {
         const { field, subField, value, checked } = action;
         const parentObject = state[field as keyof EPRFForm];
-        // The parent field (e.g., 'safeguarding') is an object. We cast to `any` to safely access the sub-property (e.g., 'concerns')
         const currentArray = (parentObject as any)[subField] as string[] || [];
         
         const newArray = checked 
@@ -120,7 +121,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode; className?: 
 
 const FieldWrapper: React.FC<{ children: React.ReactNode, className?: string}> = ({children, className}) => <div className={className}>{children}</div>;
 const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
-const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
+const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-400";
 
 const InputField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; className?: string; list?: string }> = 
 ({ label, name, value, onChange, type = 'text', required = false, className, list }) => (
@@ -210,23 +211,71 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
 };
 
 
+const EventSelector: React.FC<{ onEventSelect: (event: EventLog) => void }> = ({ onEventSelect }) => {
+    const [events, setEvents] = useState<EventLog[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchActiveEvents = async () => {
+            setLoading(true);
+            try {
+                const allEvents = await getEvents();
+                // Show events that are 'Active' or 'Upcoming'
+                setEvents(allEvents.filter(e => e.status !== 'Completed'));
+            } catch (error) {
+                showToast("Could not fetch events.", "error");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchActiveEvents();
+    }, []);
+
+    return (
+        <div className="flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow h-full">
+            <EventsIcon className="w-20 h-20 text-ams-blue dark:text-ams-light-blue mb-4" />
+            <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-4">Select Event for this Report</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">Please select the event this patient report is for. If you are on duty, your active event should be highlighted.</p>
+            {loading ? (
+                <SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />
+            ) : (
+                <div className="w-full max-w-lg space-y-3">
+                    {events.length > 0 ? events.map(event => (
+                        <button
+                            key={event.id}
+                            onClick={() => onEventSelect(event)}
+                            className="w-full text-left p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-ams-light-blue hover:text-white dark:hover:bg-ams-light-blue transition-colors shadow"
+                        >
+                            <p className="font-bold text-lg">{event.name}</p>
+                            <p className="text-sm">{event.location} - {event.date}</p>
+                        </button>
+                    )) : <p>No active or upcoming events found.</p>}
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 const EPRF: React.FC = () => {
     const { user } = useAuth();
-    const { activeEvent } = useAppContext();
+    const { activeEvent: contextEvent } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = useNavigate();
     
     const clinicianSigRef = useRef<SignaturePadRef>(null);
     const patientSigRef = useRef<SignaturePadRef>(null);
+
+    const [eventForEPRF, setEventForEPRF] = useState<EventLog | null>(contextEvent);
     
-    const getInitialFormState = useCallback((): EPRFForm => {
+    const getInitialFormState = useCallback((event: EventLog | null, user: AppUser | null): EPRFForm => {
       const now = new Date();
       const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
       const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '';
       return {
         patientId: null,
-        eventId: activeEvent?.id || null,
-        eventName: activeEvent?.name || null,
+        eventId: event?.id || null,
+        eventName: event?.name || null,
         presentationType: 'Medical/Trauma',
         incidentNumber: `AMS-${Date.now()}`,
         incidentDate: now.toISOString().split('T')[0],
@@ -237,7 +286,7 @@ const EPRF: React.FC = () => {
         leftSceneTime: '',
         atDestinationTime: '',
         clearDestinationTime: '',
-        incidentLocation: activeEvent?.location || '',
+        incidentLocation: event?.location || '',
         patientName: '',
         patientAge: '',
         patientGender: 'Unknown',
@@ -277,9 +326,9 @@ const EPRF: React.FC = () => {
         status: 'Draft',
         auditLog: [],
       }
-    }, [user, activeEvent]);
+    }, []);
 
-    const [state, dispatch] = useReducer(eprfReducer, getInitialFormState());
+    const [state, dispatch] = useReducer(eprfReducer, getInitialFormState(eventForEPRF, user));
     
     const [patientSearch, setPatientSearch] = useState('');
     const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -289,6 +338,9 @@ const EPRF: React.FC = () => {
     const [isPatientModalOpen, setPatientModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isValidationModalOpen, setValidationModalOpen] = useState(false);
+    const [isQuickAddOpen, setQuickAddOpen] = useState(false);
+    const [isGuidelineModalOpen, setGuidelineModalOpen] = useState(false);
+    const [isSummarizing, setIsSummarizing] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [isFormLoading, setIsFormLoading] = useState(true);
     const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -296,42 +348,43 @@ const EPRF: React.FC = () => {
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
     const [selectedCrewMember, setSelectedCrewMember] = useState<string>('');
     const [currentStep, setCurrentStep] = useState(1);
+    const [showSafeguardingPrompt, setShowSafeguardingPrompt] = useState(false);
+    const [safeguardingCheckText, setSafeguardingCheckText] = useState('');
 
     const steps = ['Incident', 'Patient', 'Assessment', 'Vitals & Injuries', 'Treatment', 'Disposition & Signatures'];
 
-    
     useEffect(() => {
         getUsers().then(setAllStaff);
     }, []);
 
-    // Load or create draft ePRF on mount
-    const loadOrCreateDraft = useCallback(async () => {
-        if (!user || !activeEvent) return;
+    // Load or create draft ePRF once an event is selected
+    const loadOrCreateDraft = useCallback(async (event: EventLog) => {
+        if (!user) return;
         
         setIsFormLoading(true);
         setLoadingError(null);
         try {
-            let draft = await getActiveDraftEPRF(user.uid, activeEvent.id);
+            let draft = await getActiveDraftEPRF(user.uid, event.id);
             if (!draft) {
-                draft = await createDraftEPRF(getInitialFormState());
+                draft = await createDraftEPRF(getInitialFormState(event, user));
             }
             dispatch({ type: 'LOAD_DRAFT', payload: draft });
         } catch (error: any) {
             console.error("Error loading/creating draft:", error);
-            if (error.code === 'failed-precondition') {
-                 setLoadingError("Could not load ePRF. This is likely due to a database configuration issue (missing index). Please contact your administrator.");
-            } else {
-                setLoadingError("An unexpected error occurred while loading your draft. Please check your connection and try again.");
-            }
+            setLoadingError("An unexpected error occurred while loading your draft. Please check your connection and try again.");
             showToast("Could not load ePRF draft.", "error");
         } finally {
             setIsFormLoading(false);
         }
-    }, [user, activeEvent, getInitialFormState]);
+    }, [user, getInitialFormState]);
 
     useEffect(() => {
-        loadOrCreateDraft();
-    }, [loadOrCreateDraft]);
+        if (eventForEPRF) {
+            loadOrCreateDraft(eventForEPRF);
+        } else {
+            setIsFormLoading(false); // No event, so not loading a form
+        }
+    }, [eventForEPRF, loadOrCreateDraft]);
 
     // Auto-save form
     useEffect(() => {
@@ -442,6 +495,20 @@ const EPRF: React.FC = () => {
     const removeDynamicListItem = (listName: 'medicationsAdministered' | 'interventions' | 'welfareLog', index: number) => {
         dispatch({type: 'UPDATE_DYNAMIC_LIST', listName, payload: state[listName].filter((_, i) => i !== index)});
     }
+    
+     const handleQuickAdd = (type: 'vital' | 'med' | 'int', data: any) => {
+        if (type === 'vital') {
+            const newVitals = [...state.vitals, data].sort((a, b) => a.time.localeCompare(b.time));
+            dispatch({ type: 'UPDATE_VITALS', payload: newVitals });
+        } else if (type === 'med') {
+            const newList = [...state.medicationsAdministered, data].sort((a, b) => a.time.localeCompare(b.time));
+            dispatch({ type: 'UPDATE_DYNAMIC_LIST', listName: 'medicationsAdministered', payload: newList });
+        } else if (type === 'int') {
+            const newList = [...state.interventions, data].sort((a, b) => a.time.localeCompare(b.time));
+            dispatch({ type: 'UPDATE_DYNAMIC_LIST', listName: 'interventions', payload: newList });
+        }
+        showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} added.`, 'success');
+    };
 
     const handleAuthoriseMed = (index: number) => {
         if (!user) return;
@@ -560,6 +627,85 @@ const EPRF: React.FC = () => {
         const newCrew = state.crewMembers.filter(cm => cm.uid !== uid);
         dispatch({ type: 'UPDATE_FIELD', field: 'crewMembers', payload: newCrew });
     };
+    
+    const handleGenerateSummary = async () => {
+        setIsSummarizing(true);
+        try {
+             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+             const prompt = `
+              Generate a concise, professional clinical handover summary in SBAR format (Situation, Background, Assessment, Recommendation) based on the following ePRF data. The output must be plain text and only use the information provided.
+
+              **PATIENT DATA:**
+              - Name: ${state.patientName}
+              - Age: ${state.patientAge}
+              - Gender: ${state.patientGender}
+
+              **SITUATION:**
+              - Presenting Complaint: ${state.presentingComplaint}
+
+              **BACKGROUND:**
+              - History of Complaint: ${state.history}
+              - Allergies: ${state.allergies.join(', ') || 'None known'}
+              - Current Medications: ${state.medications.join(', ') || 'None'}
+              - Past Medical History: ${state.pastMedicalHistory || 'None'}
+
+              **ASSESSMENT:**
+              - Primary Survey (ABCDE): Airway: ${state.airway}, Breathing: ${state.breathing}, Circulation: ${state.circulation}, Disability: AVPU ${state.disability.avpu} GCS ${state.disability.gcs.total}, Exposure: ${state.exposure}
+              - Vital Signs Summary:
+                ${state.vitals.map(v => `  - Time: ${v.time}, HR: ${v.hr}, RR: ${v.rr}, BP: ${v.bp}, SpO2: ${v.spo2}%, Temp: ${v.temp}°C, NEWS2: ${v.news2 ?? 'N/A'}`).join('\n')}
+              - Injuries: ${state.injuries.map(i => `${i.description} (${i.view} view)`).join('; ') || 'None'}
+              - Working Impressions: ${state.impressions.join(', ') || 'Not specified'}
+
+              **RECOMMENDATION / TREATMENT:**
+              - Medications Administered:
+                ${state.medicationsAdministered.map(m => `  - ${m.time}: ${m.medication} ${m.dose} ${m.route}`).join('\n') || '  - None'}
+              - Interventions Performed:
+                ${state.interventions.map(i => `  - ${i.time}: ${i.intervention} - ${i.details}`).join('\n') || '  - None'}
+            `;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            const summary = response.text;
+            const disclaimer = "*** AI-Generated Summary (Clinician must review for accuracy before use) ***\n\n";
+            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: disclaimer + summary });
+            showToast("Handover summary generated.", "success");
+
+        } catch (error) {
+            console.error("Gemini summary failed:", error);
+            showToast("Could not generate summary.", "error");
+        } finally {
+            setIsSummarizing(false);
+        }
+    };
+
+    const handleSafeguardingCheck = async (text: string) => {
+        if (!text || text.length < 50 || text === safeguardingCheckText || !isOnline) {
+            return;
+        }
+        setSafeguardingCheckText(text);
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const systemInstruction = "You are an AI assistant trained to identify potential safeguarding concerns in clinical text based on UK safeguarding principles. Your task is to analyze the following text and determine if it contains any indicators of child abuse, adult abuse, domestic violence, neglect, or vulnerability (e.g., inconsistent injury history, concerning quotes, mentions of self-harm). Respond with ONLY the word 'true' if potential indicators are present, and ONLY the word 'false' otherwise. Do not provide any explanation or other text.";
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: text,
+                config: { systemInstruction },
+            });
+            
+            if (response.text.trim().toLowerCase() === 'true') {
+                setShowSafeguardingPrompt(true);
+            }
+
+        } catch (err) {
+            console.error("Safeguarding check failed:", err);
+            // Fail silently
+        }
+    };
+
 
     const handleFinalize = async () => {
         if (!state.id) return;
@@ -648,8 +794,10 @@ const EPRF: React.FC = () => {
         try {
             await deleteEPRF(state.id);
             showToast("Draft ePRF deleted.", "success");
-            const newDraft = await createDraftEPRF(getInitialFormState());
-            dispatch({ type: 'LOAD_DRAFT', payload: newDraft });
+            // Instead of creating new draft, go back to event selection
+            setEventForEPRF(null);
+            // reset state to initial
+            dispatch({ type: 'LOAD_DRAFT', payload: getInitialFormState(null, user) });
         } catch (error) {
             console.error("Delete failed:", error);
             showToast("Could not delete draft.", "error");
@@ -662,8 +810,8 @@ const EPRF: React.FC = () => {
     const TimeInputField: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSetTimeToNow: () => void; className?: string; }> = ({ label, name, value, onChange, onSetTimeToNow, className }) => (
         <FieldWrapper className={className}>
             <label htmlFor={name} className={labelBaseClasses}>{label}</label>
-            <div className="relative">
-                <input type="time" id={name} name={name} value={value} onChange={onChange} className={inputBaseClasses} />
+            <div className="relative flex items-center">
+                <input type="time" id={name} name={name} value={value} onChange={onChange} className={`${inputBaseClasses} w-full`} />
                 <button type="button" onClick={onSetTimeToNow} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-ams-light-blue" title="Set to now">
                     <ClockIcon className="w-5 h-5"/>
                 </button>
@@ -671,9 +819,12 @@ const EPRF: React.FC = () => {
         </FieldWrapper>
     );
 
-
     if (isFormLoading) {
         return <div className="flex items-center justify-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /><span className="ml-4 text-lg dark:text-gray-300">Loading Patient Report Form...</span></div>;
+    }
+
+    if (!eventForEPRF) {
+        return <EventSelector onEventSelect={setEventForEPRF} />;
     }
 
     if (loadingError) {
@@ -681,21 +832,8 @@ const EPRF: React.FC = () => {
             <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Form</h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">{loadingError}</p>
-                <button onClick={loadOrCreateDraft} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
+                <button onClick={() => {if(eventForEPRF) loadOrCreateDraft(eventForEPRF)}} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
                     Retry
-                </button>
-            </div>
-        );
-    }
-
-    if (!activeEvent) {
-        return (
-            <div className="flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow h-full">
-                 <EventsIcon className="w-20 h-20 text-ams-blue dark:text-ams-light-blue mb-4" />
-                <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-4">No Active Event</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">Please log on to an event from the Events page before creating an ePRF. This links the report to the correct location and time.</p>
-                <button onClick={() => navigate('/events')} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
-                    Go to Events
                 </button>
             </div>
         );
@@ -705,8 +843,31 @@ const EPRF: React.FC = () => {
         <div className="pb-24">
             <SaveStatusIndicator status={saveStatus} />
             <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
+            <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
+            <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
             <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Delete Draft ePRF" message="Are you sure you want to permanently delete this draft? This action cannot be undone." confirmText="Delete" isLoading={isDeleting}/>
             <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
+            
+            <div className="fixed bottom-24 right-6 z-40 flex flex-col gap-4">
+                <button
+                    type="button"
+                    onClick={() => setGuidelineModalOpen(true)}
+                    className="bg-ams-blue text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-transform hover:scale-110"
+                    title="Clinical Guideline Assistant"
+                    aria-label="Open Clinical Guideline Assistant"
+                >
+                    <QuestionMarkCircleIcon className="w-8 h-8" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setQuickAddOpen(true)}
+                    className="bg-ams-light-blue text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-transform hover:scale-110"
+                    title="Quick Add"
+                    aria-label="Quick Add Menu"
+                >
+                    <PlusIcon className="w-8 h-8" />
+                </button>
+            </div>
             
             {/* Stepper Navigation */}
             <div className="mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md sticky top-20 z-20">
@@ -716,12 +877,12 @@ const EPRF: React.FC = () => {
                         const isCompleted = stepNumber < currentStep;
                         const isActive = stepNumber === currentStep;
                         return (
-                            <li key={step} className={`flex w-full items-center ${stepNumber < steps.length ? "after:content-[''] after:w-full after:h-1 after:border-b after:border-4 after:inline-block " + (isCompleted ? 'after:border-ams-blue dark:after:border-ams-light-blue' : 'after:border-gray-200 dark:after:border-gray-700') : ''}`}>
-                                <button onClick={() => setCurrentStep(stepNumber)} className="flex flex-col items-center justify-center w-10 h-10 rounded-full lg:w-12 lg:h-12 shrink-0" disabled={!isCompleted && !isActive}>
-                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isActive ? 'bg-ams-light-blue' : isCompleted ? 'bg-ams-blue' : 'bg-gray-200 dark:bg-gray-700'}`}>
-                                        {isCompleted ? <CheckIcon className="w-5 h-5 text-white"/> : <span className={`font-bold ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>{stepNumber}</span>}
+                            <li key={step} className={`flex w-full items-center ${stepNumber < steps.length ? "after:content-[''] after:w-full after:h-1 after:border-b-4 after:inline-block " + (isCompleted ? 'after:border-ams-blue dark:after:border-ams-light-blue' : 'after:border-gray-200 dark:after:border-gray-700') : ''}`}>
+                                <button onClick={() => setCurrentStep(stepNumber)} className="flex flex-col items-center justify-center w-auto shrink-0" disabled={!isCompleted && !isActive}>
+                                    <div className={`flex items-center justify-center w-10 h-10 rounded-full ${isActive ? 'bg-ams-light-blue' : isCompleted ? 'bg-ams-blue' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                                        {isCompleted ? <CheckIcon className="w-6 h-6 text-white"/> : <span className={`font-bold text-lg ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>{stepNumber}</span>}
                                     </div>
-                                    <span className="hidden sm:block text-xs mt-2">{step}</span>
+                                    <span className={`hidden sm:block text-xs mt-2 ${isActive ? 'font-bold text-ams-blue dark:text-ams-light-blue' : 'text-gray-500 dark:text-gray-400'}`}>{step}</span>
                                 </button>
                             </li>
                         );
@@ -729,6 +890,18 @@ const EPRF: React.FC = () => {
                 </ol>
             </div>
 
+            {showSafeguardingPrompt && (
+                <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md dark:bg-yellow-900 dark:text-yellow-200 flex justify-between items-center">
+                    <div className="flex items-center">
+                        <ShieldExclamationIcon className="w-6 h-6 mr-3" />
+                        <div>
+                            <p className="font-bold">Potential Safeguarding Indicator</p>
+                            <p className="text-sm">The text may contain details that warrant a safeguarding review. Please document accordingly.</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setShowSafeguardingPrompt(false)} className="font-bold text-2xl">&times;</button>
+                </div>
+            )}
 
             {state.reviewNotes && (
                 <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
@@ -799,8 +972,8 @@ const EPRF: React.FC = () => {
                  {/* Step 3: Assessment */}
                  <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
                     <Section title="Clinical Assessment (SAMPLE)">
-                        <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
-                        <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} />
+                        <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} onBlur={e => handleSafeguardingCheck(e.target.value)} />
+                        <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} onBlur={e => handleSafeguardingCheck(e.target.value)} />
                         <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury ?? ''} onChange={handleChange} />
                         <TaggableInput label="Allergies" value={state.allergies} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'allergies', payload: v })} suggestions={DRUG_DATABASE} placeholder="Type to search for drug allergies..."/>
                         <TaggableInput label="Current Medications" value={state.medications} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'medications', payload: v })} suggestions={DRUG_DATABASE} placeholder="Type to search for medications..."/>
@@ -856,6 +1029,7 @@ const EPRF: React.FC = () => {
                             <div className="flex items-center justify-center p-4 bg-ams-blue dark:bg-ams-light-blue text-white dark:text-ams-blue rounded-lg font-bold text-xl lg:col-span-4 text-center">GCS Total: {state.disability.gcs.total}</div>
                             <TextAreaField label="Pupils" name="pupils" value={state.disability.pupils} onChange={e => handleNestedChange('disability', 'pupils', e)} rows={1} />
                         </Section>
+                        <VitalsChart vitals={state.vitals} />
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">Observations</h2>
@@ -864,7 +1038,7 @@ const EPRF: React.FC = () => {
                             <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="bg-gray-50 dark:bg-gray-700">{['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'BG', 'Pain', 'O2', 'NEWS2', ''].map(h => <th key={h} className="p-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{h}</th>)}</tr>
+                                    <tr className="bg-gray-50 dark:bg-gray-700">{['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'BG', 'Pain', 'O2', 'NEWS2', ''].map(h => <th key={h} className="p-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{h}</th>)}</tr>
                                 </thead>
                                 <tbody>
                                     {state.vitals.map((v, i) => (
@@ -883,7 +1057,7 @@ const EPRF: React.FC = () => {
                             </div>
                         </div>
                         <Section title="Secondary Survey & Injuries">
-                            <SpeechEnabledTextArea label="Further Assessment Findings" name="secondarySurvey" value={state.secondarySurvey} onChange={handleChange} />
+                            <SpeechEnabledTextArea label="Further Assessment Findings" name="secondarySurvey" value={state.secondarySurvey} onChange={handleChange} onBlur={e => handleSafeguardingCheck(e.target.value)} />
                             <FieldWrapper className="md:col-span-2 lg:col-span-4">
                                 <InteractiveBodyMap value={state.injuries} onChange={handleInjuriesChange} />
                             </FieldWrapper>
@@ -983,7 +1157,23 @@ const EPRF: React.FC = () => {
                             <TextAreaField label="Referral Details" name="referralDetails" value={state.dispositionDetails.referralDetails} onChange={e => handleNestedChange('dispositionDetails', 'referralDetails', e)} />
                         }
 
-                        <SpeechEnabledTextArea label="Handover Details" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} />
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <div className="flex items-center gap-4 mb-1">
+                                <label htmlFor="handoverDetails" className={labelBaseClasses}>Handover Details</label>
+                                {isOnline && (
+                                    <button 
+                                        type="button" 
+                                        onClick={handleGenerateSummary} 
+                                        disabled={isSummarizing}
+                                        className="flex items-center gap-1 text-sm text-ams-blue dark:text-ams-light-blue font-semibold hover:opacity-80 disabled:opacity-50 disabled:cursor-wait"
+                                    >
+                                        {isSummarizing ? <SpinnerIcon className="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
+                                        {isSummarizing ? 'Generating...' : 'Generate Summary'}
+                                    </button>
+                                )}
+                            </div>
+                            <SpeechEnabledTextArea label="" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} className="" />
+                        </FieldWrapper>
                     </Section>
                     
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">

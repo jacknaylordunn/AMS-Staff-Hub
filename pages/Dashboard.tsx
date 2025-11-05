@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -6,7 +8,9 @@ import { getActiveDraftForUser, getRecentEPRFsForUser } from '../services/eprfSe
 import { getShiftsForUser } from '../services/rotaService';
 import { getNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
 import type { EPRFForm, Shift, Notification } from '../types';
-import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon } from '../components/icons';
+import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon, QrCodeIcon } from '../components/icons';
+import { showToast } from '../components/Toast';
+import QrScannerModal from '../components/QrScannerModal';
 
 const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string, description: string }> = ({ to, icon, title, description }) => (
     <Link to={to} className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -18,6 +22,18 @@ const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string
             </div>
         </div>
     </Link>
+);
+
+const DashboardButtonCard: React.FC<{ onClick: () => void, icon: React.ReactNode, title: string, description: string }> = ({ onClick, icon, title, description }) => (
+    <button onClick={onClick} className="w-full text-left p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div className="flex items-center">
+            {icon}
+            <div className="ml-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">{title}</h2>
+                <p className="text-gray-600 dark:text-gray-400">{description}</p>
+            </div>
+        </div>
+    </button>
 );
 
 const NotificationsPanel: React.FC<{ notifications: Notification[], onDismiss: (id: string) => void }> = ({ notifications, onDismiss }) => {
@@ -73,12 +89,13 @@ const RecentPatientsPanel: React.FC<{ eprfs: EPRFForm[] }> = ({ eprfs }) => (
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
-    const { activeEvent, clearActiveEvent } = useAppContext();
+    const { activeEvent, activeShift, clearActiveSession } = useAppContext();
+    const navigate = useNavigate();
     const [activeDraft, setActiveDraft] = useState<EPRFForm | null>(null);
     const [nextShift, setNextShift] = useState<Shift | null>(null);
-    const [activeShift, setActiveShift] = useState<Shift | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [recentEprfs, setRecentEprfs] = useState<EPRFForm[]>([]);
+    const [isScannerOpen, setScannerOpen] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -88,10 +105,6 @@ const Dashboard: React.FC = () => {
             
             const today = new Date();
             getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()).then(shifts => {
-                const now = new Date();
-                const currentShift = shifts.find(s => now >= s.start.toDate() && now <= s.end.toDate());
-                setActiveShift(currentShift || null);
-
                 const upcomingShifts = shifts
                     .filter(s => s.start.toDate() > today && !s.isUnavailability)
                     .sort((a, b) => a.start.toMillis() - b.start.toMillis());
@@ -108,8 +121,23 @@ const Dashboard: React.FC = () => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
+    const handleQrScan = (qrValue: string) => {
+        if (qrValue.startsWith('aegis-vehicle-qr:')) {
+            const vehicleId = qrValue.split(':')[1];
+            if (vehicleId) {
+                navigate(`/assets/vehicle/${vehicleId}`);
+                showToast(`Loading vehicle...`, 'info');
+            } else {
+                showToast('Invalid vehicle QR code.', 'error');
+            }
+        } else {
+            showToast('Not a valid Aegis vehicle QR code.', 'error');
+        }
+    };
+
     return (
         <div>
+            <QrScannerModal isOpen={isScannerOpen} onClose={() => setScannerOpen(false)} onScan={handleQrScan} />
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome back, {user?.firstName || 'team member'}!</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
@@ -127,7 +155,7 @@ const Dashboard: React.FC = () => {
                                 {activeShift && <p className="text-sm text-green-600 dark:text-green-400">Your shift ends at {activeShift.end.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p>}
                             </div>
                         </div>
-                        <button onClick={clearActiveEvent} className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                        <button onClick={clearActiveSession} className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
                             <LogoutIcon className="w-5 h-5 mr-2" /> Log Off
                         </button>
                     </div>
@@ -162,6 +190,12 @@ const Dashboard: React.FC = () => {
                     icon={<EprfIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />} 
                     title="New ePRF" 
                     description="Start a new electronic Patient Report Form." 
+                />
+                 <DashboardButtonCard
+                    onClick={() => setScannerOpen(true)}
+                    icon={<QrCodeIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />}
+                    title="Scan Vehicle"
+                    description="Scan a QR code to begin vehicle checks."
                 />
                  <DashboardCard 
                     to="/patients" 

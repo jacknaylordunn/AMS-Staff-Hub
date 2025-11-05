@@ -208,8 +208,8 @@ export interface Intervention {
 
 export interface Injury {
     id: string;
-    location: string; // e.g. 'Head (Anterior)'
-    locationId: string; // e.g. 'head-ant' for SVG path id
+    view: 'anterior' | 'posterior';
+    drawingDataUrl: string; // base64 data URL of the canvas drawing
     description: string;
 }
 

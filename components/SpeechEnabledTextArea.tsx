@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MicrophoneIcon } from './icons';
 
@@ -9,6 +8,7 @@ interface SpeechEnabledTextAreaProps {
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
     rows?: number;
     className?: string;
+    onBlur?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
 }
 
 // Check for browser support
@@ -20,7 +20,7 @@ if (recognition) {
     recognition.interimResults = true;
 }
 
-const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, name, value, onChange, rows = 3, className = "md:col-span-2 lg:col-span-4" }) => {
+const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, name, value, onChange, rows = 3, className = "md:col-span-2 lg:col-span-4", onBlur }) => {
     const [isListening, setIsListening] = useState(false);
     const [speechSupported, setSpeechSupported] = useState(!!recognition);
 
@@ -89,7 +89,7 @@ const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, na
         <div className={className}>
             <label htmlFor={name} className={labelBaseClasses}>{label}</label>
             <div className="relative">
-                <textarea id={name} name={name} value={value} onChange={onChange} rows={rows} className={inputBaseClasses} />
+                <textarea id={name} name={name} value={value} onChange={onChange} onBlur={onBlur} rows={rows} className={inputBaseClasses} />
                 {speechSupported && (
                     <button
                         type="button"
