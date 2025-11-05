@@ -86,6 +86,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                   <PatientsIcon className="w-6 h-6 mr-3" />
                   Staff
                 </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/staff-analytics" className={navLinkClasses} onClick={handleLinkClick}>
+                  <ChartIcon className="w-6 h-6 mr-3" />
+                  Staff Analytics
+                </ReactRouterDOM.NavLink>
                 <ReactRouterDOM.NavLink to="/major-incidents" className={navLinkClasses} onClick={handleLinkClick}>
                   <ShieldExclamationIcon className="w-6 h-6 mr-3" />
                   Major Incidents

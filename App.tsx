@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -35,6 +37,8 @@ import ControlledDrugs from './pages/ControlledDrugs';
 import Wellbeing from './pages/Wellbeing';
 import Quality from './pages/Quality';
 import Staff from './pages/Staff';
+import StaffDetail from './pages/StaffDetail';
+import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
 import { signOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from './services/firebase';
@@ -200,6 +204,22 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
                             <Staff />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <ReactRouterDOM.Route 
+                    path="staff/:userId" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <StaffDetail />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <ReactRouterDOM.Route 
+                    path="staff-analytics" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <StaffAnalytics />
                         </ProtectedRoute>
                     } 
                 />

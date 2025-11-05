@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getActiveDraftForUser, getPendingEPRFs } from '../services/eprfService';
+import { getAllDraftsForUser, getPendingEPRFs } from '../services/eprfService';
 import { getShiftsForUser } from '../services/rotaService';
 import { getActiveIncidents } from '../services/majorIncidentService';
 import { getUsers } from '../services/userService';
@@ -59,7 +59,7 @@ const Dashboard: React.FC = () => {
     const navigate = ReactRouterDOM.useNavigate();
     
     // Data State
-    const [activeDraft, setActiveDraft] = useState<EPRFForm | null>(null);
+    const [drafts, setDrafts] = useState<EPRFForm[]>([]);
     const [nextShift, setNextShift] = useState<Shift | null>(null);
     const [activeIncident, setActiveIncident] = useState<MajorIncident | null>(null);
     const [pendingReviews, setPendingReviews] = useState<EPRFForm[]>([]);
@@ -76,7 +76,7 @@ const Dashboard: React.FC = () => {
             const fetchData = async () => {
                 const today = new Date();
                 const promises: Promise<any>[] = [
-                    getActiveDraftForUser(user.uid),
+                    getAllDraftsForUser(user.uid),
                     getActiveIncidents(),
                     getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
                 ];
@@ -98,7 +98,7 @@ const Dashboard: React.FC = () => {
                 if (hadError) showToast("Failed to load some dashboard data.", "error");
                 
                 // Process successful results
-                if (results[0].status === 'fulfilled') setActiveDraft(results[0].value as EPRFForm | null);
+                if (results[0].status === 'fulfilled') setDrafts(results[0].value as EPRFForm[]);
                 if (results[1].status === 'fulfilled') setActiveIncident((results[1].value as MajorIncident[])[0] || null);
                 if (results[2].status === 'fulfilled') {
                     const shifts = results[2].value as Shift[];
@@ -157,11 +157,12 @@ const Dashboard: React.FC = () => {
                 color="border-blue-500 bg-blue-50 dark:bg-blue-900/20"
             />;
         }
-        if (activeDraft) {
-             return <AtAGlanceCard 
+        if (drafts.length > 0) {
+            const plural = drafts.length > 1 ? 's' : '';
+            return <AtAGlanceCard 
                 icon={<EprfIcon className="w-12 h-12 text-yellow-500" />}
-                title="Unfinished ePRF Draft"
-                text={`For ${activeDraft.patientName || 'a patient'} from ${activeDraft.incidentDate}`}
+                title={`${drafts.length} Unfinished ePRF Draft${plural}`}
+                text={`Click to continue your report${plural}.`}
                 to="/eprf"
                 color="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
             />;

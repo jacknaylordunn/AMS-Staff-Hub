@@ -13,6 +13,15 @@ export const getShiftsForMonth = async (year: number, month: number): Promise<Sh
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
 };
 
+export const getShiftsForDateRange = async (startDate: Date, endDate: Date): Promise<Shift[]> => {
+    const start = Timestamp.fromDate(startDate);
+    const end = Timestamp.fromDate(endDate);
+    const shiftsCol = collection(db, 'shifts');
+    const q = query(shiftsCol, where('start', '>=', start), where('start', '<=', end));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+};
+
 export const getShiftsForUser = async (uid: string, year: number, month: number): Promise<Shift[]> => {
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 1);

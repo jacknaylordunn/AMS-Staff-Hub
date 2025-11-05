@@ -1,14 +1,26 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface ComplianceDocument {
+  id: string;
+  name: string;
+  url: string;
+  fileName: string;
+  expiryDate?: string; // YYYY-MM-DD
+  uploadedAt: Timestamp;
+}
+
 export interface User {
   uid: string;
   email: string | null;
   firstName: string;
   lastName: string;
+  phone?: string;
+  address?: string;
   role?: 'Pending' | 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   pendingRole?: User['role'];
   registrationNumber?: string;
   createdAt?: Timestamp;
+  complianceDocuments?: ComplianceDocument[];
 }
 
 export interface Patient {

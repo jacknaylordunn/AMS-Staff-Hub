@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUserProfile } from '../services/userService';
 import type { User } from '../types';
 import { SpinnerIcon } from '../components/icons';
@@ -10,7 +11,7 @@ const Staff: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filter, setFilter] = useState<'pending-registration' | 'pending-role-change' | 'all'>('pending-registration');
+    const [filter, setFilter] = useState<'pending-registration' | 'pending-role-change' | 'all'>('all');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -18,6 +19,7 @@ const Staff: React.FC = () => {
     const [isApprovalModalOpen, setApprovalModalOpen] = useState(false);
     const [isDeclineModalOpen, setDeclineModalOpen] = useState(false);
     const [userToDecline, setUserToDecline] = useState<User | null>(null);
+    const navigate = useNavigate();
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -184,14 +186,18 @@ const Staff: React.FC = () => {
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 {filteredUsers.map(user => (
-                                    <tr key={user.uid} className={editingUser?.uid === user.uid ? 'bg-blue-50 dark:bg-gray-700/50' : (user.role === 'Pending' || user.pendingRole) ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
+                                    <tr key={user.uid} 
+                                        onClick={() => navigate(`/staff/${user.uid}`)} 
+                                        className={`cursor-pointer group hover:bg-gray-50 dark:hover:bg-gray-700/50 ${editingUser?.uid === user.uid ? 'bg-blue-50 dark:bg-gray-700/50' : (user.role === 'Pending' || user.pendingRole) ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{user.firstName} {user.lastName}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{user.email}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                                             {editingUser?.uid === user.uid ? (
                                                 <select
                                                     defaultValue={user.role}
-                                                    onChange={(e) => handleRoleChange(user.uid, e.target.value as User['role'])}
+                                                    onChange={(e) => { e.stopPropagation(); handleRoleChange(user.uid, e.target.value as User['role']); }}
+                                                    onClick={e => e.stopPropagation()}
                                                     className="p-1 border rounded-md dark:bg-gray-600 dark:border-gray-500"
                                                     disabled={isSaving} autoFocus
                                                 >
@@ -202,23 +208,25 @@ const Staff: React.FC = () => {
                                             ) : ( user.role || 'Not set' )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            {editingUser?.uid === user.uid ? (
-                                                <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-700" disabled={isSaving}>Cancel</button>
-                                            ) : user.pendingRole ? (
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleApproveRoleChange(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve</button>
-                                                    <button onClick={() => handleRejectRoleChange(user.uid)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Reject</button>
-                                                </div>
-                                            ) : user.role === 'Pending' ? (
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => setEditingUser(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve & Assign Role</button>
-                                                    <button onClick={() => handleDeclineUser(user)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Decline</button>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => setEditingUser(user)} className="text-ams-light-blue hover:text-ams-blue" disabled={isSaving}>
-                                                    Edit Role
-                                                </button>
-                                            )}
+                                            <div onClick={e => e.stopPropagation()}>
+                                                {editingUser?.uid === user.uid ? (
+                                                    <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-700" disabled={isSaving}>Cancel</button>
+                                                ) : user.pendingRole ? (
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleApproveRoleChange(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve</button>
+                                                        <button onClick={() => handleRejectRoleChange(user.uid)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Reject</button>
+                                                    </div>
+                                                ) : user.role === 'Pending' ? (
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => setEditingUser(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve & Assign</button>
+                                                        <button onClick={() => handleDeclineUser(user)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Decline</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setEditingUser(user)} className="text-ams-light-blue hover:text-ams-blue opacity-0 group-hover:opacity-100 transition-opacity" disabled={isSaving}>
+                                                        Edit Role
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

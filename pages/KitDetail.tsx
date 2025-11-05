@@ -10,7 +10,7 @@ import KitCheckModal from '../components/KitCheckModal';
 
 const KitDetail: React.FC = () => {
     const { kitId } = useParams<{ kitId: string }>();
-    const { user } = useAuth();
+    const { user, isManager } = useAuth();
     const { isOnline } = useOnlineStatus();
     const navigate = useNavigate();
     const [kit, setKit] = useState<Kit | null>(null);
@@ -63,6 +63,18 @@ const KitDetail: React.FC = () => {
     const handlePrintQr = () => {
         if (kit) {
             navigate(`/print/kit/${kit.id}`);
+        }
+    };
+
+    const handleGenerateQr = async () => {
+        if (!kit || !kit.id || !isManager) return;
+        const qrCodeValue = `aegis-kit-qr:${kit.id}`;
+        try {
+            await updateKit(kit.id, { qrCodeValue });
+            showToast("QR Code generated successfully!", "success");
+            fetchData(); // Reload data to show the new QR code
+        } catch (e) {
+            showToast("Failed to generate QR Code.", "error");
         }
     };
 
@@ -125,34 +137,42 @@ const KitDetail: React.FC = () => {
                                 <p className={`font-bold ${kit.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{kit.lastCheck.status}</p>
                             </div>
                         )}
-                        {kit.qrCodeValue && (
-                             <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                                <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
-                                <div className="flex justify-center">
-                                     <img 
-                                        id="qr-code-img" 
-                                        src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}&choe=UTF-8`} 
-                                        alt="Kit QR Code"
-                                    />
-                                </div>
-                                <div className="flex items-center justify-center gap-1 mt-2">
-                                    <p className="text-xs text-gray-500 font-mono break-all">{kit.qrCodeValue}</p>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(kit.qrCodeValue!);
-                                            showToast('QR Value Copied!', 'success');
-                                        }}
-                                        className="p-1 text-gray-400 hover:text-ams-blue"
-                                        title="Copy QR Value"
-                                    >
-                                        <CopyIcon className="w-4 h-4" />
+                        <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                            <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
+                            {kit.qrCodeValue ? (
+                                <>
+                                    <div className="flex justify-center">
+                                        <img 
+                                            id="qr-code-img" 
+                                            src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}&choe=UTF-8`} 
+                                            alt="Kit QR Code"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-center gap-1 mt-2">
+                                        <p className="text-xs text-gray-500 font-mono break-all">{kit.qrCodeValue}</p>
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(kit.qrCodeValue!);
+                                                showToast('QR Value Copied!', 'success');
+                                            }}
+                                            className="p-1 text-gray-400 hover:text-ams-blue"
+                                            title="Copy QR Value"
+                                        >
+                                            <CopyIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
+                                        Print
                                     </button>
-                                </div>
-                                <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
-                                    Print
+                                </>
+                            ) : isManager ? (
+                                <button onClick={handleGenerateQr} className="w-full px-4 py-2 bg-ams-blue text-white rounded-md">
+                                    Generate QR Code
                                 </button>
-                            </div>
-                        )}
+                            ) : (
+                                <p className="text-sm text-gray-500">No QR code assigned.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
