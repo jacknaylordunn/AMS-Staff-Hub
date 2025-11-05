@@ -1,11 +1,11 @@
 
 
+
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
-import { GoogleGenAI, Type } from "@google/genai";
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, ClinicalSuggestion, Attachment } from '../types';
-import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, SparklesIcon, CameraIcon } from '../components/icons';
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment } from '../types';
+import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -90,6 +90,17 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
             allergies: stringToArray(action.payload.allergies),
             medications: stringToArray(action.payload.medications),
             pastMedicalHistory: action.payload.medicalHistory,
+        };
+    case 'CLEAR_PATIENT':
+        return {
+            ...state,
+            patientId: null,
+            patientName: '',
+            patientAge: '',
+            patientGender: 'Unknown',
+            allergies: [],
+            medications: [],
+            pastMedicalHistory: '',
         };
     case 'CLEAR_FORM':
       return action.payload;
@@ -284,8 +295,10 @@ const EPRF: React.FC = () => {
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
     const [selectedCrewMember, setSelectedCrewMember] = useState<string>('');
-    const [suggestions, setSuggestions] = useState<ClinicalSuggestion | null>(null);
-    const [isSuggesting, setIsSuggesting] = useState(false);
+    const [currentStep, setCurrentStep] = useState(1);
+
+    const steps = ['Incident', 'Patient', 'Assessment', 'Vitals & Injuries', 'Treatment', 'Disposition & Signatures'];
+
     
     useEffect(() => {
         getUsers().then(setAllStaff);
@@ -378,6 +391,17 @@ const EPRF: React.FC = () => {
             console.error(error);
             showToast('Failed to create patient.', 'error');
         }
+    };
+
+    const handleSetTimeToNow = (fieldName: keyof EPRFForm) => () => {
+        const timeString = new Date().toTimeString().split(' ')[0].substring(0, 5);
+        dispatch({ type: 'UPDATE_FIELD', field: fieldName, payload: timeString });
+    };
+
+    // FIX: Add helper to set time for nested fields to support the refactored TimeInputField.
+    const handleSetTimeToNowNested = (field: string, subField: string) => () => {
+        const timeString = new Date().toTimeString().split(' ')[0].substring(0, 5);
+        dispatch({ type: 'UPDATE_NESTED_FIELD', field, subField, payload: timeString });
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => dispatch({ type: 'UPDATE_FIELD', field: e.target.name, payload: e.target.value });
@@ -535,68 +559,6 @@ const EPRF: React.FC = () => {
         dispatch({ type: 'UPDATE_FIELD', field: 'crewMembers', payload: newCrew });
     };
 
-    const handleGetSuggestions = async () => {
-        setIsSuggesting(true);
-        setSuggestions(null);
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            
-            const latestVitals = state.vitals[state.vitals.length - 1];
-            const prompt = `
-                You are a clinical decision support tool for pre-hospital clinicians.
-                Based on the following patient assessment, provide a list of 3 likely differential diagnoses (impressions) and suggest 3 key management actions or interventions.
-                Be concise and format for a clinical setting.
-
-                Patient Age: ${state.patientAge}
-                Patient Gender: ${state.patientGender}
-                Presenting Complaint: ${state.presentingComplaint}
-                History: ${state.history}
-                Past Medical History: ${state.pastMedicalHistory}
-                Allergies: ${state.allergies.join(', ')}
-                Medications: ${state.medications.join(', ')}
-                Latest Vitals: 
-                - HR: ${latestVitals.hr}
-                - RR: ${latestVitals.rr}
-                - BP: ${latestVitals.bp}
-                - SpO2: ${latestVitals.spo2}% ${latestVitals.onOxygen ? 'on Oxygen' : ''}
-                - Temp: ${latestVitals.temp}°C
-            `;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            impressions: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: "A list of 3 likely differential diagnoses or clinical impressions."
-                            },
-                            interventions: {
-                                type: Type.ARRAY,
-                                items: { type: Type.STRING },
-                                description: "A list of 3 key recommended interventions or management actions."
-                            }
-                        }
-                    }
-                }
-            });
-            
-            const jsonText = response.text.trim();
-            const suggestionData = JSON.parse(jsonText) as ClinicalSuggestion;
-            setSuggestions(suggestionData);
-
-        } catch (error) {
-            console.error("Error getting AI suggestions:", error);
-            showToast("Could not get AI suggestions. Please check the clinical data.", "error");
-        } finally {
-            setIsSuggesting(false);
-        }
-    };
-
     const handleFinalize = async () => {
         if (!state.id) return;
         
@@ -683,6 +645,19 @@ const EPRF: React.FC = () => {
         }
     };
 
+    // FIX: Refactored TimeInputField to accept a generic name (string) and an onSetTimeToNow callback to handle both top-level and nested fields correctly, fixing the original TypeScript error.
+    const TimeInputField: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSetTimeToNow: () => void; className?: string; }> = ({ label, name, value, onChange, onSetTimeToNow, className }) => (
+        <FieldWrapper className={className}>
+            <label htmlFor={name} className={labelBaseClasses}>{label}</label>
+            <div className="relative">
+                <input type="time" id={name} name={name} value={value} onChange={onChange} className={inputBaseClasses} />
+                <button type="button" onClick={onSetTimeToNow} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-ams-light-blue" title="Set to now">
+                    <ClockIcon className="w-5 h-5"/>
+                </button>
+            </div>
+        </FieldWrapper>
+    );
+
 
     if (isFormLoading) {
         return <div className="flex items-center justify-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /><span className="ml-4 text-lg dark:text-gray-300">Loading Patient Report Form...</span></div>;
@@ -713,11 +688,33 @@ const EPRF: React.FC = () => {
     }
     
     return (
-        <div>
+        <div className="pb-24">
             <SaveStatusIndicator status={saveStatus} />
             <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
             <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Delete Draft ePRF" message="Are you sure you want to permanently delete this draft? This action cannot be undone." confirmText="Delete" isLoading={isDeleting}/>
             <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
+            
+            {/* Stepper Navigation */}
+            <div className="mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md sticky top-20 z-20">
+                <ol className="flex items-center w-full">
+                    {steps.map((step, index) => {
+                        const stepNumber = index + 1;
+                        const isCompleted = stepNumber < currentStep;
+                        const isActive = stepNumber === currentStep;
+                        return (
+                            <li key={step} className={`flex w-full items-center ${stepNumber < steps.length ? "after:content-[''] after:w-full after:h-1 after:border-b after:border-4 after:inline-block " + (isCompleted ? 'after:border-ams-blue dark:after:border-ams-light-blue' : 'after:border-gray-200 dark:after:border-gray-700') : ''}`}>
+                                <button onClick={() => setCurrentStep(stepNumber)} className="flex flex-col items-center justify-center w-10 h-10 rounded-full lg:w-12 lg:h-12 shrink-0" disabled={!isCompleted && !isActive}>
+                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isActive ? 'bg-ams-light-blue' : isCompleted ? 'bg-ams-blue' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                                        {isCompleted ? <CheckIcon className="w-5 h-5 text-white"/> : <span className={`font-bold ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>{stepNumber}</span>}
+                                    </div>
+                                    <span className="hidden sm:block text-xs mt-2">{step}</span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ol>
+            </div>
+
 
             {state.reviewNotes && (
                 <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
@@ -732,120 +729,122 @@ const EPRF: React.FC = () => {
             )}
             
             <form>
-                <Section title="Incident & Timestamps">
-                    <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange} className="lg:col-span-2">
-                        <option>Medical/Trauma</option>
-                        <option>Minor Injury</option>
-                        <option>Welfare/Intox</option>
-                    </SelectField>
-                    <InputField label="Incident #" name="incidentNumber" value={state.incidentNumber} onChange={handleChange} />
-                    <InputField label="Incident Date" name="incidentDate" type="date" value={state.incidentDate} onChange={handleChange} />
-                    <InputField label="Incident Time" name="incidentTime" type="time" value={state.incidentTime} onChange={handleChange} />
-                    <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-2 lg:col-span-3"/>
-                    <InputField label="Time of Call" name="timeOfCall" type="time" value={state.timeOfCall} onChange={handleChange} />
-                    <InputField label="On Scene Time" name="onSceneTime" type="time" value={state.onSceneTime} onChange={handleChange} />
-                    <InputField label="At Patient Time" name="atPatientTime" type="time" value={state.atPatientTime} onChange={handleChange} />
-                    <InputField label="Left Scene Time" name="leftSceneTime" type="time" value={state.leftSceneTime} onChange={handleChange} />
-                    <InputField label="At Destination Time" name="atDestinationTime" type="time" value={state.atDestinationTime} onChange={handleChange} />
-                    <InputField label="Clear Time" name="clearDestinationTime" type="time" value={state.clearDestinationTime} onChange={handleChange} />
-                </Section>
-                
-                <Section title="Patient Demographics">
-                    <FieldWrapper className="relative md:col-span-2 lg:col-span-3">
-                        <label className={labelBaseClasses}>Search Existing Patient</label>
-                        <input type="text" placeholder="Name or DOB..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className={inputBaseClasses} />
-                        {searchLoading && <SpinnerIcon className="absolute right-3 top-9 w-5 h-5 text-gray-400" />}
-                        {searchResults.length > 0 && (
-                            <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
-                                {searchResults.map(p => <li key={p.id} onClick={() => handleSelectPatient(p)} className="px-4 py-2 cursor-pointer hover:bg-ams-light-blue hover:text-white dark:text-gray-200">{p.firstName} {p.lastName} - {p.dob}</li>)}
-                            </ul>
-                        )}
-                    </FieldWrapper>
-                     <FieldWrapper className="flex items-end">
-                        <button type="button" onClick={() => setPatientModalOpen(true)} className="w-full h-10 px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5 inline mr-2"/>New Patient</button>
-                    </FieldWrapper>
-                     <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required/>
-                     <InputField label="Patient Age" name="patientAge" value={state.patientAge} onChange={handleChange} required/>
-                     <SelectField label="Patient Gender" name="patientGender" value={state.patientGender} onChange={handleChange}>
-                        <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
-                    </SelectField>
-                </Section>
-
-                <Section title="Clinical Assessment (SAMPLE)">
-                    <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
-                    <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} />
-                    <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury ?? ''} onChange={handleChange} />
-                    <TaggableInput 
-                        label="Allergies"
-                        value={state.allergies}
-                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'allergies', payload: v })}
-                        suggestions={DRUG_DATABASE}
-                        placeholder="Type to search for drug allergies..."
-                    />
-                    <TaggableInput 
-                        label="Current Medications"
-                        value={state.medications}
-                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'medications', payload: v })}
-                        suggestions={DRUG_DATABASE}
-                        placeholder="Type to search for medications..."
-                    />
-                    <TextAreaField label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} rows={2}/>
-                    <TextAreaField label="Last Meal / Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} rows={2}/>
-                </Section>
-                
-                {state.presentationType === 'Welfare/Intox' && (
-                    <Section title="Welfare Log">
-                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className={labelBaseClasses}>Log Entries</h3>
-                                <button type="button" onClick={() => addDynamicListItem('welfareLog')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Entry</button>
-                            </div>
-                            <div className="space-y-2">
-                            {state.welfareLog.map((item, index) => (
-                                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                    <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-3`} />
-                                    <input type="text" name="observation" placeholder="Observation / Action" value={item.observation} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-8`} />
-                                    <button type="button" onClick={() => removeDynamicListItem('welfareLog', index)} aria-label="Remove welfare log entry" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
-                                </div>
-                            ))}
-                            </div>
-                        </FieldWrapper>
+                {/* Step 1: Incident */}
+                <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
+                    <Section title="Incident & Timestamps">
+                        <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange} className="lg:col-span-2">
+                            <option>Medical/Trauma</option>
+                            <option>Minor Injury</option>
+                            <option>Welfare/Intox</option>
+                        </SelectField>
+                        <InputField label="Incident #" name="incidentNumber" value={state.incidentNumber} onChange={handleChange} />
+                        <InputField label="Incident Date" name="incidentDate" type="date" value={state.incidentDate} onChange={handleChange} />
+                        <TimeInputField label="Incident Time" name="incidentTime" value={state.incidentTime} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('incidentTime')} />
+                        <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-2 lg:col-span-3"/>
+                        <TimeInputField label="Time of Call" name="timeOfCall" value={state.timeOfCall || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('timeOfCall')} />
+                        <TimeInputField label="On Scene Time" name="onSceneTime" value={state.onSceneTime || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('onSceneTime')} />
+                        <TimeInputField label="At Patient Time" name="atPatientTime" value={state.atPatientTime || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('atPatientTime')} />
+                        <TimeInputField label="Left Scene Time" name="leftSceneTime" value={state.leftSceneTime || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('leftSceneTime')} />
+                        <TimeInputField label="At Destination Time" name="atDestinationTime" value={state.atDestinationTime || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('atDestinationTime')} />
+                        <TimeInputField label="Clear Time" name="clearDestinationTime" value={state.clearDestinationTime || ''} onChange={handleChange} onSetTimeToNow={handleSetTimeToNow('clearDestinationTime')} />
                     </Section>
-                )}
+                </div>
 
+                {/* Step 2: Patient */}
+                 <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
+                    <Section title="Patient Demographics">
+                        <FieldWrapper className="relative md:col-span-2 lg:col-span-3">
+                            <label className={labelBaseClasses}>Search Existing Patient</label>
+                            <input type="text" placeholder="Name or DOB..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} className={inputBaseClasses} />
+                            {searchLoading && <SpinnerIcon className="absolute right-3 top-9 w-5 h-5 text-gray-400" />}
+                            {searchResults.length > 0 && (
+                                <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    {searchResults.map(p => <li key={p.id} onClick={() => handleSelectPatient(p)} className="px-4 py-2 cursor-pointer hover:bg-ams-light-blue hover:text-white dark:text-gray-200">{p.firstName} {p.lastName} - {p.dob}</li>)}
+                                </ul>
+                            )}
+                        </FieldWrapper>
+                        <FieldWrapper className="flex items-end">
+                            <button type="button" onClick={() => setPatientModalOpen(true)} className="w-full h-10 px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5 inline mr-2"/>New Patient</button>
+                        </FieldWrapper>
 
-                {state.presentationType !== 'Welfare/Intox' &&
-                    <>
-                        <Section title="Pain Assessment (OPQRST)">
-                            <InputField label="Onset" name="onset" value={state.painAssessment.onset} onChange={e => handleNestedChange('painAssessment', 'onset', e)} />
-                            <InputField label="Provocation" name="provocation" value={state.painAssessment.provocation} onChange={e => handleNestedChange('painAssessment', 'provocation', e)} />
-                            <InputField label="Quality" name="quality" value={state.painAssessment.quality} onChange={e => handleNestedChange('painAssessment', 'quality', e)} />
-                            <InputField label="Radiation" name="radiation" value={state.painAssessment.radiation} onChange={e => handleNestedChange('painAssessment', 'radiation', e)} />
-                            <InputField label="Time" name="time" type="time" value={state.painAssessment.time} onChange={e => handleNestedChange('painAssessment', 'time', e)} />
-                             <SelectField label="Severity" name="severity" value={state.painAssessment.severity} onChange={e => handleNestedChange('painAssessment', 'severity', e)}>
-                                {Array.from({length: 11}, (_, i) => <option key={i} value={i}>{i}</option>)}
-                            </SelectField>
+                        {state.patientId && (
+                            <div className="md:col-span-2 lg:col-span-4 flex items-center gap-4 p-3 bg-green-50 dark:bg-green-900/50 rounded-md border border-green-200 dark:border-green-800">
+                                <p className="font-semibold text-green-800 dark:text-green-200">Selected Patient: {state.patientName}</p>
+                                <button type="button" onClick={() => dispatch({ type: 'CLEAR_PATIENT' })} className="text-sm font-bold text-red-600 hover:underline">Clear</button>
+                            </div>
+                        )}
+
+                        <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required/>
+                        <InputField label="Patient Age" name="patientAge" value={state.patientAge} onChange={handleChange} required/>
+                        <SelectField label="Patient Gender" name="patientGender" value={state.patientGender} onChange={handleChange}>
+                            <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
+                        </SelectField>
+                    </Section>
+                 </div>
+                
+                 {/* Step 3: Assessment */}
+                 <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
+                    <Section title="Clinical Assessment (SAMPLE)">
+                        <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
+                        <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} />
+                        <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury ?? ''} onChange={handleChange} />
+                        <TaggableInput label="Allergies" value={state.allergies} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'allergies', payload: v })} suggestions={DRUG_DATABASE} placeholder="Type to search for drug allergies..."/>
+                        <TaggableInput label="Current Medications" value={state.medications} onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'medications', payload: v })} suggestions={DRUG_DATABASE} placeholder="Type to search for medications..."/>
+                        <TextAreaField label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} rows={2}/>
+                        <TextAreaField label="Last Meal / Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} rows={2}/>
+                    </Section>
+                    {state.presentationType === 'Medical/Trauma' &&
+                    <Section title="Pain Assessment (OPQRST)">
+                        <InputField label="Onset" name="onset" value={state.painAssessment.onset} onChange={e => handleNestedChange('painAssessment', 'onset', e)} />
+                        <InputField label="Provocation" name="provocation" value={state.painAssessment.provocation} onChange={e => handleNestedChange('painAssessment', 'provocation', e)} />
+                        <InputField label="Quality" name="quality" value={state.painAssessment.quality} onChange={e => handleNestedChange('painAssessment', 'quality', e)} />
+                        <InputField label="Radiation" name="radiation" value={state.painAssessment.radiation} onChange={e => handleNestedChange('painAssessment', 'radiation', e)} />
+                        <TimeInputField label="Time" name="time" value={state.painAssessment.time} onChange={e => handleNestedChange('painAssessment', 'time', e)} onSetTimeToNow={handleSetTimeToNowNested('painAssessment', 'time')} />
+                            <SelectField label="Severity" name="severity" value={state.painAssessment.severity} onChange={e => handleNestedChange('painAssessment', 'severity', e)}>
+                            {Array.from({length: 11}, (_, i) => <option key={i} value={i}>{i}</option>)}
+                        </SelectField>
+                    </Section>
+                    }
+                 </div>
+                 
+                 {/* Step 4: Vitals & Injuries */}
+                 <div style={{ display: currentStep === 4 ? 'block' : 'none' }}>
+                    {state.presentationType === 'Welfare/Intox' && (
+                        <Section title="Welfare Log">
+                            <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className={labelBaseClasses}>Log Entries</h3>
+                                    <button type="button" onClick={() => addDynamicListItem('welfareLog')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Entry</button>
+                                </div>
+                                <div className="space-y-2">
+                                {state.welfareLog.map((item, index) => (
+                                    <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                        <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-3`} />
+                                        <input type="text" name="observation" placeholder="Observation / Action" value={item.observation} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-8`} />
+                                        <button type="button" onClick={() => removeDynamicListItem('welfareLog', index)} aria-label="Remove welfare log entry" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
+                                ))}
+                                </div>
+                            </FieldWrapper>
                         </Section>
-
-                        <Section title="Primary Survey (ABCDE)">
+                    )}
+                    {state.presentationType !== 'Welfare/Intox' &&
+                    <>
+                        <Section title="Primary Survey (ABCDE) & Disability">
                             <SpeechEnabledTextArea label="Airway" name="airway" value={state.airway} onChange={handleChange} rows={2} />
                             <SpeechEnabledTextArea label="Breathing" name="breathing" value={state.breathing} onChange={handleChange} rows={2} />
                             <SpeechEnabledTextArea label="Circulation" name="circulation" value={state.circulation} onChange={handleChange} rows={2} />
                             <SpeechEnabledTextArea label="Exposure" name="exposure" value={state.exposure} onChange={handleChange} rows={2} />
+                            <SelectField label="AVPU" name="avpu" value={state.disability.avpu} onChange={e => handleNestedChange('disability', 'avpu', e)}><option>Alert</option><option>Voice</option><option>Pain</option><option>Unresponsive</option></SelectField>
+                            <SelectField label="GCS Eyes" name="eyes" value={state.disability.gcs.eyes} onChange={handleGCSChange}><option value="4">4 - Spontaneous</option><option value="3">3 - To speech</option><option value="2">2 - To pain</option><option value="1">1 - None</option></SelectField>
+                            <SelectField label="GCS Verbal" name="verbal" value={state.disability.gcs.verbal} onChange={handleGCSChange}><option value="5">5 - Orientated</option><option value="4">4 - Confused</option><option value="3">3 - Inappropriate words</option><option value="2">2 - Incomprehensible</option><option value="1">1 - None</option></SelectField>
+                            <SelectField label="GCS Motor" name="motor" value={state.disability.gcs.motor} onChange={handleGCSChange}><option value="6">6 - Obeys commands</option><option value="5">5 - Localises pain</option><option value="4">4 - Withdraws from pain</option><option value="3">3 - Flexion to pain</option><option value="2">2 - Extension to pain</option><option value="1">1 - None</option></SelectField>
+                            <div className="flex items-center justify-center p-4 bg-ams-blue dark:bg-ams-light-blue text-white dark:text-ams-blue rounded-lg font-bold text-xl lg:col-span-4 text-center">GCS Total: {state.disability.gcs.total}</div>
+                            <TextAreaField label="Pupils" name="pupils" value={state.disability.pupils} onChange={e => handleNestedChange('disability', 'pupils', e)} rows={1} />
                         </Section>
-
-                        <Section title="Disability">
-                             <SelectField label="AVPU" name="avpu" value={state.disability.avpu} onChange={e => handleNestedChange('disability', 'avpu', e)}><option>Alert</option><option>Voice</option><option>Pain</option><option>Unresponsive</option></SelectField>
-                             <SelectField label="GCS Eyes" name="eyes" value={state.disability.gcs.eyes} onChange={handleGCSChange}><option value="4">4 - Spontaneous</option><option value="3">3 - To speech</option><option value="2">2 - To pain</option><option value="1">1 - None</option></SelectField>
-                             <SelectField label="GCS Verbal" name="verbal" value={state.disability.gcs.verbal} onChange={handleGCSChange}><option value="5">5 - Orientated</option><option value="4">4 - Confused</option><option value="3">3 - Inappropriate words</option><option value="2">2 - Incomprehensible</option><option value="1">1 - None</option></SelectField>
-                             <SelectField label="GCS Motor" name="motor" value={state.disability.gcs.motor} onChange={handleGCSChange}><option value="6">6 - Obeys commands</option><option value="5">5 - Localises pain</option><option value="4">4 - Withdraws from pain</option><option value="3">3 - Flexion to pain</option><option value="2">2 - Extension to pain</option><option value="1">1 - None</option></SelectField>
-                             <div className="flex items-center justify-center p-4 bg-ams-blue dark:bg-ams-light-blue text-white dark:text-ams-blue rounded-lg font-bold text-xl lg:col-span-4 text-center">GCS Total: {state.disability.gcs.total}</div>
-                             <TextAreaField label="Pupils" name="pupils" value={state.disability.pupils} onChange={e => handleNestedChange('disability', 'pupils', e)} rows={1} />
-                        </Section>
-
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                             <div className="flex justify-between items-center mb-4">
-                               <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">Observations</h2>
+                                <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">Observations</h2>
                                 <button type="button" onClick={addVitalSign} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Vitals</button>
                             </div>
                             <div className="overflow-x-auto">
@@ -869,261 +868,241 @@ const EPRF: React.FC = () => {
                             </table>
                             </div>
                         </div>
-
-                         <Section title="Secondary Survey & Injuries">
+                        <Section title="Secondary Survey & Injuries">
                             <SpeechEnabledTextArea label="Further Assessment Findings" name="secondarySurvey" value={state.secondarySurvey} onChange={handleChange} />
                             <FieldWrapper className="md:col-span-2 lg:col-span-4">
                                 <InteractiveBodyMap value={state.injuries} onChange={handleInjuriesChange} />
                             </FieldWrapper>
                         </Section>
                     </>
-                }
-                
-                <Section title="Treatment & Disposition">
-                    <TaggableInput
-                        label="Working Impressions"
-                        value={state.impressions}
-                        onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })}
-                        suggestions={commonImpressions}
-                        placeholder="e.g., Asthma, Fall..."
-                    />
-
-                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className={labelBaseClasses}>Medications Administered</h3>
-                            <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Med</button>
-                        </div>
-                        <datalist id="drug-db-list">
-                            {DRUG_DATABASE.map(med => <option key={med} value={med} />)}
-                        </datalist>
-                        <div className="space-y-2">
-                        {state.medicationsAdministered.map((med, index) => {
-                            const isRestricted = RESTRICTED_MEDICATIONS.includes(med.medication);
-                            const canAuthorise = user && SENIOR_CLINICIAN_ROLES.includes(user.role) && state.crewMembers.some(cm => cm.uid === user.uid);
-                            return (
-                            <div key={med.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
-                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} list="drug-db-list" />
-                                <input type="text" name="dose" placeholder="Dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
-                                <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-5 md:col-span-2`}>
-                                    <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
-                                </select>
-                                <div className={`flex items-center justify-center ${isRestricted ? 'col-span-2 md:col-span-2' : 'col-span-3 md:col-span-2'}`}>
-                                    {isRestricted && (
-                                        med.authorisedBy ? (
-                                            <div className="text-xs text-center text-green-700 dark:text-green-300"><p className="font-bold">Authorised</p><p>by {med.authorisedBy.name.split(' ')[0]}</p></div>
-                                        ) : (
-                                            canAuthorise ? (
-                                                <button type="button" onClick={() => handleAuthoriseMed(index)} className="w-full px-2 py-1 text-sm bg-green-500 text-white font-semibold rounded-md hover:bg-green-600">Authorise</button>
-                                            ) : (
-                                                <p className="text-xs text-center text-yellow-600 dark:text-yellow-400 font-semibold">Pending Auth</p>
-                                            )
-                                        )
-                                    )}
-                                </div>
-                                <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} aria-label="Remove medication" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
-                            </div>
-                            )
-                        })}
-                        </div>
-                    </FieldWrapper>
-
-                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <div className="flex justify-between items-center mb-2 mt-4">
-                            <h3 className={labelBaseClasses}>Interventions</h3>
-                            <button type="button" onClick={() => addDynamicListItem('interventions')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Intervention</button>
-                        </div>
-                        <div className="space-y-2">
-                        {state.interventions.map((item, index) => (
-                            <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-3`} />
-                                <input type="text" name="intervention" placeholder="Intervention" value={item.intervention} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
-                                <input type="text" name="details" placeholder="Details" value={item.details} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
-                                <button type="button" onClick={() => removeDynamicListItem('interventions', index)} aria-label="Remove intervention" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
-                            </div>
-                        ))}
-                        </div>
-                    </FieldWrapper>
-
-                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <div className="mt-4 p-4 bg-blue-50 dark:bg-gray-700/50 rounded-lg border border-blue-200 dark:border-gray-600">
-                            <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-ams-blue dark:text-ams-light-blue flex items-center gap-2">
-                                    <SparklesIcon className="w-5 h-5" />
-                                    AI Clinical Suggestions
-                                </h3>
-                                <button 
-                                    type="button" 
-                                    onClick={handleGetSuggestions} 
-                                    disabled={isSuggesting || !isOnline}
-                                    className="px-4 py-2 text-sm font-semibold text-white bg-ams-light-blue rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center"
-                                    title={!isOnline ? "AI suggestions require an internet connection." : ""}
-                                >
-                                    {isSuggesting ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <SparklesIcon className="w-5 h-5 mr-2" />}
-                                    {isSuggesting ? 'Thinking...' : 'Get Suggestions'}
-                                </button>
-                            </div>
-                            {!isOnline && <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">AI suggestions are disabled in offline mode.</p>}
-                            
-                            {suggestions && (
-                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300">Suggested Impressions</h4>
-                                        <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 dark:text-gray-400">
-                                            {suggestions.impressions.map((imp, i) => <li key={`imp-${i}`}>{imp}</li>)}
-                                        </ul>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold text-gray-700 dark:text-gray-300">Suggested Interventions</h4>
-                                        <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 dark:text-gray-400">
-                                            {suggestions.interventions.map((int, i) => <li key={`int-${i}`}>{int}</li>)}
-                                        </ul>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </FieldWrapper>
-
-                    <SelectField label="Final Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="lg:col-span-2">
-                        <option value="Not Set">Not Set</option>
-                        <option>Conveyed to ED</option>
-                        <option>Left at Home (Own Consent)</option>
-                        <option>Left at Home (Against Advice)</option>
-                        <option>Referred to Other Service</option>
-                        <option>Deceased on Scene</option>
-                    </SelectField>
-
-                    {state.disposition === 'Conveyed to ED' &&
-                        <>
-                            <InputField label="Destination" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} />
-                            <InputField label="Receiving Clinician" name="receivingClinician" value={state.dispositionDetails.receivingClinician} onChange={e => handleNestedChange('dispositionDetails', 'receivingClinician', e)} />
-                        </>
                     }
-                     {state.disposition === 'Referred to Other Service' &&
-                        <TextAreaField label="Referral Details" name="referralDetails" value={state.dispositionDetails.referralDetails} onChange={e => handleNestedChange('dispositionDetails', 'referralDetails', e)} />
-                    }
-
-                    <SpeechEnabledTextArea label="Handover Details" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} />
-
-                </Section>
-                
-                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
-                    <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Safeguarding & Capacity</h2>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <fieldset>
-                             <legend className={labelBaseClasses}>Safeguarding Concerns</legend>
-                             <div className="mt-2 space-y-2">
-                                 {['Child', 'Adult', 'Domestic Abuse', 'Vulnerable Adult'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.safeguarding.concerns.includes(c as any)} onChange={e => handleCheckboxArrayChange('safeguarding', 'concerns', e)} />)}
-                             </div>
-                             <textarea name="details" value={state.safeguarding.details} onChange={e => handleNestedChange('safeguarding', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of concerns..."/>
-                        </fieldset>
-                         <fieldset>
-                             <legend className={labelBaseClasses}>Mental Capacity Assessment</legend>
-                             <div className="mt-2 space-y-2">
-                                {['Understands', 'Retains', 'Weighs', 'Communicates'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.mentalCapacity.assessment.includes(c as any)} onChange={e => handleCheckboxArrayChange('mentalCapacity', 'assessment', e)} />)}
-                            </div>
-                             <select name="outcome" value={state.mentalCapacity.outcome} onChange={e => handleNestedChange('mentalCapacity', 'outcome', e)} className={`${inputBaseClasses} mt-2`}>
-                                <option>Not Assessed</option><option>Has Capacity</option><option>Lacks Capacity</option><option>Fluctuating</option>
-                            </select>
-                             <textarea name="details" value={state.mentalCapacity.details} onChange={e => handleNestedChange('mentalCapacity', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of assessment..."/>
-                        </fieldset>
-                     </div>
                  </div>
-
-                 {state.disposition === 'Left at Home (Against Advice)' &&
-                     <Section title="Refusal of Care (Medico-Legal)">
-                        <CheckboxField label="Patient has refused specific treatment" name="refusedTreatment" checked={state.refusalOfCare.refusedTreatment} onChange={e => handleNestedChange('refusalOfCare', 'refusedTreatment', e)} />
-                        <CheckboxField label="Patient has refused transport to hospital" name="refusedTransport" checked={state.refusalOfCare.refusedTransport} onChange={e => handleNestedChange('refusalOfCare', 'refusedTransport', e)} />
-                        <CheckboxField label="Patient has demonstrated capacity to refuse" name="capacityDemonstrated" checked={state.refusalOfCare.capacityDemonstrated} onChange={e => handleNestedChange('refusalOfCare', 'capacityDemonstrated', e)} />
-                        <CheckboxField label="All risks have been explained to the patient" name="risksExplained" checked={state.refusalOfCare.risksExplained} onChange={e => handleNestedChange('refusalOfCare', 'risksExplained', e)} />
-                        <TextAreaField label="Details of Refusal" name="details" value={state.refusalOfCare.details} onChange={e => handleNestedChange('refusalOfCare', 'details', e)} />
+                
+                 {/* Step 5: Treatment */}
+                <div style={{ display: currentStep === 5 ? 'block' : 'none' }}>
+                    <Section title="Treatment">
+                        <TaggableInput
+                            label="Working Impressions"
+                            value={state.impressions}
+                            onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })}
+                            suggestions={commonImpressions}
+                            placeholder="e.g., Asthma, Fall..."
+                        />
                         <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                            <label className={labelBaseClasses}>Patient/Guardian Signature</label>
-                            <p className="text-xs text-gray-500 mb-2">Signature confirms the patient/guardian understands the risks of refusing treatment/transport.</p>
-                            <SignaturePad ref={patientSigRef} />
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className={labelBaseClasses}>Medications Administered</h3>
+                                <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Med</button>
+                            </div>
+                            <datalist id="drug-db-list">
+                                {DRUG_DATABASE.map(med => <option key={med} value={med} />)}
+                            </datalist>
+                            <div className="space-y-2">
+                            {state.medicationsAdministered.map((med, index) => {
+                                const isRestricted = RESTRICTED_MEDICATIONS.includes(med.medication);
+                                const canAuthorise = user && SENIOR_CLINICIAN_ROLES.includes(user.role) && state.crewMembers.some(cm => cm.uid === user.uid);
+                                return (
+                                <div key={med.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
+                                    <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} list="drug-db-list" />
+                                    <input type="text" name="dose" placeholder="Dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
+                                    <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-5 md:col-span-2`}>
+                                        <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
+                                    </select>
+                                    <div className={`flex items-center justify-center ${isRestricted ? 'col-span-2 md:col-span-2' : 'col-span-3 md:col-span-2'}`}>
+                                        {isRestricted && (
+                                            med.authorisedBy ? (
+                                                <div className="text-xs text-center text-green-700 dark:text-green-300"><p className="font-bold">Authorised</p><p>by {med.authorisedBy.name.split(' ')[0]}</p></div>
+                                            ) : (
+                                                canAuthorise ? (
+                                                    <button type="button" onClick={() => handleAuthoriseMed(index)} className="w-full px-2 py-1 text-sm bg-green-500 text-white font-semibold rounded-md hover:bg-green-600">Authorise</button>
+                                                ) : (
+                                                    <p className="text-xs text-center text-yellow-600 dark:text-yellow-400 font-semibold">Pending Auth</p>
+                                                )
+                                            )
+                                        )}
+                                    </div>
+                                    <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} aria-label="Remove medication" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                                )
+                            })}
+                            </div>
                         </FieldWrapper>
-                    </Section>
-                 }
 
-                <Section title="Attachments">
-                    <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            {state.attachments.map((att) => (
-                                <div key={att.id} className="relative group border rounded-lg p-2 dark:border-gray-700">
-                                    <img src={att.url} alt={att.fileName} className="rounded-md w-full h-32 object-cover" />
-                                    <input
-                                        type="text"
-                                        placeholder="Description..."
-                                        value={att.description}
-                                        onChange={(e) => handleAttachmentDescriptionChange(att.id, e.target.value)}
-                                        className={`${inputBaseClasses} text-sm mt-2`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveAttachment(att.id)}
-                                        aria-label="Remove attachment"
-                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
-                                    </button>
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <div className="flex justify-between items-center mb-2 mt-4">
+                                <h3 className={labelBaseClasses}>Interventions</h3>
+                                <button type="button" onClick={() => addDynamicListItem('interventions')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Intervention</button>
+                            </div>
+                            <div className="space-y-2">
+                            {state.interventions.map((item, index) => (
+                                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-3`} />
+                                    <input type="text" name="intervention" placeholder="Intervention" value={item.intervention} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
+                                    <input type="text" name="details" placeholder="Details" value={item.details} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} col-span-4`} />
+                                    <button type="button" onClick={() => removeDynamicListItem('interventions', index)} aria-label="Remove intervention" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
                                 </div>
                             ))}
-                            <label className="flex flex-col items-center justify-center w-full h-full min-h-[160px] p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
-                                <CameraIcon className="w-10 h-10 text-gray-400" />
-                                <span className="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">Add Photo</span>
-                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAddAttachment} />
-                            </label>
-                        </div>
-                    </FieldWrapper>
-                </Section>
+                            </div>
+                        </FieldWrapper>
+                    </Section>
+                </div>
+                
+                 {/* Step 6: Disposition & Signatures */}
+                <div style={{ display: currentStep === 6 ? 'block' : 'none' }}>
+                    <Section title="Disposition & Handover">
+                        <SelectField label="Final Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="lg:col-span-2">
+                            <option value="Not Set">Not Set</option>
+                            <option>Conveyed to ED</option>
+                            <option>Left at Home (Own Consent)</option>
+                            <option>Left at Home (Against Advice)</option>
+                            <option>Referred to Other Service</option>
+                            <option>Deceased on Scene</option>
+                        </SelectField>
 
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
-                    <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Crew Members</h2>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                             <label className={labelBaseClasses}>Add Crew</label>
-                            <div className="flex gap-2">
-                                <select value={selectedCrewMember} onChange={e => setSelectedCrewMember(e.target.value)} className={inputBaseClasses}>
-                                    <option value="">Select a staff member...</option>
-                                    {allStaff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
+                        {state.disposition === 'Conveyed to ED' &&
+                            <>
+                                <InputField label="Destination" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} />
+                                <InputField label="Receiving Clinician" name="receivingClinician" value={state.dispositionDetails.receivingClinician} onChange={e => handleNestedChange('dispositionDetails', 'receivingClinician', e)} />
+                            </>
+                        }
+                        {state.disposition === 'Referred to Other Service' &&
+                            <TextAreaField label="Referral Details" name="referralDetails" value={state.dispositionDetails.referralDetails} onChange={e => handleNestedChange('dispositionDetails', 'referralDetails', e)} />
+                        }
+
+                        <SpeechEnabledTextArea label="Handover Details" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} />
+                    </Section>
+                    
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                        <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Safeguarding & Capacity</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <fieldset>
+                                <legend className={labelBaseClasses}>Safeguarding Concerns</legend>
+                                <div className="mt-2 space-y-2">
+                                    {['Child', 'Adult', 'Domestic Abuse', 'Vulnerable Adult'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.safeguarding.concerns.includes(c as any)} onChange={e => handleCheckboxArrayChange('safeguarding', 'concerns', e)} />)}
+                                </div>
+                                <textarea name="details" value={state.safeguarding.details} onChange={e => handleNestedChange('safeguarding', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of concerns..."/>
+                            </fieldset>
+                            <fieldset>
+                                <legend className={labelBaseClasses}>Mental Capacity Assessment</legend>
+                                <div className="mt-2 space-y-2">
+                                    {['Understands', 'Retains', 'Weighs', 'Communicates'].map(c => <CheckboxField key={c} label={c} name={c} checked={state.mentalCapacity.assessment.includes(c as any)} onChange={e => handleCheckboxArrayChange('mentalCapacity', 'assessment', e)} />)}
+                                </div>
+                                <select name="outcome" value={state.mentalCapacity.outcome} onChange={e => handleNestedChange('mentalCapacity', 'outcome', e)} className={`${inputBaseClasses} mt-2`}>
+                                    <option>Not Assessed</option><option>Has Capacity</option><option>Lacks Capacity</option><option>Fluctuating</option>
                                 </select>
-                                <button type="button" onClick={handleAddCrewMember} className="px-4 bg-ams-blue text-white rounded-md hover:bg-opacity-90">Add</button>
+                                <textarea name="details" value={state.mentalCapacity.details} onChange={e => handleNestedChange('mentalCapacity', 'details', e)} rows={2} className={`${inputBaseClasses} mt-2`} placeholder="Details of assessment..."/>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    {state.disposition === 'Left at Home (Against Advice)' &&
+                        <Section title="Refusal of Care (Medico-Legal)">
+                            <CheckboxField label="Patient has refused specific treatment" name="refusedTreatment" checked={state.refusalOfCare.refusedTreatment} onChange={e => handleNestedChange('refusalOfCare', 'refusedTreatment', e)} />
+                            <CheckboxField label="Patient has refused transport to hospital" name="refusedTransport" checked={state.refusalOfCare.refusedTransport} onChange={e => handleNestedChange('refusalOfCare', 'refusedTransport', e)} />
+                            <CheckboxField label="Patient has demonstrated capacity to refuse" name="capacityDemonstrated" checked={state.refusalOfCare.capacityDemonstrated} onChange={e => handleNestedChange('refusalOfCare', 'capacityDemonstrated', e)} />
+                            <CheckboxField label="All risks have been explained to the patient" name="risksExplained" checked={state.refusalOfCare.risksExplained} onChange={e => handleNestedChange('refusalOfCare', 'risksExplained', e)} />
+                            <TextAreaField label="Details of Refusal" name="details" value={state.refusalOfCare.details} onChange={e => handleNestedChange('refusalOfCare', 'details', e)} />
+                             <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                                <label className={labelBaseClasses}>Patient/Guardian Signature</label>
+                                <p className="text-xs text-gray-500 mb-2">Signature confirms the patient/guardian understands the risks of refusing treatment/transport.</p>
+                                <SignaturePad ref={patientSigRef} />
+                            </FieldWrapper>
+                        </Section>
+                    }
+
+                    <Section title="Attachments">
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {state.attachments.map((att) => (
+                                    <div key={att.id} className="relative group border rounded-lg p-2 dark:border-gray-700">
+                                        <img src={att.url} alt={att.fileName} className="rounded-md w-full h-32 object-cover" />
+                                        <input
+                                            type="text"
+                                            placeholder="Description..."
+                                            value={att.description}
+                                            onChange={(e) => handleAttachmentDescriptionChange(att.id, e.target.value)}
+                                            className={`${inputBaseClasses} text-sm mt-2`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveAttachment(att.id)}
+                                            aria-label="Remove attachment"
+                                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <label className="flex flex-col items-center justify-center w-full h-full min-h-[160px] p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
+                                    <CameraIcon className="w-10 h-10 text-gray-400" />
+                                    <span className="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">Add Photo</span>
+                                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAddAttachment} />
+                                </label>
+                            </div>
+                        </FieldWrapper>
+                    </Section>
+
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                        <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Crew Members</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className={labelBaseClasses}>Add Crew</label>
+                                <div className="flex gap-2">
+                                    <select value={selectedCrewMember} onChange={e => setSelectedCrewMember(e.target.value)} className={inputBaseClasses}>
+                                        <option value="">Select a staff member...</option>
+                                        {allStaff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
+                                    </select>
+                                    <button type="button" onClick={handleAddCrewMember} className="px-4 bg-ams-blue text-white rounded-md hover:bg-opacity-90">Add</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelBaseClasses}>Attending Crew</label>
+                                <ul className="mt-2 space-y-2">
+                                    {state.crewMembers.map(c => (
+                                        <li key={c.uid} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                            <span className="dark:text-gray-200">{c.name}</span>
+                                            <button type="button" onClick={() => handleRemoveCrewMember(c.uid)} aria-label="Remove crew member" className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         </div>
-                         <div>
-                             <label className={labelBaseClasses}>Attending Crew</label>
-                             <ul className="mt-2 space-y-2">
-                                {state.crewMembers.map(c => (
-                                    <li key={c.uid} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                        <span className="dark:text-gray-200">{c.name}</span>
-                                        <button type="button" onClick={() => handleRemoveCrewMember(c.uid)} aria-label="Remove crew member" className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
-                                    </li>
-                                ))}
-                             </ul>
-                        </div>
-                     </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
-                    <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Clinician Signature &amp; Finalization</h2>
-                     <FieldWrapper className="md:col-span-2 lg:col-span-4">
-                        <label className={labelBaseClasses}>Lead Clinician Signature</label>
-                        <p className="text-xs text-gray-500 mb-2">I confirm that this is a true and accurate record of the patient encounter.</p>
-                        <SignaturePad ref={clinicianSigRef} />
-                    </FieldWrapper>
-                </div>
-
-
-                <div className="flex justify-between items-center mt-8">
-                     <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700">
-                        Delete Draft
-                    </button>
-                    <button type="button" onClick={handleFinalize} disabled={isSaving} className="px-8 py-4 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
-                        {isSaving && <SpinnerIcon className="w-6 h-6 mr-3" />}
-                        {isSaving ? 'Finalizing...' : 'Finalize & Submit'}
-                    </button>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                        <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Clinician Signature</h2>
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <label className={labelBaseClasses}>Lead Clinician Signature</label>
+                            <p className="text-xs text-gray-500 mb-2">I confirm that this is a true and accurate record of the patient encounter.</p>
+                            <SignaturePad ref={clinicianSigRef} />
+                        </FieldWrapper>
+                    </div>
                 </div>
             </form>
+
+            {/* Sticky Footer for Actions */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 shadow-lg md:pl-72 z-30">
+                <div className="flex justify-between items-center max-w-screen-xl mx-auto">
+                    <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700">
+                        Delete Draft
+                    </button>
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setCurrentStep(s => s - 1)} disabled={currentStep === 1} className="p-3 bg-gray-200 dark:bg-gray-700 rounded-full disabled:opacity-50">
+                            <ChevronLeftIcon className="w-6 h-6" />
+                        </button>
+                        {currentStep < steps.length ? (
+                            <button onClick={() => setCurrentStep(s => s + 1)} className="px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 flex items-center gap-2">
+                                Next <ChevronRightIcon className="w-5 h-5"/>
+                            </button>
+                        ) : (
+                            <button type="button" onClick={handleFinalize} disabled={isSaving} className="px-8 py-4 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
+                                {isSaving && <SpinnerIcon className="w-6 h-6 mr-3" />}
+                                {isSaving ? 'Finalizing...' : 'Finalize & Submit'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

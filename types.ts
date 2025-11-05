@@ -243,11 +243,6 @@ export interface Notification {
   createdAt: Timestamp;
 }
 
-export interface ClinicalSuggestion {
-    impressions: string[];
-    interventions: string[];
-}
-
 export interface Announcement {
     id?: string;
     message: string;
