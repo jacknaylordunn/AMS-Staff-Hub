@@ -54,6 +54,7 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     attachments: [],
     patientSignatureUrl: '',
     clinicianSignatureUrl: '',
+    signaturesNeedSync: false,
     crewMembers: user ? [{ uid: user.uid, name: fullName }] : [],
     createdAt: Timestamp.now(),
     createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },

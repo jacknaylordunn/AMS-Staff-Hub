@@ -138,7 +138,7 @@ export const WifiOfflineIcon: React.FC<{ className?: string }> = ({ className })
 
 export const SparklesIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m1-12a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1h-6a1 1 0 01-1-1V6zM17.657 17.657L19 19m-1.343-1.343l-1.414-1.414M17 3l1.414 1.414M19 5l-1.414-1.414" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m1-12a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1h-6a1 1 0 01-1-1V6zM17.657 17.657L19 19m-1.343-1.343l-1.414-1.414M17 3l1.414 1.414M19 5l-1.414-1.414" />
     </svg>
 );
 

@@ -169,13 +169,11 @@ const Reports: React.FC = () => {
         }, {});
         
         const topImpressions = Object.entries(impressions)
-            // FIX: Explicitly cast sort values to Number to resolve TypeScript error.
             .sort((a, b) => Number(b[1]) - Number(a[1]))
             .slice(0, 5)
             .map(([label, value]) => ({ label, value }));
 
         const topEvents = Object.entries(events)
-            // FIX: Explicitly cast sort values to Number to resolve TypeScript error.
             .sort((a, b) => Number(b[1]) - Number(a[1]))
             .slice(0, 5)
             .map(([label, value]) => ({ label, value }));

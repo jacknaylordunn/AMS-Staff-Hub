@@ -75,7 +75,6 @@ const StaffAnalytics: React.FC = () => {
     };
     
     const sortedResults = useMemo(() => {
-        // FIX: Added explicit types to resolve 'unknown' type error in sort.
         return Object.values(results).sort((a: { totalHours: number }, b: { totalHours: number }) => b.totalHours - a.totalHours);
     }, [results]);
 

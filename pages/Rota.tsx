@@ -214,7 +214,6 @@ const Rota: React.FC = () => {
                                 <div className="space-y-1 overflow-y-auto max-h-28">
                                     {dayShifts.map(shift => {
                                         const isMyShift = user ? shift.assignedStaffUids.includes(user.uid) : false;
-                                        // FIX: 'User' was not defined. Replaced with imported alias 'AppUser'.
                                         const isBiddable = !isManager && !shift.isUnavailability && shift.assignedStaffUids.length === 0 && isRoleOrHigher(user?.role, shift.roleRequired as AppUser['role']);
                                         const isUnassigned = !shift.isUnavailability && shift.assignedStaffUids.length === 0;
 

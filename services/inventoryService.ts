@@ -65,6 +65,11 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
         newStatus = (checkData.itemsUsed && checkData.itemsUsed.length > 0) ? 'Needs Restocking' : 'In Service';
         assignedTo = null; // Unassign
     }
+    
+    // Extract new expiry/batch data to update on the main kit document
+    const newTrackedItems = checkData.checkedItems
+        .filter(item => item.expiryDate || item.batchNumber)
+        .map(({ itemName, expiryDate, batchNumber }) => ({ itemName, expiryDate, batchNumber }));
 
 
     // Update the parent kit's status and lastCheck info
@@ -73,6 +78,7 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
         'lastCheck.user': checkData.user,
         'lastCheck.status': checkData.overallStatus,
         status: newStatus,
+        trackedItems: newTrackedItems,
     };
     
     if (checkData.type === 'Sign Out') {

@@ -218,6 +218,7 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
 
 const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
     const { user } = useAuth();
+    // FIX: Destructured `activeEPRFId` from useAppContext to resolve 'Cannot find name' error.
     const { activeEvent, updateOpenEPRFDraft, removeEPRFDraft, setActiveEPRFId, openEPRFDrafts, activeEPRFId } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = ReactRouterDOM.useNavigate();
@@ -566,11 +567,13 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
         }
     };
 
-    return (
-        <div>
-            {/* The full EPRF form JSX would be rendered here */}
-             <p>ePRF Form for {state.patientName || 'New Patient'}</p>
-        </div>
-    );
+// This is just a placeholder to resolve the truncated file issue
+// The full implementation would be here.
+return (
+    <div>
+        {/* The full EPRF form JSX would be rendered here */}
+        <p>ePRF Form for {state.patientName || 'New Patient'}</p>
+    </div>
+);
 };
 export default EPRFForm;

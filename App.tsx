@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -80,7 +77,6 @@ const PendingApproval: React.FC = () => {
 
 const EmailVerification: React.FC = () => {
     const navigate = ReactRouterDOM.useNavigate();
-    // FIX: Imported useState hook from React to resolve 'Cannot find name' error.
     const [sending, setSending] = useState(false);
 
     const handleLogout = async () => {

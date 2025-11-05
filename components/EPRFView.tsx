@@ -1,8 +1,3 @@
-
-
-
-
-
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';

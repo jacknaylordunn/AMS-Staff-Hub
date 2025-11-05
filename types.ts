@@ -357,14 +357,25 @@ export interface Kit {
   };
   createdAt: Timestamp;
   qrCodeValue?: string; // This will be the unique ID, formatted like 'aegis-kit-qr:KIT_ID'
+  trackedItems?: { itemName: string; expiryDate?: string; batchNumber?: string; }[];
 }
 
-export const KIT_CHECKLIST_ITEMS = {
-    'Airway': ['OPAs', 'NPAs', 'i-gel', 'Catheter Mount'],
-    'Breathing': ['BVM', 'Oxygen Mask', 'Nebuliser Kit', 'Chest Seal'],
-    'Circulation': ['Dressings', 'Tourniquet', 'Bandages', 'IV Cannula'],
-    'Diagnostics': ['Stethoscope', 'Pulse Oximeter', 'BP Cuff', 'Thermometer'],
-    'Drugs': ['Aspirin', 'GTN Spray', 'Salbutamol', 'Adrenaline 1:1000'],
+export type KitChecklistItem = {
+  name: string;
+  trackable?: boolean; // To flag items like drugs that need expiry/batch tracking
+};
+
+export const KIT_CHECKLIST_ITEMS: { [key: string]: KitChecklistItem[] } = {
+    'Airway': [{name: 'OPAs'}, {name: 'NPAs'}, {name: 'i-gel', trackable: true}, {name: 'Catheter Mount'}],
+    'Breathing': [{name: 'BVM'}, {name: 'Oxygen Mask'}, {name: 'Nebuliser Kit'}, {name: 'Chest Seal', trackable: true}],
+    'Circulation': [{name: 'Dressings'}, {name: 'Tourniquet'}, {name: 'Bandages'}, {name: 'IV Cannula', trackable: true}],
+    'Diagnostics': [{name: 'Stethoscope'}, {name: 'Pulse Oximeter'}, {name: 'BP Cuff'}, {name: 'Thermometer'}],
+    'Drugs': [
+        {name: 'Aspirin', trackable: true}, 
+        {name: 'GTN Spray', trackable: true}, 
+        {name: 'Salbutamol', trackable: true}, 
+        {name: 'Adrenaline 1:1000', trackable: true}
+    ],
 };
 
 
@@ -375,7 +386,7 @@ export interface KitCheck {
     date: Timestamp;
     user: { uid: string; name: string; };
     type: 'Sign Out' | 'Sign In';
-    checklist: { [key: string]: 'Pass' | 'Fail' | 'N/A' };
+    checkedItems: { itemName: string; status: 'Pass' | 'Fail' | 'N/A'; expiryDate?: string; batchNumber?: string; }[];
     itemsUsed?: { itemName: string, quantity: number }[];
     notes: string;
     overallStatus: 'Pass' | 'Issues Found';

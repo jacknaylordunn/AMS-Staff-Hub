@@ -26,7 +26,6 @@ export const sendAnnouncementToAllUsers = async (message: string, sender: { uid:
         const notificationsRef = collection(db, 'notifications');
         const truncatedMessage = message.substring(0, 50) + (message.length > 50 ? '...' : '');
         // Create a new doc with a random ID
-        // FIX: 'doc' was not defined. It is now imported from 'firebase/firestore'.
         const newNotifRef = doc(notificationsRef);
         batch.set(newNotifRef, {
             userId: user.uid,

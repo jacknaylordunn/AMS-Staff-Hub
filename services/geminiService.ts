@@ -1,9 +1,5 @@
-
-
 import { GoogleGenAI } from "@google/genai";
 import { showToast } from '../components/Toast';
-
-// FIX: Removed conflicting global declaration for `window.aistudio`. The error "Subsequent property declarations must have the same type" indicates that `window.aistudio` is already declared globally. This block was causing a type conflict.
 
 // Use a simple flag to prevent multiple prompts on the same user action.
 // It will be reset if there's a key-related API error.

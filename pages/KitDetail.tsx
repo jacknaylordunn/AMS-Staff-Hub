@@ -8,6 +8,22 @@ import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon } from '../compo
 import { showToast } from '../components/Toast';
 import KitCheckModal from '../components/KitCheckModal';
 
+const getExpiryColor = (expiryDate?: string): string => {
+    if (!expiryDate) return 'text-gray-500 dark:text-gray-400';
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    today.setHours(0,0,0,0);
+    expiry.setHours(0,0,0,0);
+    
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+    if (expiry < today) return 'text-red-500 font-bold';
+    if (expiry <= thirtyDaysFromNow) return 'text-orange-500 font-semibold';
+    return 'text-green-600 dark:text-green-400';
+};
+
+
 const KitDetail: React.FC = () => {
     const { kitId } = useParams<{ kitId: string }>();
     const { user, isManager } = useAuth();
@@ -124,7 +140,7 @@ const KitDetail: React.FC = () => {
             </div>
             
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-6">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                         <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
                         <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(kit.status)}`}>{kit.status}</span></p>
@@ -174,17 +190,34 @@ const KitDetail: React.FC = () => {
                             )}
                         </div>
                     </div>
+                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Tracked Item Status</h3>
+                        {kit.trackedItems && kit.trackedItems.length > 0 ? (
+                            <ul className="space-y-2 max-h-60 overflow-y-auto">
+                                {kit.trackedItems.map(item => (
+                                    <li key={item.itemName} className="text-sm">
+                                        <p className="font-semibold dark:text-gray-200">{item.itemName}</p>
+                                        <p className={getExpiryColor(item.expiryDate)}>Expiry: {item.expiryDate || 'N/A'}</p>
+                                        <p className="text-gray-500 dark:text-gray-400">Batch: {item.batchNumber || 'N/A'}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">No date-sensitive items are currently being tracked for this kit.</p>
+                        )}
+                    </div>
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                      <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Recent Checks</h3>
                      {checks.length > 0 ? (
-                        <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                        <ul className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
                             {checks.map(check => (
                                 <li key={check.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-semibold dark:text-gray-200">{check.date.toDate().toLocaleString()}</p>
                                             <p className="text-sm text-gray-600 dark:text-gray-400">by {check.user.name} - <span className="font-medium">{check.type}</span></p>
+                                            {check.itemsUsed && check.itemsUsed.length > 0 && <p className="text-sm mt-1">Used: {check.itemsUsed.map(i => `${i.itemName} (x${i.quantity})`).join(', ')}</p>}
                                             {check.notes && <p className="text-sm mt-2 pt-2 border-t dark:border-gray-600 italic">"{check.notes}"</p>}
                                         </div>
                                         <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${check.overallStatus === 'Pass' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>

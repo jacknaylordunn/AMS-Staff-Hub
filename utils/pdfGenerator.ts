@@ -1,5 +1,3 @@
-
-
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
@@ -96,7 +94,6 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
 
   // Vital Signs Table
   if (eprf.vitals.length > 0) {
-    // FIX: Cast to any to bypass module augmentation error for autoTable.
     (doc as any).autoTable({
       startY: yPos,
       head: [['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'NEWS2']],
@@ -120,7 +117,6 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
      yPos += 6;
 
      if (eprf.medicationsAdministered.length > 0) {
-        // FIX: Cast to any to bypass module augmentation error for autoTable.
         (doc as any).autoTable({
             startY: yPos,
             head: [['Time', 'Medication', 'Dose', 'Route']],
@@ -135,7 +131,6 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
      }
      
      if (eprf.interventions.length > 0) {
-        // FIX: Cast to any to bypass module augmentation error for autoTable.
         (doc as any).autoTable({
             startY: yPos,
             head: [['Time', 'Intervention', 'Details']],
@@ -163,7 +158,6 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
   doc.text(crewString, 14, yPos);
   
   // Add page numbers
-  // FIX: Replaced incorrect internal methods with the correct public API method doc.getNumberOfPages().
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
