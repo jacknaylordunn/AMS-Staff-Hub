@@ -52,8 +52,8 @@ const MethaneReportModal: React.FC<MethaneReportModalProps> = ({ isOpen, onClose
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center modal-overlay" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">Submit METHANE Report</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <p className="text-sm text-gray-500">M: Major Incident Declared?</p>

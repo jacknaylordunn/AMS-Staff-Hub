@@ -46,10 +46,10 @@ const DeclareIncidentModal: React.FC<DeclareIncidentModalProps> = ({ isOpen, onC
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center modal-overlay" 
             onClick={onClose}
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-lg modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-red-600 mb-6">Declare Major Incident</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4">

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -11,7 +12,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import EPRF from './pages/EPRF';
+// FIX: The error indicates EPRF is not exported. It will be fixed with a named export. The import is already correct for a named export.
+import { EPRF } from './pages/EPRF';
 import Documents from './pages/Documents';
 import Rota from './pages/Rota';
 import NotFound from './pages/NotFound';
@@ -33,6 +35,7 @@ import ControlledDrugs from './pages/ControlledDrugs';
 import Wellbeing from './pages/Wellbeing';
 import Quality from './pages/Quality';
 import Staff from './pages/Staff';
+import PrintAsset from './pages/PrintAsset';
 import { signOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { showToast } from './components/Toast';
@@ -202,11 +205,7 @@ const AppRoutes: React.FC = () => {
                 />
                 <ReactRouterDOM.Route 
                     path="inventory" 
-                    element={
-                        <ProtectedRoute roles={['Manager', 'Admin']}>
-                            <Inventory />
-                        </ProtectedRoute>
-                    } 
+                    element={<Inventory />} 
                 />
                  <ReactRouterDOM.Route 
                     path="inventory/vehicle/:vehicleId" 
@@ -281,6 +280,7 @@ const AppRoutes: React.FC = () => {
                     } 
                 />
             </ReactRouterDOM.Route>
+            <ReactRouterDOM.Route path="/print/:assetType/:assetId" element={<PrintAsset />} />
             <ReactRouterDOM.Route path="*" element={<NotFound />} />
         </ReactRouterDOM.Routes>
     );

@@ -12,9 +12,10 @@ import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackI
 
 interface HeaderProps {
     onMenuClick: () => void;
+    isVisible: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const { user } = useAuth();
   const { activeEvent, activeShift, clearActiveSession } = useAppContext();
   const { theme, toggleTheme } = useTheme();
@@ -34,6 +35,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     if (location.pathname.includes('/inventory/kit/')) return 'Kit Details';
     if (location.pathname.includes('/patients/')) return 'Patient Details';
     if (location.pathname.includes('/admin')) return 'Admin Panel';
+    if (location.pathname.includes('/staff-analytics')) return 'Staff Analytics';
 
     const path = pathSegments[0];
 
@@ -75,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const userFullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'User';
 
   return (
-    <header className="flex items-center justify-between h-20 px-4 sm:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30">
+    <header className={`flex items-center justify-between h-20 px-4 sm:px-6 bg-white dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-30 transition-transform duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex items-center gap-2 sm:gap-4">
             <button onClick={onMenuClick} className="md:hidden p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Open menu">
                 <MenuIcon className="w-6 h-6" />

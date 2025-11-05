@@ -92,12 +92,12 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose, onSave }
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-start pt-20" 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-start pt-20 modal-overlay" 
             onClick={onClose}
             role="dialog"
             aria-modal="true"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl max-h-[80vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
                 <div className="border-b border-gray-200 dark:border-gray-700">
                     <nav className="-mb-px flex space-x-4 px-6" aria-label="Tabs">
                         {tabs.map(tab => (

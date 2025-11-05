@@ -42,8 +42,14 @@ export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> =
 
 export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift, 'id'>>, originalAssignedUids: string[] = []): Promise<void> => {
     const assignedStaffUids = shiftData.assignedStaff?.map(s => s.uid);
-    const dataToUpdate = assignedStaffUids ? { ...shiftData, assignedStaffUids } : shiftData;
-    await updateDoc(doc(db, 'shifts', shiftId), dataToUpdate);
+    let dataToUpdate: Partial<Shift> = assignedStaffUids ? { ...shiftData, assignedStaffUids } : shiftData;
+
+    // If staff are being assigned, clear any existing bids.
+    if (assignedStaffUids && assignedStaffUids.length > 0) {
+        dataToUpdate.bids = [];
+    }
+
+    await updateDoc(doc(db, 'shifts', shiftId), dataToUpdate as any);
 
     // Notify newly assigned staff
     const newStaff = shiftData.assignedStaff?.filter(s => !originalAssignedUids.includes(s.uid));

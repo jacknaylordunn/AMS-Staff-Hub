@@ -90,12 +90,12 @@ const QrScannerModal: React.FC<QrScannerModalProps> = ({ isOpen, onClose, onScan
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center" 
+            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center modal-overlay" 
             onClick={onClose}
             role="dialog"
             aria-modal="true"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-4 relative" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-4 relative modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue mb-4 text-center">Scan Vehicle QR Code</h2>
                 <div className="relative w-full aspect-square bg-gray-900 rounded-md overflow-hidden">
                     {!isBarcodeDetectorSupported ? (

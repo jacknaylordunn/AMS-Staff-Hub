@@ -1,7 +1,6 @@
-
 // FIX: Using modular `initializeApp` to resolve module resolution issues with Firebase v9+.
-// FIX: Changed to namespace import to handle potential module resolution errors.
-import * as firebase from 'firebase/app';
+// FIX: Switched from an incorrect namespace import to a named import for `initializeApp` to align with Firebase v9's modular SDK.
+import { initializeApp } from 'firebase/app';
 // import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
@@ -20,7 +19,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 // FIX: Replaced `firebase.initializeApp` with the modular `initializeApp` function for Firebase v9+ compatibility.
-const app = firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Initialize services
 // getAnalytics(app);

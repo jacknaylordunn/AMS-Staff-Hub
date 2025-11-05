@@ -67,12 +67,12 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center modal-overlay" 
             onClick={onClose}
             role="dialog"
             aria-modal="true"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">{type} Check for {kit.name}</h2>
                 <form onSubmit={handleSubmit}>
                      <div className="space-y-6">

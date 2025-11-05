@@ -28,14 +28,14 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center modal-overlay" 
             onClick={onClose}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="confirmation-modal-title"
             aria-describedby="confirmation-modal-message"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4 modal-content" onClick={e => e.stopPropagation()}>
                 <h2 id="confirmation-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">{title}</h2>
                 <p id="confirmation-modal-message" className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
                 {children && <div className="my-4">{children}</div>}

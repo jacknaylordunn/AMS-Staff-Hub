@@ -11,14 +11,14 @@ const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, erro
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center modal-overlay" 
             onClick={onClose}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="validation-modal-title"
             aria-describedby="validation-modal-description"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4 modal-content" onClick={e => e.stopPropagation()}>
                 <h2 id="validation-modal-title" className="text-xl font-bold text-red-600 dark:text-red-500 mb-4">Incomplete Report</h2>
                 <div id="validation-modal-description">
                     <p className="text-gray-600 dark:text-gray-300 mb-4">Please address the following issues before finalizing the ePRF:</p>

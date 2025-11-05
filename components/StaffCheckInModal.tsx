@@ -34,8 +34,8 @@ const StaffCheckInModal: React.FC<StaffCheckInModalProps> = ({ isOpen, onClose, 
     const statuses: StaffCheckin['status'][] = ['Available - On Site', 'Available - En Route', 'Unavailable'];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center modal-overlay" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-md modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-2">Major Incident Check-In</h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">Please update your current status for the incident: <strong>{incident.name}</strong></p>
                 <form onSubmit={handleSubmit}>

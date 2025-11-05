@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import type { Kit, KitCheck } from '../types';
 import { getKitById, getKitChecks, addKitCheck, updateKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import KitCheckModal from '../components/KitCheckModal';
 
@@ -12,6 +12,7 @@ const KitDetail: React.FC = () => {
     const { kitId } = useParams<{ kitId: string }>();
     const { user } = useAuth();
     const { isOnline } = useOnlineStatus();
+    const navigate = useNavigate();
     const [kit, setKit] = useState<Kit | null>(null);
     const [checks, setChecks] = useState<KitCheck[]>([]);
     const [loading, setLoading] = useState(true);
@@ -60,21 +61,8 @@ const KitDetail: React.FC = () => {
     };
 
     const handlePrintQr = () => {
-        const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
-        if (qrImg && kit) {
-            const printWindow = window.open('', '_blank');
-            printWindow?.document.write(`
-                <html>
-                    <head><title>Print QR Code</title></head>
-                    <body style="text-align: center; margin-top: 50px;">
-                        <h2>${kit.name}</h2>
-                        <img src="${qrImg.src}" alt="QR Code" />
-                        <p>${kit.qrCodeValue}</p>
-                        <script>window.onload = function() { window.print(); window.close(); }</script>
-                    </body>
-                </html>
-            `);
-            printWindow?.document.close();
+        if (kit) {
+            navigate(`/print/kit/${kit.id}`);
         }
     };
 
@@ -124,7 +112,7 @@ const KitDetail: React.FC = () => {
             </div>
             
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-1">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                         <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
                         <p className="flex items-center gap-2"><strong>Status:</strong> <span className={`px-2 py-0.5 text-sm font-semibold rounded-full ${getStatusChip(kit.status)}`}>{kit.status}</span></p>
@@ -137,22 +125,40 @@ const KitDetail: React.FC = () => {
                                 <p className={`font-bold ${kit.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{kit.lastCheck.status}</p>
                             </div>
                         )}
-                    </div>
-                     {kit.qrCodeValue && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow text-center">
-                            <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Asset QR Code</h3>
-                            <div className="flex justify-center">
-                                <img id="qr-code-img" src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}`} alt="Kit QR Code" />
+                        {kit.qrCodeValue && (
+                             <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
+                                <div className="flex justify-center">
+                                     <img 
+                                        id="qr-code-img" 
+                                        src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}&choe=UTF-8`} 
+                                        alt="Kit QR Code"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-center gap-1 mt-2">
+                                    <p className="text-xs text-gray-500 font-mono break-all">{kit.qrCodeValue}</p>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(kit.qrCodeValue!);
+                                            showToast('QR Value Copied!', 'success');
+                                        }}
+                                        className="p-1 text-gray-400 hover:text-ams-blue"
+                                        title="Copy QR Value"
+                                    >
+                                        <CopyIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
+                                    Print
+                                </button>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2 break-all">{kit.qrCodeValue}</p>
-                            <button onClick={handlePrintQr} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">Print QR Code</button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                      <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Recent Checks</h3>
                      {checks.length > 0 ? (
-                        <ul className="space-y-4 max-h-96 overflow-y-auto">
+                        <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                             {checks.map(check => (
                                 <li key={check.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
                                     <div className="flex justify-between items-start">

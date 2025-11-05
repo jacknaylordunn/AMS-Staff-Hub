@@ -4,7 +4,7 @@ import type { Vehicle, VehicleCheck } from '../types';
 import { getVehicleById, getVehicleChecks, addVehicleCheck } from '../services/assetService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import VehicleCheckModal from '../components/VehicleCheckModal';
 
@@ -12,6 +12,7 @@ const VehicleDetail: React.FC = () => {
     const { vehicleId } = ReactRouterDOM.useParams<{ vehicleId: string }>();
     const { user } = useAuth();
     const { isOnline } = useOnlineStatus();
+    const navigate = ReactRouterDOM.useNavigate();
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
     const [checks, setChecks] = useState<VehicleCheck[]>([]);
     const [loading, setLoading] = useState(true);
@@ -54,21 +55,8 @@ const VehicleDetail: React.FC = () => {
     }
 
     const handlePrintQr = () => {
-        const qrImg = document.getElementById('qr-code-img') as HTMLImageElement;
-        if (qrImg && vehicle) {
-            const printWindow = window.open('', '_blank');
-            printWindow?.document.write(`
-                <html>
-                    <head><title>Print QR Code</title></head>
-                    <body style="text-align: center; margin-top: 50px;">
-                        <h2>${vehicle.name} - ${vehicle.registration}</h2>
-                        <img src="${qrImg.src}" alt="QR Code" />
-                        <p>${vehicle.qrCodeValue}</p>
-                        <script>window.onload = function() { window.print(); window.close(); }</script>
-                    </body>
-                </html>
-            `);
-            printWindow?.document.close();
+        if (vehicle) {
+            navigate(`/print/vehicle/${vehicle.id}`);
         }
     };
 
@@ -107,7 +95,7 @@ const VehicleDetail: React.FC = () => {
             </div>
             
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-1">
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                         <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Details</h3>
                         <p><strong>Type:</strong> {vehicle.type}</p>
@@ -120,22 +108,40 @@ const VehicleDetail: React.FC = () => {
                                 <p className={`font-bold ${vehicle.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{vehicle.lastCheck.status}</p>
                             </div>
                         )}
-                    </div>
-                    {vehicle.qrCodeValue && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow text-center">
-                            <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Asset QR Code</h3>
-                            <div className="flex justify-center">
-                                <img id="qr-code-img" src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vehicle.qrCodeValue)}`} alt="Vehicle QR Code" />
+                        {vehicle.qrCodeValue && (
+                            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
+                                <div className="flex justify-center">
+                                    <img 
+                                        id="qr-code-img" 
+                                        src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(vehicle.qrCodeValue)}&choe=UTF-8`} 
+                                        alt="Vehicle QR Code"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-center gap-1 mt-2">
+                                    <p className="text-xs text-gray-500 font-mono break-all">{vehicle.qrCodeValue}</p>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(vehicle.qrCodeValue!);
+                                            showToast('QR Value Copied!', 'success');
+                                        }}
+                                        className="p-1 text-gray-400 hover:text-ams-blue"
+                                        title="Copy QR Value"
+                                    >
+                                        <CopyIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
+                                    Print
+                                </button>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2 break-all">{vehicle.qrCodeValue}</p>
-                            <button onClick={handlePrintQr} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">Print QR Code</button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                      <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Recent Checks</h3>
                      {checks.length > 0 ? (
-                        <ul className="space-y-4 max-h-96 overflow-y-auto">
+                        <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                             {checks.map(check => (
                                 <li key={check.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
                                     <div className="flex justify-between items-start">

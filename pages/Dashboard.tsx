@@ -13,6 +13,7 @@ import { showToast } from '../components/Toast';
 import QrScannerModal from '../components/QrScannerModal';
 import StaffCheckInModal from '../components/StaffCheckInModal';
 import MethaneReportModal from '../components/MethaneReportModal';
+import HubFeed from '../components/HubFeed';
 
 // New Card Components
 const AtAGlanceCard: React.FC<{ icon: React.ReactNode, title: string, text: string, to: string, color: string }> = ({ icon, title, text, to, color }) => (
@@ -197,17 +198,15 @@ const Dashboard: React.FC = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                 <div className="col-span-2">
-                    <ActionCard 
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 grid grid-cols-2 gap-6 auto-rows-fr">
+                     <ActionCard 
                         to="/eprf" 
                         icon={<EprfIcon className="w-16 h-16 text-ams-blue dark:text-ams-light-blue" />} 
                         title="New ePRF" 
                         description="Start a new Patient Report Form." 
                         large
                     />
-                </div>
-                 <div className="col-span-2">
                     <ActionCard
                         onClick={() => setScannerOpen(true)}
                         icon={<QrCodeIcon className="w-16 h-16 text-ams-blue dark:text-ams-light-blue" />}
@@ -215,11 +214,14 @@ const Dashboard: React.FC = () => {
                         description="Scan a vehicle or kit QR code."
                         large
                     />
+                    <ActionCard to="/rota" icon={<RotaIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Rota" description="View upcoming shifts." />
+                    <ActionCard to="/patients" icon={<PatientsIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Patients" description="Search patient records." />
+                    <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
+                    <ActionCard to="/inventory" icon={<AmbulanceIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Inventory" description="Manage vehicles & kits." />
                 </div>
-                <ActionCard to="/rota" icon={<RotaIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Rota" description="View upcoming shifts." />
-                <ActionCard to="/patients" icon={<PatientsIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Patients" description="Search patient records." />
-                <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
-                <ActionCard to="/inventory" icon={<AmbulanceIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Inventory" description="Manage vehicles & kits." />
+                <div className="lg:col-span-1">
+                    {user && <HubFeed user={user} />}
+                </div>
             </div>
         </div>
     );
