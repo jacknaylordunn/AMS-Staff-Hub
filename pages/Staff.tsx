@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getUsers, updateUserProfile, approveRoleChange, rejectRoleChange } from '../services/userService';
+import { getUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUserProfile } from '../services/userService';
 import type { User } from '../types';
 import { SpinnerIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
@@ -16,6 +16,8 @@ const Staff: React.FC = () => {
     
     const [modalUser, setModalUser] = useState<User | null>(null);
     const [isApprovalModalOpen, setApprovalModalOpen] = useState(false);
+    const [isDeclineModalOpen, setDeclineModalOpen] = useState(false);
+    const [userToDecline, setUserToDecline] = useState<User | null>(null);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -59,6 +61,7 @@ const Staff: React.FC = () => {
             showToast("Failed to update user role.", "error");
         } finally {
             setIsSaving(false);
+            setEditingUser(null);
         }
     };
 
@@ -97,6 +100,27 @@ const Staff: React.FC = () => {
         }
     };
 
+    const handleDeclineUser = (user: User) => {
+        setUserToDecline(user);
+        setDeclineModalOpen(true);
+    };
+
+    const handleConfirmDecline = async () => {
+        if (!userToDecline) return;
+        setIsSaving(true);
+        try {
+            await deleteUserProfile(userToDecline.uid);
+            showToast("User registration declined and profile deleted.", "success");
+            setUsers(prev => prev.filter(u => u.uid !== userToDecline.uid));
+        } catch (e) {
+            showToast("Failed to decline user.", "error");
+        } finally {
+            setIsSaving(false);
+            setDeclineModalOpen(false);
+            setUserToDecline(null);
+        }
+    };
+
     const pendingRegistrationCount = useMemo(() => users.filter(u => u.role === 'Pending').length, [users]);
     const pendingRoleChangeCount = useMemo(() => users.filter(u => !!u.pendingRole).length, [users]);
 
@@ -109,6 +133,15 @@ const Staff: React.FC = () => {
                 title="Approve Role Change"
                 message={`Are you sure you want to approve the role change for ${modalUser.firstName} ${modalUser.lastName} from ${modalUser.role} to ${modalUser.pendingRole}?`}
                 confirmText="Approve"
+                isLoading={isSaving}
+            />}
+            {userToDecline && <ConfirmationModal 
+                isOpen={isDeclineModalOpen}
+                onClose={() => setDeclineModalOpen(false)}
+                onConfirm={handleConfirmDecline}
+                title="Decline Registration"
+                message={`Are you sure you want to decline the registration for ${userToDecline.firstName} ${userToDecline.lastName}? This will permanently delete their profile.`}
+                confirmText="Decline & Delete"
                 isLoading={isSaving}
             />}
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Staff Management</h1>
@@ -169,19 +202,23 @@ const Staff: React.FC = () => {
                                             ) : ( user.role || 'Not set' )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            {user.pendingRole ? (
+                                            {editingUser?.uid === user.uid ? (
+                                                <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-700" disabled={isSaving}>Cancel</button>
+                                            ) : user.pendingRole ? (
                                                 <div className="flex gap-2">
                                                     <button onClick={() => handleApproveRoleChange(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve</button>
                                                     <button onClick={() => handleRejectRoleChange(user.uid)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Reject</button>
                                                 </div>
+                                            ) : user.role === 'Pending' ? (
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setEditingUser(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve & Assign Role</button>
+                                                    <button onClick={() => handleDeclineUser(user)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Decline</button>
+                                                </div>
                                             ) : (
-                                                 <button onClick={() => setEditingUser(user)} className="text-ams-light-blue hover:text-ams-blue" disabled={isSaving}>
-                                                    {user.role === 'Pending' ? 'Approve & Assign Role' : 'Edit Role'}
-                                                 </button>
+                                                <button onClick={() => setEditingUser(user)} className="text-ams-light-blue hover:text-ams-blue" disabled={isSaving}>
+                                                    Edit Role
+                                                </button>
                                             )}
-                                             {editingUser?.uid === user.uid && (
-                                                <button onClick={() => setEditingUser(null)} className="ml-4 text-gray-500 hover:text-gray-700" disabled={isSaving}>Cancel</button>
-                                             )}
                                         </td>
                                     </tr>
                                 ))}

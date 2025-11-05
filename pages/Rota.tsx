@@ -93,15 +93,13 @@ const Rota: React.FC = () => {
     };
 
     const handleSaveShift = async (shiftData: Omit<Shift, 'id'>) => {
-        setLoading(true);
         if (selectedShift?.id) {
             const originalAssignedUids = selectedShift.assignedStaff.map(s => s.uid);
             await updateShift(selectedShift.id, shiftData, originalAssignedUids);
         } else {
             await createShift(shiftData);
         }
-        fetchRotaData();
-        handleCloseModal();
+        await fetchRotaData();
     };
 
     const handleDeleteShift = async (shiftId: string) => {

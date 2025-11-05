@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { User } from '../types';
 import { createNotification } from './notificationService';
@@ -24,6 +24,14 @@ export const getUserProfile = async (uid:string): Promise<User | null> => {
 export const updateUserProfile = async (uid: string, data: Partial<Omit<User, 'uid' | 'email'>>) => {
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, data);
+};
+
+export const deleteUserProfile = async (uid: string): Promise<void> => {
+    const userRef = doc(db, 'users', uid);
+    await deleteDoc(userRef);
+    // Note: This does not delete the user from Firebase Authentication.
+    // A cloud function would be required for that. For now, this effectively
+    // blocks them from using the app.
 };
 
 export const getUsers = async (): Promise<User[]> => {

@@ -1,8 +1,9 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import { showToast } from '../components/Toast';
 
-// FIX: Inlined the AIStudio interface within the global Window augmentation to resolve a TypeScript declaration conflict where the 'AIStudio' type was being declared in multiple places.
+// FIX: Inlined the type for `window.aistudio` to resolve a declaration conflict.
 declare global {
   interface Window {
     aistudio: {

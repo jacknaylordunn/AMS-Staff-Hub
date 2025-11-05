@@ -90,26 +90,33 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        const assignedStaff = formData.assignedStaffUids.map(uid => {
-            const staffMember = staff.find(s => s.uid === uid);
-            const userFullName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}`.trim() : `${currentUser.firstName} ${currentUser.lastName}`.trim();
-            return { uid, name: userFullName };
-        });
-        
-        const shiftData = {
-            eventId: formData.eventId,
-            eventName: formData.eventName,
-            start: Timestamp.fromDate(new Date(formData.start)),
-            end: Timestamp.fromDate(new Date(formData.end)),
-            roleRequired: formData.roleRequired,
-            notes: formData.notes,
-            assignedStaff,
-            assignedStaffUids: formData.assignedStaffUids,
-            isUnavailability: formData.isUnavailability,
-            unavailabilityReason: formData.unavailabilityReason,
-        };
-        await onSave(shiftData as Omit<Shift, 'id'>);
-        setLoading(false);
+        try {
+            const assignedStaff = formData.assignedStaffUids.map(uid => {
+                const staffMember = staff.find(s => s.uid === uid);
+                const userFullName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}`.trim() : `${currentUser.firstName} ${currentUser.lastName}`.trim();
+                return { uid, name: userFullName };
+            });
+            
+            const shiftData = {
+                eventId: formData.eventId,
+                eventName: formData.eventName,
+                start: Timestamp.fromDate(new Date(formData.start)),
+                end: Timestamp.fromDate(new Date(formData.end)),
+                roleRequired: formData.roleRequired,
+                notes: formData.notes,
+                assignedStaff,
+                assignedStaffUids: formData.assignedStaffUids,
+                isUnavailability: formData.isUnavailability,
+                unavailabilityReason: formData.unavailabilityReason,
+            };
+            await onSave(shiftData as Omit<Shift, 'id'>);
+            onClose(); // Close the modal on successful save
+        } catch (error) {
+            console.error("Failed to save shift from modal:", error);
+            // Error toast should be handled by the onSave implementation
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleDeleteConfirm = async () => {

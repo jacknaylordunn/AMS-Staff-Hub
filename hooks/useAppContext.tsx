@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { EventLog, Shift } from '../types';
@@ -23,6 +24,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const savedEvent = sessionStorage.getItem('activeEvent');
       return savedEvent ? JSON.parse(savedEvent) : null;
     } catch (e) {
+      console.error("Failed to parse activeEvent from sessionStorage", e);
       return null;
     }
   });
@@ -39,6 +41,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         return parsed;
     } catch (e) {
+        console.error("Failed to parse activeShift from sessionStorage", e);
         return null;
     }
   });

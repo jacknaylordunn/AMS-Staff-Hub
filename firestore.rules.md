@@ -12,33 +12,31 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Helper function to check if user is a Manager or Admin
-    function isManager() {
-      let userData = getUserData(request.auth.uid);
-      // Make it robust: check if role field exists before checking its value
+    // Helper function to check if a given user is a Manager or Admin
+    function isManagerOrAdmin(uid) {
+      let userData = getUserData(uid);
       return 'role' in userData && userData.role in ['Manager', 'Admin'];
     }
 
-    // Helper function to check for senior clinical roles
-    function isSeniorClinician() {
-      let userData = getUserData(request.auth.uid);
+    // Helper function to check for senior clinical roles for a given user
+    function isSeniorClinician(uid) {
+      let userData = getUserData(uid);
       let role = userData.role;
       return 'role' in userData && role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
     }
 
     // Users Collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isManager();
+      allow read: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
       allow create: if request.auth.uid == userId;
-      // Allow update if:
-      // 1. The requester is a manager (can do anything).
-      // OR
-      // 2. The requester is updating their own profile, BUT they are not changing their main 'role' field.
-      //    (They are allowed to change other fields like name, or request a role change by setting 'pendingRole').
-      allow update: if isManager() || (
-        request.auth.uid == userId && 
-        request.resource.data.role == resource.data.role
-      );
+      allow delete: if isManagerOrAdmin(request.auth.uid);
+      
+      // Rule 1: A manager or admin can update any user's profile.
+      allow update: if isManagerOrAdmin(request.auth.uid);
+      
+      // Rule 2: A user can update their own profile, but they cannot change their 'role'.
+      // This allows them to change their name or request a role change via 'pendingRole'.
+      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
     }
 
     // Patients Collection
@@ -47,7 +45,7 @@ service cloud.firestore {
     // - Only managers should be able to update/delete patient records (TBD).
     match /patients/{patientId} {
       allow read, create: if request.auth != null;
-      // allow update, delete: if isManager(); // Future enhancement
+      // allow update, delete: if isManagerOrAdmin(request.auth.uid); // Future enhancement
     }
 
     // ePRFs Collection
@@ -60,7 +58,7 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow create: if request.auth.uid == request.resource.data.createdBy.uid;
         allow update: if (resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft')
-                        || (isManager() && ("status" in request.resource.data || "reviewNotes" in request.resource.data));
+                        || (isManagerOrAdmin(request.auth.uid) && ("status" in request.resource.data || "reviewNotes" in request.resource.data));
         allow delete: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft';
     }
 
@@ -69,17 +67,17 @@ service cloud.firestore {
     // - Only Managers/Admins can create, update, or delete.
     match /events/{eventId} {
       allow read: if request.auth != null;
-      allow write: if isManager();
+      allow write: if isManagerOrAdmin(request.auth.uid);
     }
     
     match /documents/{docId} {
         allow read: if request.auth != null;
-        allow write: if isManager(); // Should be create/update/delete
+        allow write: if isManagerOrAdmin(request.auth.uid);
     }
 
     match /shifts/{shiftId} {
         allow read: if request.auth != null;
-        allow write: if isManager() || request.resource.data.isUnavailability == true; // allow users to add unavailability
+        allow write: if isManagerOrAdmin(request.auth.uid) || request.resource.data.isUnavailability == true; // allow users to add unavailability
     }
     
     // Vehicle & Vehicle Checks
@@ -88,7 +86,7 @@ service cloud.firestore {
     // - Nobody can edit or delete a vehicle check once submitted.
     match /vehicles/{vehicleId} {
         allow read: if request.auth != null;
-        allow write: if isManager(); // create, update, delete for vehicle doc
+        allow write: if isManagerOrAdmin(request.auth.uid);
         
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
@@ -102,7 +100,7 @@ service cloud.firestore {
     // - Nobody can edit or delete a kit check once submitted.
     match /kits/{kitId} {
         allow read: if request.auth != null;
-        allow write: if isManager();
+        allow write: if isManagerOrAdmin(request.auth.uid);
         
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
@@ -115,7 +113,7 @@ service cloud.firestore {
     // - Only Managers/Admins can create.
     match /announcements/{announcementId} {
         allow read: if request.auth != null;
-        allow create: if isManager();
+        allow create: if isManagerOrAdmin(request.auth.uid);
         allow update, delete: if false; // Announcements are immutable
     }
 
@@ -140,7 +138,7 @@ service cloud.firestore {
     // - All authenticated users can read incident details.
     match /majorIncidents/{incidentId} {
       allow read: if request.auth != null;
-      allow create, update: if isManager();
+      allow create, update: if isManagerOrAdmin(request.auth.uid);
 
       // METHANE Reports
       // - Any authenticated user can create a report for an incident.
@@ -164,7 +162,7 @@ service cloud.firestore {
     // - Only senior clinicians can read or create entries.
     // - Ledger entries are immutable to preserve the audit trail.
     match /controlledDrugLedger/{entryId} {
-      allow read, create: if isSeniorClinician();
+      allow read, create: if isSeniorClinician(request.auth.uid);
       allow update, delete: if false;
     }
 
@@ -183,7 +181,7 @@ service cloud.firestore {
     // - Only managers/admins can read feedback.
     // - Immutable once created.
     match /anonymousFeedback/{feedbackId} {
-      allow read: if isManager();
+      allow read: if isManagerOrAdmin(request.auth.uid);
       allow create: if request.auth != null;
       allow update, delete: if false;
     }
@@ -192,7 +190,7 @@ service cloud.firestore {
     // - Only managers/admins can read and create audit results.
     // - Immutable once created.
     match /audits/{auditId} {
-      allow read, create: if isManager();
+      allow read, create: if isManagerOrAdmin(request.auth.uid);
       allow update, delete: if false;
     }
   }
