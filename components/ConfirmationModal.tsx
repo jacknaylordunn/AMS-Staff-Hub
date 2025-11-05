@@ -10,6 +10,7 @@ interface ConfirmationModalProps {
     confirmText?: string;
     cancelText?: string;
     isLoading?: boolean;
+    children?: React.ReactNode;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -20,7 +21,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     message,
     confirmText = 'Confirm',
     cancelText = 'Cancel',
-    isLoading = false
+    isLoading = false,
+    children
 }) => {
     if (!isOpen) return null;
 
@@ -36,6 +38,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
                 <h2 id="confirmation-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">{title}</h2>
                 <p id="confirmation-modal-message" className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+                {children && <div className="my-4">{children}</div>}
                 <div className="flex justify-end gap-4">
                     <button
                         type="button"

@@ -5,12 +5,14 @@ import { useParams, Link } from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
 import { getEPRFsForPatient, approveEPRF, returnEPRFToDraft } from '../services/eprfService';
 import type { Patient, EPRFForm, VitalSign, MedicationAdministered, Intervention, AuditEntry } from '../types';
-import { SpinnerIcon, PdfIcon, CheckIcon, TimelineIcon, FormIcon, AuditIcon } from '../components/icons';
+import { SpinnerIcon, PdfIcon, CheckIcon, TimelineIcon, FormIcon, QualityIcon } from '../components/icons';
 import EPRFView from '../components/EPRFView';
 import { generateHandoverPdf } from '../utils/pdfGenerator';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { performAiAudit } from '../services/auditService';
+import { Timestamp } from 'firebase/firestore';
 
 const DetailCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -160,6 +162,8 @@ const PatientDetail: React.FC = () => {
     const [isReturnModalOpen, setReturnModalOpen] = useState(false);
     const [isApproveModalOpen, setApproveModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [submitForAudit, setSubmitForAudit] = useState(true);
+
 
     useEffect(() => {
         if (!patientId) return;
@@ -223,10 +227,31 @@ const PatientDetail: React.FC = () => {
         if (!selectedEPRF || !user) return;
         setIsProcessing(true);
         try {
-            await approveEPRF(selectedEPRF.id!, selectedEPRF, { uid: user.uid, name: `${user.firstName} ${user.lastName}`.trim() });
+            const reviewer = { uid: user.uid, name: `${user.firstName} ${user.lastName}`.trim() };
+            await approveEPRF(selectedEPRF.id!, reviewer);
             showToast("ePRF Approved.", "success");
-            setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? { ...e, status: 'Reviewed', reviewNotes: undefined } : e));
-            setSelectedEPRF(prev => prev ? { ...prev, status: 'Reviewed', reviewNotes: undefined } : null);
+            
+            const approvedEprf: EPRFForm = { 
+                ...selectedEPRF, 
+                status: 'Reviewed', 
+                reviewNotes: undefined,
+                reviewedBy: { ...reviewer, date: Timestamp.now() }
+            };
+            
+            setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? approvedEprf : e));
+            setSelectedEPRF(approvedEprf);
+    
+            if (submitForAudit) {
+                showToast("Submitting for AI audit...", "info");
+                try {
+                    await performAiAudit(approvedEprf, user.uid);
+                    showToast("AI audit completed successfully.", "success");
+                } catch (auditError) {
+                    console.error("AI Audit failed:", auditError);
+                    showToast("AI audit failed. Please try again later.", "error");
+                }
+            }
+    
         } catch (error) {
             showToast("Failed to approve ePRF.", "error");
         } finally {
@@ -270,7 +295,28 @@ const PatientDetail: React.FC = () => {
 
     return (
         <div>
-            <ConfirmationModal isOpen={isApproveModalOpen} onClose={() => setApproveModalOpen(false)} onConfirm={handleApprove} title="Approve ePRF" message="Are you sure you want to approve this ePRF? This will mark it as complete and lock it from further edits." confirmText="Approve" isLoading={isProcessing}/>
+            <ConfirmationModal 
+                isOpen={isApproveModalOpen} 
+                onClose={() => setApproveModalOpen(false)} 
+                onConfirm={handleApprove} 
+                title="Approve ePRF" 
+                message="Are you sure you want to approve this ePRF? This will mark it as complete and lock it from further edits." 
+                confirmText="Approve" 
+                isLoading={isProcessing}
+            >
+                <div className="flex items-center">
+                    <input 
+                        id="audit-checkbox"
+                        type="checkbox"
+                        checked={submitForAudit}
+                        onChange={(e) => setSubmitForAudit(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-ams-light-blue focus:ring-ams-light-blue"
+                    />
+                    <label htmlFor="audit-checkbox" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                        Submit for AI Quality Audit
+                    </label>
+                </div>
+            </ConfirmationModal>
             <ReturnToDraftModal isOpen={isReturnModalOpen} onClose={() => setReturnModalOpen(false)} onConfirm={handleReturnToDraft} isLoading={isProcessing}/>
             
             <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-2">{patient.firstName} {patient.lastName}</h1>
@@ -330,7 +376,7 @@ const PatientDetail: React.FC = () => {
                                     <div className="flex items-center gap-4">
                                         <button onClick={() => setViewMode('form')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'form' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><FormIcon className="w-5 h-5"/> View Form</button>
                                         <button onClick={() => setViewMode('timeline')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'timeline' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><TimelineIcon className="w-5 h-5"/> Timeline</button>
-                                        <button onClick={() => setViewMode('audit')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'audit' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><AuditIcon className="w-5 h-5"/> Audit</button>
+                                        <button onClick={() => setViewMode('audit')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'audit' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><QualityIcon className="w-5 h-5"/> Audit</button>
                                         <button onClick={() => handleGeneratePdf(selectedEPRF)} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"><PdfIcon className="w-5 h-5"/> PDF</button>
                                     </div>
                                     {isManager && selectedEPRF.status === 'Pending Review' && (

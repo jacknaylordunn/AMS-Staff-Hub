@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -17,16 +16,21 @@ import Rota from './pages/Rota';
 import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
 import Patients from './pages/Patients';
-// FIX: The component PatientDetail was not exported correctly. This is fixed in pages/PatientDetail.tsx.
 import PatientDetail from './pages/PatientDetail';
 import Events from './pages/Events';
 import EPRFReviews from './pages/EPRFReviews';
-import Assets from './pages/Assets';
+import Inventory from './pages/Inventory';
 import VehicleDetail from './pages/VehicleDetail';
 import Reports from './pages/Reports';
 import Announcements from './pages/Announcements';
 import Admin from './pages/Admin';
 import CPD from './pages/CPD';
+import MajorIncidents from './pages/MajorIncidents';
+import MajorIncidentDashboard from './pages/MajorIncidentDashboard';
+import KitDetail from './pages/KitDetail';
+import ControlledDrugs from './pages/ControlledDrugs';
+import Wellbeing from './pages/Wellbeing';
+import Quality from './pages/Quality';
 import { signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
 
@@ -104,6 +108,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="documents" element={<Documents />} />
                 <Route path="rota" element={<Rota />} />
                 <Route path="cpd" element={<CPD />} />
+                <Route path="wellbeing" element={<Wellbeing />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="patients" element={<Patients />} />
                 <Route path="patients/:patientId" element={<PatientDetail />} />
@@ -117,18 +122,26 @@ const AppRoutes: React.FC = () => {
                     } 
                 />
                 <Route 
-                    path="assets" 
+                    path="inventory" 
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
-                            <Assets />
+                            <Inventory />
                         </ProtectedRoute>
                     } 
                 />
                  <Route 
-                    path="assets/vehicle/:vehicleId" 
+                    path="inventory/vehicle/:vehicleId" 
                     element={
                         <ProtectedRoute>
                             <VehicleDetail />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="inventory/kit/:kitId" 
+                    element={
+                        <ProtectedRoute>
+                            <KitDetail />
                         </ProtectedRoute>
                     } 
                 />
@@ -137,6 +150,14 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
                             <Reports />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="quality" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <Quality />
                         </ProtectedRoute>
                     } 
                 />
@@ -153,6 +174,30 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Admin']}>
                             <Admin />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="major-incidents" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <MajorIncidents />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="major-incidents/:incidentId" 
+                    element={
+                        <ProtectedRoute>
+                            <MajorIncidentDashboard />
+                        </ProtectedRoute>
+                    } 
+                />
+                <Route 
+                    path="controlled-drugs" 
+                    element={
+                        <ProtectedRoute roles={['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin']}>
+                            <ControlledDrugs />
                         </ProtectedRoute>
                     } 
                 />

@@ -123,6 +123,7 @@ export interface EPRFForm {
   impressions: string[];
   medicationsAdministered: MedicationAdministered[];
   interventions: Intervention[];
+  itemsUsed: string[];
   disposal?: string; // Legacy field, replaced by disposition
   disposition: 'Not Set' | 'Conveyed to ED' | 'Left at Home (Own Consent)' | 'Left at Home (Against Advice)' | 'Referred to Other Service' | 'Deceased on Scene';
   dispositionDetails: {
@@ -290,4 +291,141 @@ export interface CPDEntry {
   attachmentUrl?: string;
   attachmentFileName?: string;
   createdAt: Timestamp;
+}
+
+export interface MajorIncident {
+    id?: string;
+    name: string;
+    location: string;
+    status: 'Active' | 'Stood Down';
+    declaredAt: Timestamp;
+    declaredBy: { uid: string; name: string; };
+    stoodDownAt?: Timestamp;
+    initialDetails: string;
+}
+
+export interface METHANEreport {
+    id?: string;
+    incidentId: string;
+    submittedAt: Timestamp;
+    submittedBy: { uid: string; name: string; };
+    majorIncident: 'Yes' | 'No';
+    exactLocation: string;
+    typeOfIncident: string;
+    hazards: string;
+    access: string;
+    numberOfCasualties: string;
+    emergencyServices: string;
+}
+
+export interface StaffCheckin {
+    id?: string; // Here, id will be the user's UID
+    incidentId: string;
+    userId: string;
+    userName: string;
+    userRole: User['role'];
+    status: 'Available - On Site' | 'Available - En Route' | 'Unavailable';
+    timestamp: Timestamp;
+}
+
+export interface Kit {
+  id?: string;
+  name: string; // e.g., 'Response Bag 1'
+  type: 'Response Bag' | 'Trauma Bag' | 'Drug Kit' | 'O2 Bag';
+  status: 'In Service' | 'Needs Restocking' | 'Out of Service' | 'With Crew';
+  assignedTo?: { uid: string; name: string; };
+  lastCheck?: {
+    date: Timestamp;
+    user: { uid: string; name:string; };
+    status: 'Pass' | 'Issues Found';
+  };
+  createdAt: Timestamp;
+  qrCodeValue?: string; // This will be the unique ID, formatted like 'aegis-kit-qr:KIT_ID'
+}
+
+export const KIT_CHECKLIST_ITEMS = {
+    'Airway': ['OPAs', 'NPAs', 'i-gel', 'Catheter Mount'],
+    'Breathing': ['BVM', 'Oxygen Mask', 'Nebuliser Kit', 'Chest Seal'],
+    'Circulation': ['Dressings', 'Tourniquet', 'Bandages', 'IV Cannula'],
+    'Diagnostics': ['Stethoscope', 'Pulse Oximeter', 'BP Cuff', 'Thermometer'],
+    'Drugs': ['Aspirin', 'GTN Spray', 'Salbutamol', 'Adrenaline 1:1000'],
+};
+
+
+export interface KitCheck {
+    id?: string;
+    kitId: string;
+    kitName: string;
+    date: Timestamp;
+    user: { uid: string; name: string; };
+    type: 'Sign Out' | 'Sign In';
+    checklist: { [key: string]: 'Pass' | 'Fail' | 'N/A' };
+    itemsUsed?: { itemName: string, quantity: number }[];
+    notes: string;
+    overallStatus: 'Pass' | 'Issues Found';
+}
+
+export interface ControlledDrugLedgerEntry {
+    id?: string;
+    drugName: 'Morphine Sulphate 10mg/1ml' | 'Diazepam 10mg/2ml' | 'Midazolam 10mg/2ml' | 'Ketamine 100mg/2ml';
+    batchNumber: string;
+    expiryDate: string; // YYYY-MM-DD
+    timestamp: Timestamp;
+    type: 'Received' | 'Moved' | 'Administered' | 'Wasted' | 'Balance Check';
+    
+    // For movement/receiving
+    fromLocation?: string; // 'Pharmacy', 'Safe', 'Drug Kit 1'
+    toLocation?: string; // 'Safe', 'Drug Kit 1', 'Wasted'
+    quantity?: number; // Number of ampoules/vials
+
+    // For administration
+    patientId?: string;
+    patientName?: string;
+    doseAdministered?: string; // e.g., '5mg'
+    
+    // For wastage
+    wastedAmount?: string; // e.g., '5mg / 0.5ml'
+
+    // For balance check
+    balanceChecked?: number; // The new balance after the transaction
+    
+    // Audit
+    user1: { uid: string; name: string; }; // Person performing action
+    user2?: { uid: string; name: string; }; // Witness
+    notes?: string;
+}
+
+export interface Kudo {
+  id?: string;
+  to: { uid: string; name: string; };
+  from: { uid: string; name: string; };
+  message: string;
+  createdAt: Timestamp;
+}
+
+export interface AnonymousFeedback {
+  id?: string;
+  message: string;
+  category: 'Concern' | 'Suggestion' | 'Positive';
+  createdAt: Timestamp;
+}
+
+export interface AiAuditResult {
+    id?: string; // Will be the same as eprfId
+    eprfId: string;
+    patientId: string;
+    eventName: string;
+    incidentDate: string;
+    auditedAt: Timestamp;
+    auditedBy: { uid: string; name: string; };
+    
+    completenessScore: number;
+    guidelineAdherenceScore: number;
+    documentationScore: number;
+    overallScore: number;
+
+    summary: string;
+    strengths: string[];
+    areasForImprovement: string[];
+    keyLearningPoints: string[];
 }

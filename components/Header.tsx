@@ -29,7 +29,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const getPageTitle = () => {
     // Specific sub-page titles
-    if (location.pathname.includes('/assets/vehicle/')) return 'Vehicle Details';
+    if (location.pathname.includes('/inventory/vehicle/')) return 'Vehicle Details';
+    if (location.pathname.includes('/inventory/kit/')) return 'Kit Details';
     if (location.pathname.includes('/patients/')) return 'Patient Details';
     if (location.pathname.includes('/admin')) return 'Admin Panel';
 
@@ -40,6 +41,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     if (path === 'reviews') return 'ePRF Reviews';
     if (path === 'reports') return 'Reporting';
     if (path === 'events') return 'Duty Logon';
+    if (path === 'inventory') return 'Inventory';
+    if (path === 'controlled-drugs') return 'Controlled Drugs';
     
     // Default/fallback title generation
     if (!path || path === 'dashboard') return 'Dashboard';

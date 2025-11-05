@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 // FIX: Corrected import path for EPRF service functions.
 import { getAllFinalizedEPRFs, getPendingEPRFs } from '../services/eprfService';
@@ -135,104 +134,98 @@ const Reports: React.FC = () => {
             return eprfDate >= start && eprfDate <= end;
         });
     }, [eprfs, startDate, endDate]);
-    
-    const analyticsData = useMemo(() => {
-        const totalPatients = filteredEprfs.length;
 
-        // Calculate average on-scene time
-        let totalMinutes = 0;
-        let validEntries = 0;
-        filteredEprfs.forEach(e => {
-            if (e.onSceneTime && e.leftSceneTime) {
-                try {
-                    const [onSceneH, onSceneM] = e.onSceneTime.split(':').map(Number);
-                    const [leftSceneH, leftSceneM] = e.leftSceneTime.split(':').map(Number);
-                    if (!isNaN(onSceneH) && !isNaN(onSceneM) && !isNaN(leftSceneH) && !isNaN(leftSceneM)) {
-                       const start = new Date(0, 0, 0, onSceneH, onSceneM);
-                       const end = new Date(0, 0, 0, leftSceneH, leftSceneM);
-                       // FIX: Use .getTime() to perform arithmetic on Date objects and correct parentheses for division.
-                       let diff = (end.getTime() - start.getTime()) / (1000 * 60);
-                       if (diff < 0) diff += 24 * 60; // Handle overnight cases
-                       totalMinutes += diff;
-                       validEntries++;
-                    }
-                } catch (err) {
-                    console.error("Error parsing time for on-scene duration", err);
-                }
-            }
-        });
-        const avgOnSceneTime = validEntries > 0 ? Math.round(totalMinutes / validEntries) : 'N/A';
-        
-        // Data for charts
-        const presentationTypes = filteredEprfs.reduce((acc, e) => {
-            acc[e.presentationType] = (acc[e.presentationType] || 0) + 1;
+    const analyticsData = useMemo(() => {
+        if (filteredEprfs.length === 0) {
+            return {
+                totalEncounters: 0,
+                presentations: [],
+                dispositions: [],
+                topImpressions: [],
+                topEvents: [],
+            };
+        }
+
+        const presentations = filteredEprfs.reduce<{[key: string]: number}>((acc, eprf) => {
+            acc[eprf.presentationType] = (acc[eprf.presentationType] || 0) + 1;
             return acc;
-        }, {} as Record<string, number>);
+        }, {});
+
+        const dispositions = filteredEprfs.reduce<{[key: string]: number}>((acc, eprf) => {
+            const disp = eprf.disposition || 'Not Set';
+            acc[disp] = (acc[disp] || 0) + 1;
+            return acc;
+        }, {});
         
-        const events = filteredEprfs.reduce((acc, e) => {
-            const eventName = e.eventName || 'Unknown Event';
+        const impressions = filteredEprfs.flatMap(e => e.impressions).reduce<{[key: string]: number}>((acc, impression) => {
+            acc[impression] = (acc[impression] || 0) + 1;
+            return acc;
+        }, {});
+
+        const events = filteredEprfs.reduce<{[key: string]: number}>((acc, eprf) => {
+            const eventName = eprf.eventName || 'Unknown Event';
             acc[eventName] = (acc[eventName] || 0) + 1;
             return acc;
-        }, {} as Record<string, number>);
+        }, {});
+        
+        const topImpressions = Object.entries(impressions)
+            // FIX: Explicitly cast sort values to Number to resolve TypeScript error.
+            .sort((a, b) => Number(b[1]) - Number(a[1]))
+            .slice(0, 5)
+            .map(([label, value]) => ({ label, value }));
 
-        const dispositions = filteredEprfs.reduce((acc, e) => {
-            acc[e.disposition] = (acc[e.disposition] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
+        const topEvents = Object.entries(events)
+            // FIX: Explicitly cast sort values to Number to resolve TypeScript error.
+            .sort((a, b) => Number(b[1]) - Number(a[1]))
+            .slice(0, 5)
+            .map(([label, value]) => ({ label, value }));
+
 
         return {
-            totalPatients,
-            avgOnSceneTime,
-            presentationTypes: Object.entries(presentationTypes).map(([label, value]) => ({ label, value })),
-            events: Object.entries(events).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
-            dispositions: Object.entries(dispositions).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value)
+            totalEncounters: filteredEprfs.length,
+            presentations: [
+                { label: 'Medical/Trauma', value: presentations['Medical/Trauma'] || 0, color: '#00A8E8' },
+                { label: 'Minor Injury', value: presentations['Minor Injury'] || 0, color: '#FFD700' },
+                { label: 'Welfare/Intox', value: presentations['Welfare/Intox'] || 0, color: '#003366' },
+            ],
+            dispositions: Object.entries(dispositions).map(([label, value]) => ({ label, value })),
+            topImpressions,
+            topEvents,
         };
     }, [filteredEprfs]);
 
-    const presentationChartData = useMemo(() => [
-        { label: 'Medical/Trauma', value: analyticsData.presentationTypes.find(p => p.label === 'Medical/Trauma')?.value || 0, color: '#003366' },
-        { label: 'Minor Injury', value: analyticsData.presentationTypes.find(p => p.label === 'Minor Injury')?.value || 0, color: '#00A8E8' },
-        { label: 'Welfare/Intox', value: analyticsData.presentationTypes.find(p => p.label === 'Welfare/Intox')?.value || 0, color: '#FFD700' },
-    ], [analyticsData.presentationTypes]);
-    
+
     if (loading) {
-        return <div className="flex justify-center items-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /></div>;
+        return (
+            <div className="flex justify-center items-center h-96">
+                <SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />
+                <span className="ml-4 text-lg dark:text-gray-300">Generating Reports...</span>
+            </div>
+        );
     }
 
     return (
         <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Performance & Analytics</h1>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Clinical Reporting</h1>
             
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="flex-1">
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
-                    <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"/>
-                </div>
-                <div className="flex-1">
-                     <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
-                    <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"/>
-                </div>
+            <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col md:flex-row gap-4 items-center">
+                <label className="font-semibold dark:text-gray-200">Date Range:</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="px-2 py-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
+                <span>to</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="px-2 py-1 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
             </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <KPICard title="Total Patients Treated" value={analyticsData.totalPatients} description="In selected date range" />
-                <KPICard title="ePRFs Pending Review" value={pendingCount} description="Total reports awaiting approval" />
-                <KPICard title="Avg. On-Scene Time" value={`${analyticsData.avgOnSceneTime} min`} description="From on-scene to left-scene" />
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <KPICard title="Total Encounters" value={analyticsData.totalEncounters} description={`Between ${startDate} and ${endDate}`} />
+                <KPICard title="ePRFs Pending Review" value={pendingCount} description="Across all time" />
+                <KPICard title="Average Encounters/Day" value={(analyticsData.totalEncounters / 30).toFixed(1)} description="In the selected date range (avg)" />
             </div>
-
+            
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div className="lg:col-span-2">
-                    <DonutChart data={presentationChartData} title="Presentation Types" />
-                </div>
-                <div className="lg:col-span-3">
-                    <BarChart data={analyticsData.events} title="Incidents by Event" />
-                </div>
-                <div className="lg:col-span-5">
-                     <BarChart data={analyticsData.dispositions} title="Disposition Outcomes" />
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <DonutChart data={analyticsData.presentations} title="Encounters by Presentation Type" />
+                <BarChart data={analyticsData.dispositions} title="Patient Dispositions" />
             </div>
         </div>
     );

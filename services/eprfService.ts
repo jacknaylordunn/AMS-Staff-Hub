@@ -62,6 +62,13 @@ export const getActiveDraftForUser = async (userId: string): Promise<EPRFForm | 
     return { id: doc.id, ...doc.data() } as EPRFForm;
 }
 
+export const getEPRFById = async (eprfId: string): Promise<EPRFForm | null> => {
+    const docRef = doc(db, 'eprfs', eprfId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    return { id: docSnap.id, ...docSnap.data() } as EPRFForm;
+}
+
 export const updateEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
     const docRef = doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
@@ -122,7 +129,7 @@ export const getAllFinalizedEPRFs = async (): Promise<EPRFForm[]> => {
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
-export const approveEPRF = async (eprfId: string, eprfData: EPRFForm, reviewer: {uid: string, name: string}): Promise<void> => {
+export const approveEPRF = async (eprfId: string, reviewer: {uid: string, name: string}): Promise<void> => {
     const docRef = doc(db, 'eprfs', eprfId);
     const auditEntry: AuditEntry = {
         timestamp: Timestamp.now(),
@@ -132,6 +139,7 @@ export const approveEPRF = async (eprfId: string, eprfData: EPRFForm, reviewer: 
     await updateDoc(docRef, {
         status: 'Reviewed' as const,
         reviewedBy: { ...reviewer, date: Timestamp.now() },
+        reviewNotes: null, // Clear any previous "return to draft" notes
         auditLog: arrayUnion(auditEntry)
     });
 };
@@ -155,3 +163,21 @@ export const returnEPRFToDraft = async (eprfId: string, eprfData: EPRFForm, mana
         `/patients/${eprfData.patientId}`
     );
 }
+
+export const getEPRFsToSyncSignatures = async (userId: string): Promise<EPRFForm[]> => {
+    const eprfsCol = collection(db, 'eprfs');
+    const q = query(eprfsCol, 
+        where('createdBy.uid', '==', userId), 
+        where('signaturesNeedSync', '==', true)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
+};
+
+export const updateSyncedSignatures = async (eprfId: string, updates: { clinicianSignatureUrl?: string, patientSignatureUrl?: string }): Promise<void> => {
+    const docRef = doc(db, 'eprfs', eprfId);
+    await updateDoc(docRef, {
+        ...updates,
+        signaturesNeedSync: false
+    });
+};

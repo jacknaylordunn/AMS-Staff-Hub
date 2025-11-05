@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -7,10 +8,13 @@ import { useAppContext } from '../hooks/useAppContext';
 import { getActiveDraftForUser, getRecentEPRFsForUser } from '../services/eprfService';
 import { getShiftsForUser } from '../services/rotaService';
 import { getNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
-import type { EPRFForm, Shift, Notification } from '../types';
-import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon, QrCodeIcon } from '../components/icons';
+import { getActiveIncidents } from '../services/majorIncidentService';
+import type { EPRFForm, Shift, Notification, MajorIncident } from '../types';
+import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon, QrCodeIcon, ShieldExclamationIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import QrScannerModal from '../components/QrScannerModal';
+import StaffCheckInModal from '../components/StaffCheckInModal';
+import MethaneReportModal from '../components/MethaneReportModal';
 
 const DashboardCard: React.FC<{ to: string, icon: React.ReactNode, title: string, description: string }> = ({ to, icon, title, description }) => (
     <Link to={to} className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
@@ -95,24 +99,45 @@ const Dashboard: React.FC = () => {
     const [nextShift, setNextShift] = useState<Shift | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [recentEprfs, setRecentEprfs] = useState<EPRFForm[]>([]);
+    const [activeIncident, setActiveIncident] = useState<MajorIncident | null>(null);
+    
+    // Modals
     const [isScannerOpen, setScannerOpen] = useState(false);
+    const [isCheckInOpen, setCheckInOpen] = useState(false);
+    const [isMethaneOpen, setMethaneOpen] = useState(false);
 
     useEffect(() => {
         if (user) {
-            getActiveDraftForUser(user.uid).then(setActiveDraft);
-            getNotificationsForUser(user.uid).then(setNotifications);
-            getRecentEPRFsForUser(user.uid).then(setRecentEprfs);
-            
-            const today = new Date();
-            getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()).then(shifts => {
-                const upcomingShifts = shifts
-                    .filter(s => s.start.toDate() > today && !s.isUnavailability)
-                    .sort((a, b) => a.start.toMillis() - b.start.toMillis());
-                
-                if (upcomingShifts.length > 0) {
-                    setNextShift(upcomingShifts[0]);
+            const fetchData = async () => {
+                try {
+                    const today = new Date();
+                    const [draft, notificationsData, recent, incidents, shifts] = await Promise.all([
+                        getActiveDraftForUser(user.uid),
+                        getNotificationsForUser(user.uid),
+                        getRecentEPRFsForUser(user.uid),
+                        getActiveIncidents(),
+                        getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
+                    ]);
+    
+                    setActiveDraft(draft);
+                    setNotifications(notificationsData);
+                    setRecentEprfs(recent);
+                    setActiveIncident(incidents[0] || null);
+    
+                    const upcomingShifts = shifts
+                        .filter(s => s.start.toDate() > today && !s.isUnavailability)
+                        .sort((a, b) => a.start.toMillis() - b.start.toMillis());
+                    
+                    if (upcomingShifts.length > 0) {
+                        setNextShift(upcomingShifts[0]);
+                    }
+                } catch (error) {
+                    console.error("Dashboard data fetch failed:", error);
+                    showToast("Failed to load some dashboard data.", "error");
                 }
-            });
+            };
+    
+            fetchData();
         }
     }, [user]);
     
@@ -125,19 +150,50 @@ const Dashboard: React.FC = () => {
         if (qrValue.startsWith('aegis-vehicle-qr:')) {
             const vehicleId = qrValue.split(':')[1];
             if (vehicleId) {
-                navigate(`/assets/vehicle/${vehicleId}`);
+                navigate(`/inventory/vehicle/${vehicleId}`);
                 showToast(`Loading vehicle...`, 'info');
             } else {
                 showToast('Invalid vehicle QR code.', 'error');
             }
+        } else if (qrValue.startsWith('aegis-kit-qr:')) {
+            const kitId = qrValue.split(':')[1];
+            if (kitId) {
+                navigate(`/inventory/kit/${kitId}`);
+                showToast(`Loading kit...`, 'info');
+            } else {
+                showToast('Invalid kit QR code.', 'error');
+            }
         } else {
-            showToast('Not a valid Aegis vehicle QR code.', 'error');
+            showToast('Not a valid Aegis QR code.', 'error');
         }
     };
 
     return (
         <div>
             <QrScannerModal isOpen={isScannerOpen} onClose={() => setScannerOpen(false)} onScan={handleQrScan} />
+            {activeIncident && user && <StaffCheckInModal isOpen={isCheckInOpen} onClose={() => setCheckInOpen(false)} incident={activeIncident} user={user} />}
+            {activeIncident && user && <MethaneReportModal isOpen={isMethaneOpen} onClose={() => setMethaneOpen(false)} incident={activeIncident} user={user} />}
+
+            {activeIncident && (
+                <div className="mb-6 p-6 bg-red-100 border-l-4 border-red-500 rounded-lg shadow-lg dark:bg-red-900/50 dark:border-red-600 animate-pulse">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                        <div className="flex items-center">
+                            <ShieldExclamationIcon className="w-12 h-12 text-red-700 dark:text-red-400" />
+                            <div className="ml-4">
+                                <h2 className="text-xl font-bold text-red-800 dark:text-red-200">MAJOR INCIDENT DECLARED</h2>
+                                <p className="text-red-700 dark:text-red-300">
+                                    Incident: <strong>{activeIncident.name}</strong>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            <button onClick={() => setCheckInOpen(true)} className="px-4 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90">Check In</button>
+                            <button onClick={() => setMethaneOpen(true)} className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700">Submit METHANE</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome back, {user?.firstName || 'team member'}!</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
@@ -194,8 +250,8 @@ const Dashboard: React.FC = () => {
                  <DashboardButtonCard
                     onClick={() => setScannerOpen(true)}
                     icon={<QrCodeIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />}
-                    title="Scan Vehicle"
-                    description="Scan a QR code to begin vehicle checks."
+                    title="Scan Asset"
+                    description="Scan a QR code for a vehicle or kit."
                 />
                  <DashboardCard 
                     to="/patients" 

@@ -113,60 +113,24 @@ const Login: React.FC = () => {
             return;
         }
 
-        if (typeof grecaptcha === 'undefined' || !grecaptcha.enterprise) {
-            setError('reCAPTCHA could not be loaded. Please check your connection or browser settings.');
-            setLoading(false);
-            return;
-        }
-        
-        grecaptcha.enterprise.ready(async () => {
-            try {
-                const token = await grecaptcha.enterprise.execute('6Le1gAIsAAAAAD3DTUOjQ43zpdLDXmBl-86T0B2G', {action: 'SIGNUP'});
-                // In a real production app, this token must be sent to a backend (e.g., Cloud Function)
-                // for verification before creating the user. This client-side implementation is for demonstration.
-                console.log('reCAPTCHA token:', token); 
-
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                
-                if (!userCredential.user) {
-                  throw new Error("User could not be created.");
-                }
-                
-                const displayName = `${firstName} ${lastName}`.trim();
-
-                await updateProfile(userCredential.user, { displayName });
-                await createUserProfile(userCredential.user.uid, {
-                    email: userCredential.user.email!,
-                    firstName,
-                    lastName,
-                    role: 'Pending',
-                    registrationNumber
-                });
-
-                await sendEmailVerification(userCredential.user);
-                setMessage('Account created. An administrator will review your registration. Please check your email to verify your account.');
-                
-                setFirstName('');
-                setLastName('');
-                setPassword('');
-                setEmail('');
-                setRegistrationNumber('');
-
-                setIsLogin(true); // Switch to login view
-            } catch (err: any) {
-                if (err.code === 'auth/email-already-in-use') {
-                    setError('An account with this email already exists.');
-                } else if (err.code === 'auth/weak-password') {
-                    setError('Password should be at least 6 characters.');
-                }
-                else {
-                    setError('An unexpected error occurred during registration. Please try again.');
-                    console.error(err);
-                }
-            } finally {
-                setLoading(false);
-            }
-        });
+        // CRITICAL SECURITY FIX: The insecure client-side registration logic has been removed.
+        // A secure, backend-driven approach is mandatory for production environments.
+        //
+        // RATIONALE: Performing user creation on the client-side with reCAPTCHA is insecure because
+        // the reCAPTCHA token verification can be easily bypassed by an attacker. A malicious user
+        // could intercept the request, remove the reCAPTCHA part, and directly call the Firebase
+        // client-side API to create users, leading to automated abuse (spam account creation).
+        //
+        // REQUIRED IMPLEMENTATION:
+        // 1. Create a Firebase Cloud Function (e.g., 'registerUser').
+        // 2. The client (this form) should get a reCAPTCHA token and send it along with the user's
+        //    email, password, and other details to this Cloud Function.
+        // 3. The Cloud Function MUST verify the reCAPTCHA token with Google's servers using your secret key.
+        // 4. If the token is valid, the Cloud Function (running in a trusted server environment) then uses the
+        //    Firebase Admin SDK to create the Auth user and the Firestore user profile.
+        // 5. This ensures the reCAPTCHA challenge cannot be bypassed.
+        setError('Registration is temporarily disabled. Please contact an administrator.');
+        setLoading(false);
     }
   };
 

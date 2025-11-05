@@ -1,0 +1,213 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { Vehicle, Kit } from '../types';
+import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from '../services/assetService';
+import { getKits, addKit, updateKit, deleteKit } from '../services/inventoryService';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { SpinnerIcon, PlusIcon, TrashIcon, AmbulanceIcon, BoxIcon } from '../components/icons';
+import { showToast } from '../components/Toast';
+import VehicleModal from '../components/VehicleModal';
+import KitModal from '../components/KitModal';
+import ConfirmationModal from '../components/ConfirmationModal';
+
+const Inventory: React.FC = () => {
+    const { isOnline } = useOnlineStatus();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'vehicles' | 'kits'>('vehicles');
+
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [kits, setKits] = useState<Kit[]>([]);
+    
+    const [loading, setLoading] = useState(true);
+
+    const [isVehicleModalOpen, setVehicleModalOpen] = useState(false);
+    const [isKitModalOpen, setKitModalOpen] = useState(false);
+    
+    const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+    const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
+
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'vehicle' | 'kit' } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [vehicleList, kitList] = await Promise.all([getVehicles(), getKits()]);
+            setVehicles(vehicleList);
+            setKits(kitList);
+        } catch (error) {
+            if (isOnline) {
+                showToast("Failed to fetch inventory.", "error");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    useEffect(() => {
+        fetchData();
+    }, [isOnline]);
+
+    const handleOpenVehicleModal = (vehicle: Vehicle | null) => { setSelectedVehicle(vehicle); setVehicleModalOpen(true); };
+    const handleOpenKitModal = (kit: Kit | null) => { setSelectedKit(kit); setKitModalOpen(true); };
+    
+    const handleSaveVehicle = async (vehicleData: Omit<Vehicle, 'id' | 'createdAt' | 'lastCheck'>) => {
+        try {
+            if (selectedVehicle) {
+                await updateVehicle(selectedVehicle.id!, vehicleData);
+                showToast("Vehicle updated.", "success");
+            } else {
+                await addVehicle(vehicleData);
+                showToast("Vehicle added.", "success");
+            }
+            fetchData();
+        } catch (e) { showToast("Failed to save vehicle.", "error"); }
+        finally { setVehicleModalOpen(false); setSelectedVehicle(null); }
+    };
+
+    const handleSaveKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck' | 'assignedTo' | 'qrCodeValue'>) => {
+        try {
+            if (selectedKit) {
+                await updateKit(selectedKit.id!, kitData);
+                showToast("Kit updated.", "success");
+            } else {
+                await addKit(kitData);
+                showToast("Kit added.", "success");
+            }
+            fetchData();
+        } catch (e) { showToast("Failed to save kit.", "error"); }
+        finally { setKitModalOpen(false); setSelectedKit(null); }
+    };
+
+    const openDeleteModal = (item: Vehicle | Kit, type: 'vehicle' | 'kit') => {
+        setItemToDelete({ id: item.id!, name: item.name, type });
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!itemToDelete) return;
+        setIsDeleting(true);
+        try {
+            if (itemToDelete.type === 'vehicle') {
+                await deleteVehicle(itemToDelete.id);
+            } else {
+                await deleteKit(itemToDelete.id);
+            }
+            showToast(`${itemToDelete.type === 'vehicle' ? 'Vehicle' : 'Kit'} deleted.`, "success");
+            fetchData();
+        } catch (error) { showToast("Failed to delete item.", "error"); }
+        finally {
+            setIsDeleting(false);
+            setDeleteModalOpen(false);
+            setItemToDelete(null);
+        }
+    };
+
+    const getStatusColor = (status: Vehicle['status'] | Kit['status']) => {
+        switch (status) {
+            case 'In Service': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            case 'Needs Restocking':
+            case 'Maintenance Required': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            case 'Out of Service': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+            case 'With Crew': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        }
+    };
+
+    const renderTable = () => {
+        if (loading) {
+            return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" /></div>;
+        }
+
+        if (activeTab === 'vehicles') {
+             return (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700">
+                            <tr>{['Name', 'Registration', 'Type', 'Status', 'Last Check', 'Actions'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>)}</tr>
+                        </thead>
+                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {vehicles.map(v => (
+                                <tr key={v.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{v.name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{v.registration}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{v.type}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(v.status)}`}>{v.status}</span></td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{v.lastCheck ? `${v.lastCheck.date.toDate().toLocaleDateString()} by ${v.lastCheck.user.name}` : 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
+                                        <button onClick={() => navigate(`/inventory/vehicle/${v.id}`)} className="text-ams-light-blue hover:text-ams-blue">View/Check</button>
+                                        <button onClick={() => handleOpenVehicleModal(v)} disabled={!isOnline} className="text-gray-500 hover:text-gray-700 disabled:opacity-50">Edit</button>
+                                        <button onClick={() => openDeleteModal(v, 'vehicle')} disabled={!isOnline} className="text-red-500 hover:text-red-700 disabled:opacity-50"><TrashIcon className="w-4 h-4 inline"/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                     {vehicles.length === 0 && <div className="text-center py-10 text-gray-500 dark:text-gray-400">No vehicles found.</div>}
+                </div>
+             )
+        } else { // Kits
+            return (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700">
+                            <tr>{['Name', 'Type', 'Status', 'Assigned To', 'Last Check', 'Actions'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>)}</tr>
+                        </thead>
+                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {kits.map(k => (
+                                <tr key={k.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{k.name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{k.type}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(k.status)}`}>{k.status}</span></td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{k.assignedTo?.name || 'In stores'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{k.lastCheck ? `${k.lastCheck.date.toDate().toLocaleDateString()} by ${k.lastCheck.user.name}` : 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
+                                        <button onClick={() => navigate(`/inventory/kit/${k.id}`)} className="text-ams-light-blue hover:text-ams-blue">View/Check</button>
+                                        <button onClick={() => handleOpenKitModal(k)} disabled={!isOnline} className="text-gray-500 hover:text-gray-700 disabled:opacity-50">Edit</button>
+                                        <button onClick={() => openDeleteModal(k, 'kit')} disabled={!isOnline} className="text-red-500 hover:text-red-700 disabled:opacity-50"><TrashIcon className="w-4 h-4 inline"/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                    {kits.length === 0 && <div className="text-center py-10 text-gray-500 dark:text-gray-400">No kits found.</div>}
+                </div>
+            )
+        }
+    }
+
+    return (
+        <div>
+            <VehicleModal isOpen={isVehicleModalOpen} onClose={() => setVehicleModalOpen(false)} onSave={handleSaveVehicle} vehicle={selectedVehicle} />
+            <KitModal isOpen={isKitModalOpen} onClose={() => setKitModalOpen(false)} onSave={handleSaveKit} kit={selectedKit} />
+            <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title={`Delete ${itemToDelete?.type}`} message={`Are you sure you want to delete ${itemToDelete?.name}?`} confirmText="Delete" isLoading={isDeleting}/>
+            
+            <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
+                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Inventory Management</h1>
+                 <button onClick={() => activeTab === 'vehicles' ? handleOpenVehicleModal(null) : handleOpenKitModal(null)} disabled={!isOnline} className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
+                     <PlusIcon className="w-5 h-5 mr-2" /> Add New {activeTab === 'vehicles' ? 'Vehicle' : 'Kit'}
+                 </button>
+            </div>
+
+            {!isOnline && <div className="mb-4 p-4 bg-yellow-100 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">Offline Mode: Viewing cached data.</div>}
+            
+            <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
+                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button onClick={() => setActiveTab('vehicles')} className={`${activeTab === 'vehicles' ? 'border-ams-light-blue text-ams-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} flex items-center gap-2 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                        <AmbulanceIcon className="w-5 h-5"/> Vehicles
+                    </button>
+                    <button onClick={() => setActiveTab('kits')} className={`${activeTab === 'kits' ? 'border-ams-light-blue text-ams-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} flex items-center gap-2 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                        <BoxIcon className="w-5 h-5"/> Medical Kits
+                    </button>
+                </nav>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-md">
+                {renderTable()}
+            </div>
+        </div>
+    );
+};
+
+export default Inventory;

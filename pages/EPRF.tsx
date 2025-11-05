@@ -195,6 +195,7 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 
 
 const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA', 'Drug Overdose', 'Ethanol Intoxication', 'Fall', 'Fracture', 'GI Bleed', 'Head Injury', 'Hypoglycaemia', 'Mental Health Crisis', 'Minor Injury', 'Post-ictal', 'Seizure', 'Sepsis', 'Shortness of Breath', 'Syncope', 'Trauma' ];
+const commonItemsUsed = ['Large Dressing', 'Gauze', 'Triangular Bandage', 'Wound Closure Strips', 'Saline Pod', 'Catastrophic Tourniquet', 'Air-sickness Bag', 'Ice Pack'];
 
 const dataURLtoBlob = (dataUrl: string): Blob => {
     const arr = dataUrl.split(',');
@@ -309,6 +310,7 @@ const EPRF: React.FC = () => {
         impressions: [],
         medicationsAdministered: [],
         interventions: [],
+        itemsUsed: [],
         disposal: '',
         disposition: 'Not Set',
         dispositionDetails: { destination: '', receivingClinician: '', referralDetails: '' },
@@ -1075,6 +1077,13 @@ const EPRF: React.FC = () => {
                             onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'impressions', payload: v })}
                             suggestions={commonImpressions}
                             placeholder="e.g., Asthma, Fall..."
+                        />
+                         <TaggableInput
+                            label="Kit Items Used"
+                            value={state.itemsUsed}
+                            onChange={(v) => dispatch({ type: 'UPDATE_FIELD', field: 'itemsUsed', payload: v })}
+                            suggestions={commonItemsUsed}
+                            placeholder="e.g., Large Dressing..."
                         />
                         <FieldWrapper className="md:col-span-2 lg:col-span-4">
                             <div className="flex justify-between items-center mb-2">

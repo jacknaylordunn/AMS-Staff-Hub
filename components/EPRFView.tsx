@@ -2,6 +2,7 @@
 
 
 
+
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';
@@ -143,6 +144,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     
                     <ViewSection title="Treatment">
                         <ViewField label="Working Impressions" value={eprf.impressions} />
+                        <ViewField label="Kit Items Used" value={eprf.itemsUsed} />
                         {eprf.medicationsAdministered?.length > 0 && 
                             <table className="w-full text-sm mt-4">
                                 <thead><tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th className="p-2">Time</th><th className="p-2">Medication</th><th className="p-2">Dose</th><th className="p-2">Route</th></tr></thead>

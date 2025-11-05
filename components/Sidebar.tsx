@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon } from './icons';
+import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon, ShieldExclamationIcon, BoxIcon, PillIcon, HeartIcon, QualityIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 
 interface SidebarProps {
@@ -9,7 +9,9 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
-  const { isManager, isAdmin } = useAuth();
+  const { user, isManager, isAdmin } = useAuth();
+  const isSeniorClinician = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'].includes(user?.role || '');
+
 
   const handleLinkClick = () => {
     if (isOpen) {
@@ -58,11 +60,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               <CPDIcon className="w-6 h-6 mr-3" />
               CPD Log
             </NavLink>
+            <NavLink to="/wellbeing" className={navLinkClasses} onClick={handleLinkClick}>
+              <HeartIcon className="w-6 h-6 mr-3" />
+              Wellbeing
+            </NavLink>
             <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Clinical</div>
             <NavLink to="/patients" className={navLinkClasses} onClick={handleLinkClick}>
               <PatientsIcon className="w-6 h-6 mr-3" />
               Patients
             </NavLink>
+            {isSeniorClinician && (
+                <NavLink to="/controlled-drugs" className={navLinkClasses} onClick={handleLinkClick}>
+                    <PillIcon className="w-6 h-6 mr-3" />
+                    Controlled Drugs
+                </NavLink>
+            )}
             <NavLink to="/events" className={navLinkClasses} onClick={handleLinkClick}>
               <EventsIcon className="w-6 h-6 mr-3" />
               Events
@@ -70,17 +82,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             {isManager && (
               <>
                 <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Management</div>
+                <NavLink to="/major-incidents" className={navLinkClasses} onClick={handleLinkClick}>
+                  <ShieldExclamationIcon className="w-6 h-6 mr-3" />
+                  Major Incidents
+                </NavLink>
                 <NavLink to="/reviews" className={navLinkClasses} onClick={handleLinkClick}>
                   <CheckIcon className="w-6 h-6 mr-3" />
                   ePRF Reviews
                 </NavLink>
-                <NavLink to="/assets" className={navLinkClasses} onClick={handleLinkClick}>
-                  <AmbulanceIcon className="w-6 h-6 mr-3" />
-                  Assets
+                <NavLink to="/inventory" className={navLinkClasses} onClick={handleLinkClick}>
+                  <BoxIcon className="w-6 h-6 mr-3" />
+                  Inventory
                 </NavLink>
                 <NavLink to="/reports" className={navLinkClasses} onClick={handleLinkClick}>
                   <ChartIcon className="w-6 h-6 mr-3" />
                   Reporting
+                </NavLink>
+                <NavLink to="/quality" className={navLinkClasses} onClick={handleLinkClick}>
+                  <QualityIcon className="w-6 h-6 mr-3" />
+                  Quality Audit
                 </NavLink>
                 <NavLink to="/announcements" className={navLinkClasses} onClick={handleLinkClick}>
                     <MegaphoneIcon className="w-6 h-6 mr-3" />

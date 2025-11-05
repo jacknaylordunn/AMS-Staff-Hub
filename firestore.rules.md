@@ -11,6 +11,12 @@ service cloud.firestore {
     function isManager() {
       return getUserRole() in ['Manager', 'Admin'];
     }
+
+    // Helper function to check for senior clinical roles
+    function isSeniorClinician() {
+      let role = getUserRole();
+      return role in ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
+    }
     
     // Helper function to get the user's role from the users collection
     function getUserRole() {
@@ -25,7 +31,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if request.auth.uid == userId || isManager();
       allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId && !("role" in request.resource.data)
+      allow update: if (request.auth.uid == userId && !("role" in request.resource.data))
                       || getUserRole() == 'Admin';
     }
 
@@ -47,8 +53,8 @@ service cloud.firestore {
     match /eprfs/{eprfId} {
         allow read: if request.auth != null;
         allow create: if request.auth.uid == request.resource.data.createdBy.uid;
-        allow update: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft'
-                        || (isManager() && "status" in request.resource.data);
+        allow update: if (resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft')
+                        || (isManager() && ("status" in request.resource.data || "reviewNotes" in request.resource.data));
         allow delete: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft';
     }
 
@@ -67,7 +73,7 @@ service cloud.firestore {
 
     match /shifts/{shiftId} {
         allow read: if request.auth != null;
-        allow write: if isManager();
+        allow write: if isManager() || request.resource.data.isUnavailability == true; // allow users to add unavailability
     }
     
     // Vehicle & Vehicle Checks
@@ -81,6 +87,20 @@ service cloud.firestore {
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
             // No update/delete to preserve audit trail
+        }
+    }
+    
+    // Kits & Kit Checks
+    // - All authenticated users can read kit data and create checks.
+    // - Managers can create/update/delete kits.
+    // - Nobody can edit or delete a kit check once submitted.
+    match /kits/{kitId} {
+        allow read: if request.auth != null;
+        allow write: if isManager();
+        
+        match /checks/{checkId} {
+            allow read, create: if request.auth != null;
+            allow update, delete: if false;
         }
     }
     
@@ -100,14 +120,75 @@ service cloud.firestore {
         allow read, update: if request.auth.uid == resource.data.userId;
         allow create, delete: if false;
     }
+
+    // CPD Collection
+    // - Users can create, read, update, and delete their own CPD entries.
+    // - Users cannot access other users' entries.
+    match /cpd/{cpdId} {
+      allow read, update, delete: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+
+    // Major Incidents
+    // - Managers can create/update incidents (e.g., stand down).
+    // - All authenticated users can read incident details.
+    match /majorIncidents/{incidentId} {
+      allow read: if request.auth != null;
+      allow create, update: if isManager();
+
+      // METHANE Reports
+      // - Any authenticated user can create a report for an incident.
+      // - All authenticated users can read reports.
+      match /methaneReports/{reportId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth.uid == request.resource.data.submittedBy.uid;
+        allow update, delete: if false; // Reports are immutable
+      }
+
+      // Staff Check-ins
+      // - A user can create/update their own check-in status (doc id is user.uid).
+      // - All authenticated users can read check-in statuses.
+      match /checkins/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth.uid == userId; // create, update
+      }
+    }
+
+    // Controlled Drug Ledger
+    // - Only senior clinicians can read or create entries.
+    // - Ledger entries are immutable to preserve the audit trail.
+    match /controlledDrugLedger/{entryId} {
+      allow read, create: if isSeniorClinician();
+      allow update, delete: if false;
+    }
+
+    // Kudos Collection
+    // - All authenticated users can read.
+    // - Users can only create kudos from themselves.
+    // - Immutable once created.
+    match /kudos/{kudoId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth.uid == request.resource.data.from.uid;
+      allow update, delete: if false;
+    }
+
+    // Anonymous Feedback
+    // - Any authenticated user can create feedback.
+    // - Only managers/admins can read feedback.
+    // - Immutable once created.
+    match /anonymousFeedback/{feedbackId} {
+      allow read: if isManager();
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // AI Audit Results
+    // - Only managers/admins can read and create audit results.
+    // - Immutable once created.
+    match /audits/{auditId} {
+      allow read, create: if isManager();
+      allow update, delete: if false;
+    }
   }
 }
 ```
-
-### Key Principles of These Rules:
-
-1.  **Default Deny:** Access is denied unless explicitly allowed by a rule.
-2.  **Authentication Required:** Most data is inaccessible to unauthenticated users.
-3.  **Principle of Least Privilege:** Users only have the minimum permissions necessary for their role. A standard staff member cannot modify rotas or approve reports.
-4.  **Data Integrity:** Rules prevent users from performing invalid actions, such as changing their own role or editing a finalized ePRF.
-5.  **Role-Based Access:** The `isManager()` and `getUserRole()` helper functions are central to enabling powerful, role-based permissions throughout the database.

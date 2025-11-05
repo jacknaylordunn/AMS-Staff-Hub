@@ -1,6 +1,7 @@
-import { collection, getDocs, addDoc, query, orderBy, limit, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, orderBy, limit, Timestamp, writeBatch, doc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Announcement } from '../types';
+import { getUsers } from './userService';
 
 // Announcement Functions
 export const getAnnouncements = async (): Promise<Announcement[]> => {
@@ -8,7 +9,7 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
 }
 
-export const sendAnnouncementToAllUsers = async (message: string, sender: { uid: string; name: string; }): Promise<void> => {
+export const sendAnnouncementToAllUsers = async (message: string, sender: { uid: string; name: string; }, link?: string): Promise<void> => {
     const announcementData = {
         message,
         sentBy: sender,
@@ -18,18 +19,21 @@ export const sendAnnouncementToAllUsers = async (message: string, sender: { uid:
     await addDoc(collection(db, 'announcements'), announcementData);
 
     // 2. Create notifications for all users
-    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const users = await getUsers();
     const batch = writeBatch(db);
 
-    usersSnapshot.docs.forEach(userDoc => {
+    users.forEach(user => {
         const notificationsRef = collection(db, 'notifications');
         const truncatedMessage = message.substring(0, 50) + (message.length > 50 ? '...' : '');
-        batch.set(notificationsRef.doc(), {
-            userId: userDoc.id,
+        // Create a new doc with a random ID
+        // FIX: 'doc' was not defined. It is now imported from 'firebase/firestore'.
+        const newNotifRef = doc(notificationsRef);
+        batch.set(newNotifRef, {
+            userId: user.uid,
             message: `New Hub Announcement: "${truncatedMessage}"`,
             read: false,
             createdAt: Timestamp.now(),
-            link: '/dashboard'
+            link: link || '/dashboard'
         });
     });
     
