@@ -22,32 +22,30 @@ export const EPRF: React.FC = () => {
             const drafts = await getActiveDraftsForEvent(user.uid, activeEvent.id!);
             if (drafts.length > 0) {
                 setOpenEPRFDrafts(drafts);
-                setActiveEPRFId(drafts[0].id!);
+                // If no draft is active or the active one is not in the list, activate the first one
+                if (!activeEPRFId || !drafts.some(d => d.id === activeEPRFId)) {
+                    setActiveEPRFId(drafts[0].id!);
+                }
             } else {
-                // No drafts exist, create a new one
-                const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
-                setOpenEPRFDrafts([newDraft]);
-                setActiveEPRFId(newDraft.id!);
+                // No drafts exist for this event, so clear the context
+                setOpenEPRFDrafts([]);
+                setActiveEPRFId(null);
             }
         } catch (error) {
             showToast("Failed to load ePRF drafts.", "error");
         } finally {
             setIsLoading(false);
         }
-    }, [user, activeEvent, setOpenEPRFDrafts, setActiveEPRFId]);
+    }, [user, activeEvent, setOpenEPRFDrafts, setActiveEPRFId, activeEPRFId]);
 
     useEffect(() => {
         // Load drafts only if they haven't been loaded for this event yet, or if the context is empty
         if (activeEvent && (openEPRFDrafts.length === 0 || openEPRFDrafts.every(d => d.eventId !== activeEvent.id))) {
             loadDrafts();
         } else {
-            // if drafts are already in context for this event, ensure one is active
-            if(activeEvent && openEPRFDrafts.length > 0 && !activeEPRFId) {
-                setActiveEPRFId(openEPRFDrafts[0].id!);
-            }
             setIsLoading(false);
         }
-    }, [activeEvent, loadDrafts, openEPRFDrafts, activeEPRFId, setActiveEPRFId]);
+    }, [activeEvent, loadDrafts, openEPRFDrafts]);
 
     const activeDraft = openEPRFDrafts.find(d => d.id === activeEPRFId);
 
@@ -67,8 +65,10 @@ export const EPRF: React.FC = () => {
     if (!activeDraft) {
         return (
              <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">No Active Report</p>
-                <p className="mt-2 text-gray-500 dark:text-gray-400">Create a new patient report using the '+' button in the tabs above.</p>
+                <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">No Active Patient Report</h2>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">
+                    To begin, please create a new ePRF using the '+' button in the tabs above.
+                </p>
             </div>
         );
     }

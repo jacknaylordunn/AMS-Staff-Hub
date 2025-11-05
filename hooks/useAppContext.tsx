@@ -5,12 +5,13 @@ import { Timestamp } from 'firebase/firestore';
 import type { EventLog, Shift, EPRFForm } from '../types';
 import { useAuth } from './useAuth';
 import { getShiftsForUser } from '../services/rotaService';
+import { getEventById } from '../services/eventService';
 
 interface AppContextType {
   activeEvent: EventLog | null;
   activeShift: Shift | null;
   setActiveEvent: (event: EventLog) => void;
-  setActiveShift: (shift: Shift) => void;
+  setActiveShift: (shift: Shift) => Promise<void>;
   clearActiveSession: () => void;
   // New properties for multi-ePRF
   openEPRFDrafts: EPRFForm[];
@@ -71,6 +72,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
 
+  const setActiveShift = async (shift: Shift) => {
+    sessionStorage.setItem('activeShift', JSON.stringify(shift));
+    setActiveShiftState(shift);
+    
+    // Also set the corresponding event for components that rely on it
+    try {
+        const eventDetails = await getEventById(shift.eventId);
+        const eventLog: EventLog = {
+          id: shift.eventId,
+          name: shift.eventName,
+          date: shift.start.toDate().toISOString().split('T')[0],
+          location: eventDetails?.location || '', // Use fetched location
+          status: 'Active'
+        };
+        sessionStorage.setItem('activeEvent', JSON.stringify(eventLog));
+        setActiveEventState(eventLog);
+    } catch(e) {
+        console.error("Could not fetch event details for active shift", e);
+        // Fallback with what we have
+        const eventLog: EventLog = {
+          id: shift.eventId,
+          name: shift.eventName,
+          date: shift.start.toDate().toISOString().split('T')[0],
+          location: '', 
+          status: 'Active'
+        };
+        sessionStorage.setItem('activeEvent', JSON.stringify(eventLog));
+        setActiveEventState(eventLog);
+    }
+  };
+
   // Auto-logon to event if user has an active shift
   useEffect(() => {
     const checkActiveShift = async (uid: string) => {
@@ -84,7 +116,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       if (currentShift) {
-        setActiveShift(currentShift);
+        await setActiveShift(currentShift);
       }
     };
     
@@ -113,21 +145,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveEventState(event);
   };
 
-  const setActiveShift = (shift: Shift) => {
-    sessionStorage.setItem('activeShift', JSON.stringify(shift));
-    setActiveShiftState(shift);
-    
-    // Also set the corresponding event for components that rely on it
-    const eventLog: EventLog = {
-      id: shift.eventId,
-      name: shift.eventName,
-      date: shift.start.toDate().toISOString().split('T')[0],
-      location: '', // Location is not on shift object, this is acceptable for context
-      status: 'Active'
-    };
-    sessionStorage.setItem('activeEvent', JSON.stringify(eventLog));
-    setActiveEventState(eventLog);
-  };
 
   return (
     <AppContext.Provider value={{ 

@@ -21,10 +21,10 @@ import SpeechEnabledTextArea from '../components/SpeechEnabledTextArea';
 import ValidationModal from '../components/ValidationModal';
 import TaggableInput from '../components/TaggableInput';
 import { DRUG_DATABASE } from '../utils/drugDatabase';
-import SignaturePad, { SignaturePadRef } from '../components/SignaturePad';
-import VitalsChart from '../components/VitalsChart';
-import QuickAddModal from '../components/QuickAddModal';
-import GuidelineAssistantModal from '../components/GuidelineAssistantModal';
+import SignaturePad, { SignaturePadRef } from './SignaturePad';
+import VitalsChart from './VitalsChart';
+import QuickAddModal from './QuickAddModal';
+import GuidelineAssistantModal from './GuidelineAssistantModal';
 import { getGeminiClient, handleGeminiError } from '../services/geminiService';
 
 interface EPRFFormProps {
@@ -582,6 +582,44 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
         }
     };
 
+    const handleSaveDraft = async () => {
+        setSaveStatus('saving');
+        try {
+            await updateEPRF(state.id!, state);
+            setSaveStatus(isOnline ? 'saved-online' : 'saved-offline');
+            showToast("Draft saved!", "success");
+            setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch (error) {
+            console.error("Manual save failed:", error);
+            setSaveStatus('error');
+            showToast("Failed to save draft.", "error");
+        }
+    };
+    
+    const handleDeleteDraft = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteEPRF(state.id!);
+    
+            if (activeEPRFId === state.id) {
+                const draftIndex = openEPRFDrafts.findIndex(d => d.id === state.id);
+                const nextDraft = openEPRFDrafts[draftIndex - 1] || openEPRFDrafts[draftIndex + 1];
+                setActiveEPRFId(nextDraft?.id || null);
+            }
+            removeEPRFDraft(state.id!);
+            showToast("Draft deleted.", "success");
+    
+            if (openEPRFDrafts.length <= 1) { 
+                navigate('/dashboard');
+            }
+        } catch (error) {
+            showToast("Failed to delete draft.", "error");
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteModalOpen(false);
+        }
+    };
+
     return (
         <div>
             <SaveStatusIndicator status={saveStatus} />
@@ -589,9 +627,18 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
             <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
             <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
             <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
+             <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeleteDraft}
+                title="Delete ePRF Draft"
+                message="Are you sure you want to permanently delete this draft? This action cannot be undone."
+                confirmText="Delete"
+                isLoading={isDeleting}
+            />
 
             {/* Stepper UI */}
-            <div className="mb-4 sticky top-20 z-10 bg-ams-gray dark:bg-gray-900 py-4">
+            <div className="mb-4 sticky top-[128px] z-10 bg-ams-gray dark:bg-gray-900 py-4">
                 <div className="flex items-start justify-center">
                     {steps.map((step, index) => (
                         <React.Fragment key={step}>
@@ -713,15 +760,42 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
                     <button onClick={() => setGuidelineModalOpen(true)} className="px-4 py-2 bg-ams-blue text-white font-semibold rounded-md flex items-center gap-2"><SparklesIcon className="w-5 h-5" /> AI Assistant</button>
                 </div>
                 {currentStep === steps.length ? (
-                    <button onClick={handleFinalize} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white font-bold rounded-md flex items-center">
-                         {isSaving ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}
-                        Finalize & Submit
-                    </button>
+                    <div className="flex gap-4">
+                        {/* No finalize button on last step, moved to bottom bar */}
+                    </div>
                 ) : (
                     <button onClick={() => setCurrentStep(s => Math.min(steps.length, s + 1))} className="px-6 py-2 bg-gray-300 dark:bg-gray-600 rounded-md flex items-center">
                         Next <ChevronRightIcon className="w-5 h-5 ml-1" />
                     </button>
                 )}
+            </div>
+
+            <div className="mt-8 pt-6 border-t dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <button 
+                    type="button" 
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="px-6 py-2 bg-red-600 text-white font-bold rounded-md"
+                >
+                    Delete Draft
+                </button>
+                <div className="flex gap-4">
+                    <button 
+                        type="button" 
+                        onClick={handleSaveDraft}
+                        disabled={isSaving}
+                        className="px-6 py-2 bg-gray-500 text-white font-bold rounded-md"
+                    >
+                        Save Draft
+                    </button>
+                    <button 
+                        onClick={handleFinalize} 
+                        disabled={isSaving} 
+                        className="px-6 py-2 bg-green-600 text-white font-bold rounded-md flex items-center"
+                    >
+                         {isSaving ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}
+                        Finalize & Submit
+                    </button>
+                </div>
             </div>
 
         </div>

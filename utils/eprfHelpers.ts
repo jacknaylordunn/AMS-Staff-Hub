@@ -10,7 +10,7 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     eventId: event?.id || null,
     eventName: event?.name || null,
     presentationType: 'Medical/Trauma',
-    incidentNumber: `AMS-${Date.now()}`,
+    incidentNumber: '',
     incidentDate: now.toISOString().split('T')[0],
     incidentTime: timeString,
     timeOfCall: timeString,
