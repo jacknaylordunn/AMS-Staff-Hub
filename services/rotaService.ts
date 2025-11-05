@@ -14,16 +14,20 @@ export const getShiftsForMonth = async (year: number, month: number): Promise<Sh
 };
 
 export const getShiftsForUser = async (uid: string, year: number, month: number): Promise<Shift[]> => {
-    const start = Timestamp.fromDate(new Date(year, month, 1));
-    const end = Timestamp.fromDate(new Date(year, month + 1, 1));
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 1);
     const shiftsCol = collection(db, 'shifts');
-    const q = query(shiftsCol,
-        where('assignedStaffUids', 'array-contains', uid),
-        where('start', '>=', start),
-        where('start', '<', end));
+    // Simplified query to avoid composite index requirement. Filtering by date is now done client-side.
+    const q = query(shiftsCol, where('assignedStaffUids', 'array-contains', uid));
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+    const allUserShifts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+    
+    // Client-side filtering for the specified month
+    return allUserShifts.filter(shift => {
+        const shiftStartDate = shift.start.toDate();
+        return shiftStartDate >= start && shiftStartDate < end;
+    });
 };
 
 export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> => {

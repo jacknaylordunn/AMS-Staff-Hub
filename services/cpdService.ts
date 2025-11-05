@@ -4,9 +4,13 @@ import type { CPDEntry } from '../types';
 
 export const getCPDEntriesForUser = async (userId: string): Promise<CPDEntry[]> => {
     const cpdCol = collection(db, 'cpd');
-    const q = query(cpdCol, where('userId', '==', userId), orderBy('date', 'desc'));
+    // Simplified query to avoid composite index. Sorting is now done client-side.
+    const q = query(cpdCol, where('userId', '==', userId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CPDEntry));
+    const entries = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CPDEntry));
+    
+    // Client-side sorting
+    return entries.sort((a, b) => b.date.localeCompare(a.date));
 };
 
 export const addCPDEntry = async (entryData: Omit<CPDEntry, 'id' | 'createdAt'>): Promise<void> => {
