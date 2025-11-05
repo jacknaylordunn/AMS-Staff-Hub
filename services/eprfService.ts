@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, getDocs, getDoc, updateDoc, deleteDoc, query, where, orderBy, limit, Timestamp, FieldValue, arrayUnion } from 'firebase/firestore';
+import { collection, doc, addDoc, getDocs, getDoc, updateDoc, deleteDoc, query, where, orderBy, limit, Timestamp, FieldValue, arrayUnion, getCountFromServer } from 'firebase/firestore';
 import { db } from './firebase';
 import type { EPRFForm, AuditEntry } from '../types';
 import { createNotification } from './notificationService';
@@ -9,7 +9,30 @@ const prepareEPRFForFirebase = (eprfData: EPRFForm): Omit<EPRFForm, 'id'> => {
     return dataToSave;
 };
 
+const getIncidentNumber = async (): Promise<string> => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const datePrefix = `AMS${yyyy}${mm}${dd}`;
+
+    const startOfDay = new Date(yyyy, now.getMonth(), now.getDate());
+    const startTimestamp = Timestamp.fromDate(startOfDay);
+
+    const eprfsCol = collection(db, 'eprfs');
+    const q = query(eprfsCol, where('createdAt', '>=', startTimestamp));
+    
+    const snapshot = await getCountFromServer(q);
+    const count = snapshot.data().count;
+
+    const nextId = String(count + 1).padStart(4, '0');
+
+    return `${datePrefix}${nextId}`;
+};
+
+
 export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => {
+    const incidentNumber = await getIncidentNumber();
     const auditEntry: AuditEntry = {
         timestamp: Timestamp.now(),
         user: eprfData.createdBy,
@@ -17,12 +40,13 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
     };
     const dataToSave = {
         ...prepareEPRFForFirebase(eprfData),
+        incidentNumber,
         status: 'Draft' as const,
         createdAt: Timestamp.now(),
         auditLog: [auditEntry]
     };
     const docRef = await addDoc(collection(db, 'eprfs'), dataToSave);
-    return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry] };
+    return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry], incidentNumber };
 };
 
 // This query is now simpler to avoid index-related errors. It fetches all drafts for a user and filters locally.

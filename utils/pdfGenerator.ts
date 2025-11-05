@@ -1,4 +1,5 @@
 
+
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
@@ -165,6 +166,21 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
   const crewString = `Attending Crew: ${eprf.crewMembers.map(c => c.name).join(', ')}`;
   doc.text(crewString, 14, yPos);
   
+  // Add page numbers
+  // FIX: Replaced `doc.internal.getNumberOfPages()` with `doc.internal.pages.length` which is compatible with the inferred type definition.
+  const pageCount = doc.internal.pages.length;
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width - 20,
+        doc.internal.pageSize.height - 10,
+        { align: 'right' }
+    );
+  }
+
   // Save the PDF
   doc.save(`handover_${patient.lastName}_${eprf.incidentDate}.pdf`);
 };
