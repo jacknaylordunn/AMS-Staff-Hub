@@ -277,3 +277,17 @@ export interface VehicleCheck {
     notes: string;
     overallStatus: 'Pass' | 'Issues Found';
 }
+
+export interface CPDEntry {
+  id?: string;
+  userId: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  category: 'Formal Learning' | 'Work-based Learning' | 'Self-directed Learning' | 'Other';
+  hours: number;
+  learnings: string;
+  reflection: string;
+  attachmentUrl?: string;
+  attachmentFileName?: string;
+  createdAt: Timestamp;
+}

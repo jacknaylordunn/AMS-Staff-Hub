@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon, AdminIcon } from './icons';
+import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 
 interface SidebarProps {
@@ -53,6 +53,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             <NavLink to="/rota" className={navLinkClasses} onClick={handleLinkClick}>
               <RotaIcon className="w-6 h-6 mr-3" />
               Rota
+            </NavLink>
+            <NavLink to="/cpd" className={navLinkClasses} onClick={handleLinkClick}>
+              <CPDIcon className="w-6 h-6 mr-3" />
+              CPD Log
             </NavLink>
             <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Clinical</div>
             <NavLink to="/patients" className={navLinkClasses} onClick={handleLinkClick}>

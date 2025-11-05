@@ -26,6 +26,7 @@ import VehicleDetail from './pages/VehicleDetail';
 import Reports from './pages/Reports';
 import Announcements from './pages/Announcements';
 import Admin from './pages/Admin';
+import CPD from './pages/CPD';
 import { signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
 
@@ -102,6 +103,7 @@ const AppRoutes: React.FC = () => {
                 <Route path="eprf" element={<EPRF />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="rota" element={<Rota />} />
+                <Route path="cpd" element={<CPD />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="patients" element={<Patients />} />
                 <Route path="patients/:patientId" element={<PatientDetail />} />
