@@ -76,6 +76,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     sessionStorage.setItem('activeShift', JSON.stringify(shift));
     setActiveShiftState(shift);
     
+    // When a new shift is set, clear any previous EPRF drafts
+    setOpenEPRFDrafts([]);
+    setActiveEPRFId(null);
+    
     // Also set the corresponding event for components that rely on it
     try {
         const eventDetails = await getEventById(shift.eventId);
@@ -139,8 +143,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setActiveEvent = (event: EventLog) => {
     // When manually setting an event, ensure any active shift is cleared first
     if(activeShift) {
-        clearActiveSession();
+        sessionStorage.removeItem('activeShift');
+        setActiveShiftState(null);
     }
+    // Always clear ePRF state when the event context changes to prevent glitches
+    setOpenEPRFDrafts([]);
+    setActiveEPRFId(null);
+
     sessionStorage.setItem('activeEvent', JSON.stringify(event));
     setActiveEventState(event);
   };

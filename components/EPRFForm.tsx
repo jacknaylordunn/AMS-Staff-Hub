@@ -13,13 +13,13 @@ import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { showToast } from '../components/Toast';
-import PatientModal from '../components/PatientModal';
+import PatientModal from './PatientModal';
 import { calculateNews2Score, getNews2RiskColor } from '../utils/news2Calculator';
-import { InteractiveBodyMap } from '../components/InteractiveBodyMap';
-import ConfirmationModal from '../components/ConfirmationModal';
-import SpeechEnabledTextArea from '../components/SpeechEnabledTextArea';
-import ValidationModal from '../components/ValidationModal';
-import TaggableInput from '../components/TaggableInput';
+import { InteractiveBodyMap } from './InteractiveBodyMap';
+import ConfirmationModal from './ConfirmationModal';
+import SpeechEnabledTextArea from './SpeechEnabledTextArea';
+import ValidationModal from './ValidationModal';
+import TaggableInput from './TaggableInput';
 import { DRUG_DATABASE } from '../utils/drugDatabase';
 import SignaturePad, { SignaturePadRef } from './SignaturePad';
 import VitalsChart from './VitalsChart';
@@ -638,7 +638,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
             />
 
             {/* Stepper UI */}
-            <div className="mb-4 sticky top-[128px] z-10 bg-ams-gray dark:bg-gray-900 py-4">
+            <div className="mb-4 sticky top-[136px] z-10 bg-ams-gray dark:bg-gray-900 py-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-start justify-center">
                     {steps.map((step, index) => (
                         <React.Fragment key={step}>
