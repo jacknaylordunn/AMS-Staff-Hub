@@ -5,7 +5,7 @@ export interface User {
   email: string | null;
   firstName: string;
   lastName: string;
-  role?: 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
+  role?: 'Pending' | 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   registrationNumber?: string;
   createdAt?: Timestamp;
 }
@@ -155,6 +155,9 @@ export interface EPRFForm {
   welfareLog: WelfareLogEntry[];
   
   attachments: Attachment[];
+
+  patientSignatureUrl?: string;
+  clinicianSignatureUrl?: string;
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];

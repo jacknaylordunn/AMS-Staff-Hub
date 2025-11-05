@@ -53,7 +53,7 @@ const Admin: React.FC = () => {
         }
     };
 
-    const roles: User['role'][] = ['First Aider', 'FREC3', 'FREC4/ECA', 'FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Welfare', 'Admin', 'Manager'];
+    const roles: User['role'][] = ['Pending', 'First Aider', 'FREC3', 'FREC4/ECA', 'FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Welfare', 'Admin', 'Manager'];
 
     return (
         <div>
@@ -87,7 +87,7 @@ const Admin: React.FC = () => {
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 {filteredUsers.map(user => (
-                                    <tr key={user.uid} className={editingUser?.uid === user.uid ? 'bg-blue-50 dark:bg-gray-700/50' : ''}>
+                                    <tr key={user.uid} className={editingUser?.uid === user.uid ? 'bg-blue-50 dark:bg-gray-700/50' : user.role === 'Pending' ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{user.firstName} {user.lastName}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{user.email}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
@@ -102,7 +102,13 @@ const Admin: React.FC = () => {
                                                     {roles.map(role => <option key={role} value={role}>{role}</option>)}
                                                 </select>
                                             ) : (
-                                                user.role || 'Not set'
+                                                user.role === 'Pending' ? (
+                                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                                        Pending Approval
+                                                    </span>
+                                                ) : (
+                                                    user.role || 'Not set'
+                                                )
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">

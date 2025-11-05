@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';
@@ -153,7 +154,6 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {eprf.attachments.map(att => (
                             <div key={att.id}>
-                                {/* FIX: Attachment object has 'url' not 'base64Data'. */}
                                 <a href={att.url} target="_blank" rel="noopener noreferrer">
                                     <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-40 object-cover" />
                                 </a>
@@ -198,6 +198,25 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
             <ViewSection title="Crew">
                 <ViewField label="Attending Crew" value={eprf.crewMembers.map(c => c.name).join(', ')} />
             </ViewSection>
+
+             {(eprf.patientSignatureUrl || eprf.clinicianSignatureUrl) && (
+                <ViewSection title="Signatures">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {eprf.patientSignatureUrl && (
+                            <div>
+                                <h5 className="font-semibold text-gray-600 dark:text-gray-400 text-sm mb-1">Patient/Guardian Signature</h5>
+                                <img src={eprf.patientSignatureUrl} alt="Patient Signature" className="border rounded-md bg-gray-50 dark:border-gray-600" />
+                            </div>
+                        )}
+                        {eprf.clinicianSignatureUrl && (
+                            <div>
+                                <h5 className="font-semibold text-gray-600 dark:text-gray-400 text-sm mb-1">Clinician Signature</h5>
+                                <img src={eprf.clinicianSignatureUrl} alt="Clinician Signature" className="border rounded-md bg-gray-50 dark:border-gray-600" />
+                            </div>
+                        )}
+                    </div>
+                </ViewSection>
+            )}
 
         </div>
     );

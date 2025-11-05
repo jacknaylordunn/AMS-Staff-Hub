@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppProvider } from './hooks/useAppContext';
 import { ThemeProvider } from './hooks/useTheme';
@@ -26,6 +26,42 @@ import VehicleDetail from './pages/VehicleDetail';
 import Reports from './pages/Reports';
 import Announcements from './pages/Announcements';
 import Admin from './pages/Admin';
+import { signOut } from 'firebase/auth';
+import { auth } from './services/firebase';
+
+
+const PendingApproval: React.FC = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            navigate('/login');
+        } catch (error) {
+            console.error('Error signing out: ', error);
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-ams-gray dark:bg-gray-900 text-center p-4">
+            <img src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Logo%20FINAL%20(2).png" alt="AMS Logo" className="h-16 mb-8" />
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Account Pending Approval</h1>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mt-4 max-w-xl">
+                Hello {user?.firstName}, your registration is complete and your account is currently awaiting approval from an administrator.
+            </p>
+            <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+                You will be notified once your role has been assigned and your account is activated. Please check back later.
+            </p>
+            <button
+                onClick={handleLogout}
+                className="mt-8 px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
+            >
+                Logout
+            </button>
+        </div>
+    );
+};
+
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
@@ -38,9 +74,21 @@ const AppRoutes: React.FC = () => {
         );
     }
 
+    if (user && user.role === 'Pending') {
+        return (
+            <Routes>
+                <Route path="/pending-approval" element={<PendingApproval />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="*" element={<Navigate to="/pending-approval" replace />} />
+            </Routes>
+        )
+    }
+
+
     return (
         <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/pending-approval" element={<Navigate to="/dashboard" replace />} />
             <Route
                 path="/"
                 element={

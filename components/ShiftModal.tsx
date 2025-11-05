@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
@@ -82,8 +83,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     };
     
     const handleStaffSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        // FIX: Explicitly cast the 'option' to HTMLOptionElement to resolve an issue
-        // where its type was inferred as 'unknown', preventing access to the 'value' property.
         const selectedUids = Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value);
         setFormData(prev => ({...prev, assignedStaffUids: selectedUids}));
     };

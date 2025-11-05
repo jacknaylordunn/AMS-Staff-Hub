@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
@@ -148,7 +149,6 @@ const ReturnToDraftModal: React.FC<{ isOpen: boolean, onClose: () => void, onCon
 
 const PatientDetail: React.FC = () => {
     const { patientId } = useParams<{ patientId: string }>();
-    // FIX: Completed the line to call the useAuth hook.
     const { user, isManager } = useAuth();
     const [patient, setPatient] = useState<Patient | null>(null);
     const [eprfs, setEprfs] = useState<EPRFForm[]>([]);

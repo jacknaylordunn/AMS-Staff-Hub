@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useReducer, useCallback } from 'react';
+
+import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -21,6 +22,7 @@ import SpeechEnabledTextArea from '../components/SpeechEnabledTextArea';
 import ValidationModal from '../components/ValidationModal';
 import TaggableInput from '../components/TaggableInput';
 import { DRUG_DATABASE } from '../utils/drugDatabase';
+import SignaturePad, { SignaturePadRef } from '../components/SignaturePad';
 
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
 const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
@@ -39,7 +41,6 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return {
             ...state,
             [field]: {
-                // FIX: Cast to object for spread operator. Based on usage, 'field' will always be an object property on the state.
                 ...(state[field as keyof EPRFForm] as object),
                 [subField]: payload
             }
@@ -57,8 +58,6 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return {
              ...state,
             [field]: {
-                // FIX: Cast the nested state property to an object to satisfy TypeScript's spread operator requirements.
-                // The usage of this action ensures `field` refers to an object property on the state.
                 ...(parentObject as object),
                 [subField]: newArray
             }
@@ -185,12 +184,29 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 
 const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA', 'Drug Overdose', 'Ethanol Intoxication', 'Fall', 'Fracture', 'GI Bleed', 'Head Injury', 'Hypoglycaemia', 'Mental Health Crisis', 'Minor Injury', 'Post-ictal', 'Seizure', 'Sepsis', 'Shortness of Breath', 'Syncope', 'Trauma' ];
 
+const dataURLtoBlob = (dataUrl: string): Blob => {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) throw new Error("Invalid data URL");
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+};
+
 
 const EPRF: React.FC = () => {
     const { user } = useAuth();
     const { activeEvent } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = useNavigate();
+    
+    const clinicianSigRef = useRef<SignaturePadRef>(null);
+    const patientSigRef = useRef<SignaturePadRef>(null);
     
     const getInitialFormState = useCallback((): EPRFForm => {
       const now = new Date();
@@ -242,6 +258,8 @@ const EPRF: React.FC = () => {
         mentalCapacity: { assessment: [], outcome: 'Not Assessed', details: '' },
         welfareLog: [],
         attachments: [],
+        patientSignatureUrl: '',
+        clinicianSignatureUrl: '',
         crewMembers: user ? [{ uid: user.uid, name: fullName }] : [],
         createdAt: Timestamp.now(),
         createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },
@@ -606,6 +624,10 @@ const EPRF: React.FC = () => {
         if (unauthorisedMeds.length > 0) {
             errors.push(`The following medications require authorisation by a senior clinician: ${unauthorisedMeds.join(', ')}.`);
         }
+        
+        if (!clinicianSigRef.current?.getSignature()) {
+            errors.push("The lead clinician must sign the report before finalization.");
+        }
 
         if (errors.length > 0) {
             setValidationErrors(errors);
@@ -614,8 +636,26 @@ const EPRF: React.FC = () => {
         }
 
         setIsSaving(true);
+        let updatedState = { ...state };
+
         try {
-            await finalizeEPRF(state.id, state);
+            const clinicianSignatureDataUrl = clinicianSigRef.current?.getSignature();
+            if (clinicianSignatureDataUrl) {
+                const blob = dataURLtoBlob(clinicianSignatureDataUrl);
+                const filePath = `signatures/${state.id}/clinician_${Date.now()}.png`;
+                const downloadURL = await uploadFile(blob, filePath);
+                updatedState = { ...updatedState, clinicianSignatureUrl: downloadURL };
+            }
+
+            const patientSignatureDataUrl = patientSigRef.current?.getSignature();
+            if (patientSignatureDataUrl) {
+                const blob = dataURLtoBlob(patientSignatureDataUrl);
+                const filePath = `signatures/${state.id}/patient_${Date.now()}.png`;
+                const downloadURL = await uploadFile(blob, filePath);
+                updatedState = { ...updatedState, patientSignatureUrl: downloadURL };
+            }
+
+            await finalizeEPRF(state.id, updatedState);
             showToast("ePRF finalized and sent for review.", "success");
             navigate(`/patients/${state.patientId}`);
         } catch (error) {
@@ -997,6 +1037,11 @@ const EPRF: React.FC = () => {
                         <CheckboxField label="Patient has demonstrated capacity to refuse" name="capacityDemonstrated" checked={state.refusalOfCare.capacityDemonstrated} onChange={e => handleNestedChange('refusalOfCare', 'capacityDemonstrated', e)} />
                         <CheckboxField label="All risks have been explained to the patient" name="risksExplained" checked={state.refusalOfCare.risksExplained} onChange={e => handleNestedChange('refusalOfCare', 'risksExplained', e)} />
                         <TextAreaField label="Details of Refusal" name="details" value={state.refusalOfCare.details} onChange={e => handleNestedChange('refusalOfCare', 'details', e)} />
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <label className={labelBaseClasses}>Patient/Guardian Signature</label>
+                            <p className="text-xs text-gray-500 mb-2">Signature confirms the patient/guardian understands the risks of refusing treatment/transport.</p>
+                            <SignaturePad ref={patientSigRef} />
+                        </FieldWrapper>
                     </Section>
                  }
 
@@ -1058,6 +1103,16 @@ const EPRF: React.FC = () => {
                         </div>
                      </div>
                 </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                    <h2 className="text-xl font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Clinician Signature &amp; Finalization</h2>
+                     <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                        <label className={labelBaseClasses}>Lead Clinician Signature</label>
+                        <p className="text-xs text-gray-500 mb-2">I confirm that this is a true and accurate record of the patient encounter.</p>
+                        <SignaturePad ref={clinicianSigRef} />
+                    </FieldWrapper>
+                </div>
+
 
                 <div className="flex justify-between items-center mt-8">
                      <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700">

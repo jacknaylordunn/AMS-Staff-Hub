@@ -41,7 +41,6 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState<User['role']>('First Aider');
   const [registrationNumber, setRegistrationNumber] = useState('');
 
   const [error, setError] = useState('');
@@ -101,8 +100,8 @@ const Login: React.FC = () => {
         }
     } else {
         // Register
-        if (!firstName || !lastName || !role) {
-            setError('Please provide your first name, last name, and role.');
+        if (!firstName || !lastName) {
+            setError('Please provide your first and last name.');
             setLoading(false);
             return;
         }
@@ -140,12 +139,12 @@ const Login: React.FC = () => {
                     email: userCredential.user.email!,
                     firstName,
                     lastName,
-                    role: role as any,
+                    role: 'Pending',
                     registrationNumber
                 });
 
                 await sendEmailVerification(userCredential.user);
-                setMessage('Account created. Please check your email to verify your account before logging in.');
+                setMessage('Account created. An administrator will review your registration. Please check your email to verify your account.');
                 
                 setFirstName('');
                 setLastName('');
@@ -197,20 +196,6 @@ const Login: React.FC = () => {
                         <label htmlFor="lastName" className={labelClasses}>Last Name</label>
                         <input id="lastName" name="lastName" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
                     </div>
-                </div>
-                 <div>
-                    <label htmlFor="role" className={labelClasses}>Clinical Role</label>
-                    <select id="role" name="role" required value={role} onChange={(e) => setRole(e.target.value as User['role'])} className={inputClasses}>
-                        <option>First Aider</option>
-                        <option>FREC3</option>
-                        <option>FREC4/ECA</option>
-                        <option>FREC5/EMT/AAP</option>
-                        <option>Paramedic</option>
-                        <option>Nurse</option>
-                        <option>Doctor</option>
-                        <option>Welfare</option>
-                        <option>Admin</option>
-                    </select>
                 </div>
                  <div>
                     <label htmlFor="registrationNumber" className={labelClasses}>Professional Registration (e.g. HCPC, optional)</label>
