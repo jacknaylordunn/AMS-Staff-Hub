@@ -1,10 +1,11 @@
 
-
-import firebase from "firebase/compat/app";
-import "firebase/compat/analytics";
-import "firebase/compat/auth";
-import "firebase/compat/firestore";
-import "firebase/compat/storage";
+// FIX: Use namespace import for firebase/app to resolve potential module resolution issues.
+import * as firebaseApp from 'firebase/app';
+// FIX: Use namespace import for firebase/analytics to resolve potential module resolution issues.
+import * as firebaseAnalytics from 'firebase/analytics';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Firebase configuration embedded as per request to resolve environment variable issues.
 const firebaseConfig = {
@@ -17,18 +18,19 @@ const firebaseConfig = {
   measurementId: "G-1M3EW6SJZL"
 };
 
-// FIX: Changed to Firebase v8/compat initialization syntax to resolve import errors.
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+// FIX: Call initializeApp from the imported namespace.
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize services
-firebase.analytics();
-export const auth = firebase.auth();
-export const db = firebase.firestore();
-export const storage = firebase.storage();
+// FIX: Call getAnalytics from the imported namespace.
+firebaseAnalytics.getAnalytics(app);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Enable offline persistence
-// FIX: Changed to v8/compat syntax for enabling persistence.
-db.enablePersistence().catch((err) => {
+enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
         console.warn('Firestore persistence failed: multiple tabs open.');
     } else if (err.code == 'unimplemented') {
