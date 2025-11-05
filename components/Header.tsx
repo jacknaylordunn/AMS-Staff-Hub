@@ -27,8 +27,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
 
   const getPageTitle = () => {
+    // Specific sub-page titles
+    if (location.pathname.includes('/assets/vehicle/')) return 'Vehicle Details';
     if (location.pathname.includes('/patients/')) return 'Patient Details';
+
     const path = pathSegments[0];
+
+    // Specific top-level page titles that differ from simple capitalization
+    if (path === 'eprf') return 'Patient Report Form';
+    if (path === 'reviews') return 'ePRF Reviews';
+    if (path === 'reports') return 'Reporting';
+    
+    // Default/fallback title generation
     if (!path || path === 'dashboard') return 'Dashboard';
     return path.charAt(0).toUpperCase() + path.slice(1);
   };

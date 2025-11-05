@@ -128,6 +128,12 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
     return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry] };
 };
 
+// NOTE: This query requires a composite index in Firestore for optimal performance.
+// Without it, the query will be very slow or fail.
+// The index should be on the 'eprfs' collection with the following fields:
+// 1. createdBy.uid (Ascending)
+// 2. eventId (Ascending)
+// 3. status (Ascending)
 export const getActiveDraftEPRF = async (userId: string, eventId: string): Promise<EPRFForm | null> => {
     const q = db.collection('eprfs')
         .where('createdBy.uid', '==', userId)
@@ -187,6 +193,18 @@ export const getEPRFsForPatient = async (patientId: string): Promise<EPRFForm[]>
     const q = eprfsCol.where('patientId', '==', patientId).orderBy('createdAt', 'desc');
     const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
+}
+
+export const getRecentEPRFsForUser = async (userId: string, limitCount: number = 5): Promise<EPRFForm[]> => {
+    const q = db.collection('eprfs')
+        .where('createdBy.uid', '==', userId)
+        .where('status', '!=', 'Draft')
+        .orderBy('status') // This is needed for the inequality, then order by date
+        .orderBy('createdAt', 'desc')
+        .limit(limitCount);
+    
+    const snapshot = await q.get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
 }
 
 export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {

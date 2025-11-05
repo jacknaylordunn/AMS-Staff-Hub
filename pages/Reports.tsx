@@ -148,8 +148,8 @@ const Reports: React.FC = () => {
                     if (!isNaN(onSceneH) && !isNaN(onSceneM) && !isNaN(leftSceneH) && !isNaN(leftSceneM)) {
                        const start = new Date(0, 0, 0, onSceneH, onSceneM);
                        const end = new Date(0, 0, 0, leftSceneH, leftSceneM);
-                       // Fix: Explicitly cast dates to numbers to resolve TypeScript arithmetic operation error.
-                       let diff = (Number(end) - Number(start)) / (1000 * 60);
+                       // Fix: Use .getTime() to perform arithmetic on Date objects.
+                       let diff = (end.getTime() - start.getTime()) / (1000 * 60);
                        if (diff < 0) diff += 24 * 60; // Handle overnight cases
                        totalMinutes += diff;
                        validEntries++;

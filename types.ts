@@ -86,6 +86,7 @@ export interface EPRFForm {
   allergies: string;
   medications: string;
   pastMedicalHistory: string;
+  lastOralIntake: string;
   
   painAssessment: {
     onset: string;

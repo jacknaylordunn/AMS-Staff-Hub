@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getActiveDraftForUser, getShiftsForUser, getNotificationsForUser, markNotificationAsRead } from '../services/firestoreService';
+import { getActiveDraftForUser, getShiftsForUser, getNotificationsForUser, markNotificationAsRead, getRecentEPRFsForUser } from '../services/firestoreService';
 import type { EPRFForm, Shift, Notification } from '../types';
 import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon } from '../components/icons';
 
@@ -29,28 +29,44 @@ const NotificationsPanel: React.FC<{ notifications: Notification[], onDismiss: (
     };
     
     return (
-        <div className="md:col-span-3 lg:col-span-1">
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md h-full">
-                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center"><BellIcon className="w-6 h-6 mr-2 text-ams-blue dark:text-ams-light-blue"/> My Tasks & Notifications</h3>
-                <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {notifications.length > 0 ? notifications.map(notif => (
-                        <div key={notif.id} className="group p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-start gap-2">
-                           <div onClick={() => handleNotificationClick(notif)} className={`flex-grow ${notif.link ? 'cursor-pointer' : ''}`}>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{notif.message}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notif.createdAt.toDate().toLocaleString()}</p>
-                           </div>
-                            <button onClick={() => onDismiss(notif.id!)} aria-label="Dismiss notification" className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <TrashIcon className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">No new notifications.</p>
-                    )}
-                </div>
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md h-full">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center"><BellIcon className="w-6 h-6 mr-2 text-ams-blue dark:text-ams-light-blue"/> My Tasks & Notifications</h3>
+            <div className="space-y-3 max-h-48 overflow-y-auto">
+                {notifications.length > 0 ? notifications.map(notif => (
+                    <div key={notif.id} className="group p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-start gap-2">
+                       <div onClick={() => handleNotificationClick(notif)} className={`flex-grow ${notif.link ? 'cursor-pointer' : ''}`}>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{notif.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notif.createdAt.toDate().toLocaleString()}</p>
+                       </div>
+                        <button onClick={() => onDismiss(notif.id!)} aria-label="Dismiss notification" className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <TrashIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                )) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No new notifications.</p>
+                )}
             </div>
         </div>
     )
 };
+
+const RecentPatientsPanel: React.FC<{ eprfs: EPRFForm[] }> = ({ eprfs }) => (
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md h-full">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+            <PatientsIcon className="w-6 h-6 mr-2 text-ams-blue dark:text-ams-light-blue" /> Recent Patients
+        </h3>
+        <div className="space-y-3 max-h-48 overflow-y-auto">
+            {eprfs.length > 0 ? eprfs.map(eprf => (
+                <Link to={`/patients/${eprf.patientId}`} key={eprf.id} className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600">
+                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{eprf.patientName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{eprf.incidentDate} at {eprf.eventName}</p>
+                </Link>
+            )) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No recent patient reports found.</p>
+            )}
+        </div>
+    </div>
+);
 
 
 const Dashboard: React.FC = () => {
@@ -60,12 +76,13 @@ const Dashboard: React.FC = () => {
     const [nextShift, setNextShift] = useState<Shift | null>(null);
     const [activeShift, setActiveShift] = useState<Shift | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [recentEprfs, setRecentEprfs] = useState<EPRFForm[]>([]);
 
     useEffect(() => {
         if (user) {
-            getActiveDraftForUser(user.uid).then(draft => {
-                setActiveDraft(draft);
-            });
+            getActiveDraftForUser(user.uid).then(setActiveDraft);
+            getNotificationsForUser(user.uid).then(setNotifications);
+            getRecentEPRFsForUser(user.uid).then(setRecentEprfs);
             
             const today = new Date();
             getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()).then(shifts => {
@@ -81,8 +98,6 @@ const Dashboard: React.FC = () => {
                     setNextShift(upcomingShifts[0]);
                 }
             });
-
-            getNotificationsForUser(user.uid).then(setNotifications);
         }
     }, [user]);
     
@@ -96,8 +111,8 @@ const Dashboard: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">Welcome back, {user?.firstName || 'team member'}!</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">This is your Aegis Medical Solutions Staff Hub. Access everything you need below.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-3 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                  {activeEvent ? (
                     <div className="md:col-span-2 bg-green-100 border-l-4 border-green-500 rounded-lg shadow-md p-6 dark:bg-green-900 dark:border-green-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center">
@@ -166,7 +181,10 @@ const Dashboard: React.FC = () => {
                 />
                 </div>
                 
-                <NotificationsPanel notifications={notifications} onDismiss={dismissNotification} />
+                <div className="lg:col-span-1 space-y-6">
+                    <NotificationsPanel notifications={notifications} onDismiss={dismissNotification} />
+                    <RecentPatientsPanel eprfs={recentEprfs} />
+                </div>
             </div>
         </div>
     );

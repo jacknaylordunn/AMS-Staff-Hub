@@ -19,6 +19,8 @@ import ValidationModal from '../components/ValidationModal';
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
 const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
 
+const COMMON_MEDICATIONS = ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Salbutamol', 'Ipratropium Bromide', 'GTN', 'Glucagon', 'Glucose 40%', 'Entonox', 'Ondansetron', 'Adrenaline 1:1000', 'Morphine Sulphate', 'Ketamine', 'Midazolam', 'Benzylpenicillin', 'Hydrocortisone', 'Chlorphenamine', 'Naloxone'];
+
 // Reducer for complex form state management
 const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
   switch (action.type) {
@@ -102,11 +104,11 @@ const FieldWrapper: React.FC<{ children: React.ReactNode, className?: string}> =
 const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
 const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
 
-const InputField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; className?: string; }> = 
-({ label, name, value, onChange, type = 'text', required = false, className }) => (
+const InputField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; className?: string; list?: string }> = 
+({ label, name, value, onChange, type = 'text', required = false, className, list }) => (
   <FieldWrapper className={className}>
     <label htmlFor={name} className={labelBaseClasses}>{label}</label>
-    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} className={inputBaseClasses} />
+    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} className={inputBaseClasses} list={list} />
   </FieldWrapper>
 );
 const SelectField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode, className?: string }> = 
@@ -266,6 +268,7 @@ const EPRF: React.FC = () => {
         allergies: '',
         medications: '',
         pastMedicalHistory: '',
+        lastOralIntake: '',
         painAssessment: { onset: '', provocation: '', quality: '', radiation: '', severity: 0, time: '' },
         airway: '',
         breathing: '',
@@ -307,6 +310,7 @@ const EPRF: React.FC = () => {
     const [isValidationModalOpen, setValidationModalOpen] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [isFormLoading, setIsFormLoading] = useState(true);
+    const [loadingError, setLoadingError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
     const [selectedCrewMember, setSelectedCrewMember] = useState<string>('');
@@ -318,26 +322,34 @@ const EPRF: React.FC = () => {
     }, []);
 
     // Load or create draft ePRF on mount
-    useEffect(() => {
+    const loadOrCreateDraft = useCallback(async () => {
         if (!user || !activeEvent) return;
         
-        const loadOrCreateDraft = async () => {
-            setIsFormLoading(true);
-            try {
-                let draft = await getActiveDraftEPRF(user.uid, activeEvent.id);
-                if (!draft) {
-                    draft = await createDraftEPRF(getInitialFormState());
-                }
-                dispatch({ type: 'LOAD_DRAFT', payload: draft });
-            } catch (error) {
-                console.error("Error loading/creating draft:", error);
-                showToast("Could not load ePRF draft.", "error");
-            } finally {
-                setIsFormLoading(false);
+        setIsFormLoading(true);
+        setLoadingError(null);
+        try {
+            let draft = await getActiveDraftEPRF(user.uid, activeEvent.id);
+            if (!draft) {
+                draft = await createDraftEPRF(getInitialFormState());
             }
-        };
-        loadOrCreateDraft();
+            dispatch({ type: 'LOAD_DRAFT', payload: draft });
+        } catch (error: any) {
+            console.error("Error loading/creating draft:", error);
+            // Firestore missing index errors often have a 'code' of 'failed-precondition'
+            if (error.code === 'failed-precondition') {
+                 setLoadingError("Could not load ePRF. This is likely due to a database configuration issue (missing index). Please contact your administrator.");
+            } else {
+                setLoadingError("An unexpected error occurred while loading your draft. Please check your connection and try again.");
+            }
+            showToast("Could not load ePRF draft.", "error");
+        } finally {
+            setIsFormLoading(false);
+        }
     }, [user, activeEvent, getInitialFormState]);
+
+    useEffect(() => {
+        loadOrCreateDraft();
+    }, [loadOrCreateDraft]);
 
     // Auto-save form
     useEffect(() => {
@@ -664,7 +676,19 @@ const EPRF: React.FC = () => {
 
 
     if (isFormLoading) {
-        return <div className="flex items-center justify-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /><span className="ml-4 text-lg dark:text-gray-300">Loading ePRF...</span></div>;
+        return <div className="flex items-center justify-center h-96"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /><span className="ml-4 text-lg dark:text-gray-300">Loading Patient Report Form...</span></div>;
+    }
+
+    if (loadingError) {
+        return (
+            <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow">
+                <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Form</h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">{loadingError}</p>
+                <button onClick={loadOrCreateDraft} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
+                    Retry
+                </button>
+            </div>
+        );
     }
 
     if (!activeEvent) {
@@ -738,17 +762,50 @@ const EPRF: React.FC = () => {
                     </SelectField>
                 </Section>
 
-                <Section title="Clinical Assessment">
+                <Section title="Clinical Assessment (SAMPLE)">
                     <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
                     <SpeechEnabledTextArea label="History of Complaint / Events" name="history" value={state.history} onChange={handleChange} />
                     <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury ?? ''} onChange={handleChange} />
                     <TextAreaField label="Allergies" name="allergies" value={state.allergies} onChange={handleChange} rows={2}/>
                     <TextAreaField label="Current Medications" name="medications" value={state.medications} onChange={handleChange} rows={2}/>
                     <TextAreaField label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} rows={2}/>
+                    <TextAreaField label="Last Meal / Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} rows={2}/>
                 </Section>
+                
+                {state.presentationType === 'Welfare/Intox' && (
+                    <Section title="Welfare Log">
+                        <FieldWrapper className="md:col-span-2 lg:col-span-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className={labelBaseClasses}>Log Entries</h3>
+                                <button type="button" onClick={() => addDynamicListItem('welfareLog')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Entry</button>
+                            </div>
+                            <div className="space-y-2">
+                            {state.welfareLog.map((item, index) => (
+                                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <input type="time" name="time" value={item.time} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-3`} />
+                                    <input type="text" name="observation" placeholder="Observation / Action" value={item.observation} onChange={e => handleDynamicListChange('welfareLog', index, e)} className={`${inputBaseClasses} col-span-8`} />
+                                    <button type="button" onClick={() => removeDynamicListItem('welfareLog', index)} aria-label="Remove welfare log entry" className="text-red-500 hover:text-red-700 col-span-1 justify-self-end"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                            ))}
+                            </div>
+                        </FieldWrapper>
+                    </Section>
+                )}
+
 
                 {state.presentationType !== 'Welfare/Intox' &&
                     <>
+                        <Section title="Pain Assessment (OPQRST)">
+                            <InputField label="Onset" name="onset" value={state.painAssessment.onset} onChange={e => handleNestedChange('painAssessment', 'onset', e)} />
+                            <InputField label="Provocation" name="provocation" value={state.painAssessment.provocation} onChange={e => handleNestedChange('painAssessment', 'provocation', e)} />
+                            <InputField label="Quality" name="quality" value={state.painAssessment.quality} onChange={e => handleNestedChange('painAssessment', 'quality', e)} />
+                            <InputField label="Radiation" name="radiation" value={state.painAssessment.radiation} onChange={e => handleNestedChange('painAssessment', 'radiation', e)} />
+                            <InputField label="Time" name="time" type="time" value={state.painAssessment.time} onChange={e => handleNestedChange('painAssessment', 'time', e)} />
+                             <SelectField label="Severity" name="severity" value={state.painAssessment.severity} onChange={e => handleNestedChange('painAssessment', 'severity', e)}>
+                                {Array.from({length: 11}, (_, i) => <option key={i} value={i}>{i}</option>)}
+                            </SelectField>
+                        </Section>
+
                         <Section title="Primary Survey (ABCDE)">
                             <SpeechEnabledTextArea label="Airway" name="airway" value={state.airway} onChange={handleChange} rows={2} />
                             <SpeechEnabledTextArea label="Breathing" name="breathing" value={state.breathing} onChange={handleChange} rows={2} />
@@ -811,6 +868,9 @@ const EPRF: React.FC = () => {
                             <h3 className={labelBaseClasses}>Medications Administered</h3>
                             <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center px-3 py-1.5 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Med</button>
                         </div>
+                        <datalist id="common-meds">
+                            {COMMON_MEDICATIONS.map(med => <option key={med} value={med} />)}
+                        </datalist>
                         <div className="space-y-2">
                         {state.medicationsAdministered.map((med, index) => {
                             const isRestricted = RESTRICTED_MEDICATIONS.includes(med.medication);
@@ -818,7 +878,7 @@ const EPRF: React.FC = () => {
                             return (
                             <div key={med.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                                 <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
-                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} />
+                                <input type="text" name="medication" placeholder="Medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-8 md:col-span-3`} list="common-meds" />
                                 <input type="text" name="dose" placeholder="Dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-4 md:col-span-2`} />
                                 <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={`${inputBaseClasses} col-span-5 md:col-span-2`}>
                                     <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
