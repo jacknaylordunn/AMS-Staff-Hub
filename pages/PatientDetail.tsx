@@ -187,6 +187,32 @@ const PatientDetail: React.FC = () => {
         fetchData();
     }, [patientId]);
     
+    const treatmentSummary = useMemo(() => {
+        const allMeds: (MedicationAdministered & { encounterDate: string })[] = [];
+        const allInts: (Intervention & { encounterDate: string })[] = [];
+
+        eprfs.forEach(eprf => {
+            eprf.medicationsAdministered.forEach(med => {
+                allMeds.push({ ...med, encounterDate: eprf.incidentDate });
+            });
+            eprf.interventions.forEach(int => {
+                allInts.push({ ...int, encounterDate: eprf.incidentDate });
+            });
+        });
+
+        // Sort by date, then by time
+        const sortByDateAndTime = (a: { encounterDate: string, time: string }, b: { encounterDate: string, time: string }) => {
+            const dateComparison = b.encounterDate.localeCompare(a.encounterDate);
+            if (dateComparison !== 0) return dateComparison;
+            return b.time.localeCompare(a.time);
+        };
+        
+        allMeds.sort(sortByDateAndTime);
+        allInts.sort(sortByDateAndTime);
+
+        return { medications: allMeds, interventions: allInts };
+    }, [eprfs]);
+    
     const handleGeneratePdf = (eprf: EPRFForm) => {
         if (patient) {
             generateHandoverPdf(eprf, patient);
@@ -278,6 +304,22 @@ const PatientDetail: React.FC = () => {
                             </ul>
                          ) : <p className="text-gray-500 dark:text-gray-400">No care encounters found for this patient.</p>}
                     </div>
+
+                    <DetailCard title="Treatment History">
+                        <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400">Medications Administered</h4>
+                        {treatmentSummary.medications.length > 0 ? (
+                            <ul className="text-sm space-y-1 max-h-40 overflow-y-auto">
+                                {treatmentSummary.medications.map((m, i) => <li key={i}><span className="font-semibold">{m.medication} {m.dose}</span> on {m.encounterDate} at {m.time}</li>)}
+                            </ul>
+                        ) : <p className="text-sm text-gray-500 dark:text-gray-400">No medications on record.</p>}
+                        
+                        <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mt-4 pt-2 border-t dark:border-gray-700">Interventions Performed</h4>
+                        {treatmentSummary.interventions.length > 0 ? (
+                            <ul className="text-sm space-y-1 max-h-40 overflow-y-auto">
+                                {treatmentSummary.interventions.map((item, i) => <li key={i}><span className="font-semibold">{item.intervention}</span> on {item.encounterDate} at {item.time}</li>)}
+                            </ul>
+                        ) : <p className="text-sm text-gray-500 dark:text-gray-400">No interventions on record.</p>}
+                    </DetailCard>
 
                 </div>
                 <div className="lg:col-span-2">

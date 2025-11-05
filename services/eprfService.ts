@@ -25,24 +25,26 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
     return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry] };
 };
 
-// NOTE: This query requires a composite index in Firestore for optimal performance.
-// The index should be on the 'eprfs' collection with the following fields:
-// 1. createdBy.uid (Ascending)
-// 2. eventId (Ascending)
-// 3. status (Ascending)
+// This query is now simpler to avoid index-related errors. It fetches all drafts for a user and filters locally.
 export const getActiveDraftEPRF = async (userId: string, eventId: string): Promise<EPRFForm | null> => {
     const eprfsCol = collection(db, 'eprfs');
     const q = query(eprfsCol,
         where('createdBy.uid', '==', userId),
-        where('eventId', '==', eventId),
-        where('status', '==', 'Draft'),
-        limit(1));
+        where('status', '==', 'Draft'));
     const snapshot = await getDocs(q);
+
     if (snapshot.empty) {
         return null;
     }
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as EPRFForm;
+    
+    // Filter client-side to find the draft for the specific event
+    const eventDraftDoc = snapshot.docs.find(doc => doc.data().eventId === eventId);
+
+    if (!eventDraftDoc) {
+        return null;
+    }
+
+    return { id: eventDraftDoc.id, ...eventDraftDoc.data() } as EPRFForm;
 };
 
 export const getActiveDraftForUser = async (userId: string): Promise<EPRFForm | null> => {

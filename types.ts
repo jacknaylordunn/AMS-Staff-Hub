@@ -158,6 +158,7 @@ export interface EPRFForm {
 
   patientSignatureUrl?: string;
   clinicianSignatureUrl?: string;
+  signaturesNeedSync?: boolean;
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];

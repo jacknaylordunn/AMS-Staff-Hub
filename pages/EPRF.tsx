@@ -5,7 +5,7 @@ import React, { useState, useEffect, useReducer, useCallback, useRef } from 'rea
 import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
 import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment } from '../types';
-import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
+import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, EventsIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -318,7 +318,6 @@ const EPRF: React.FC = () => {
             dispatch({ type: 'LOAD_DRAFT', payload: draft });
         } catch (error: any) {
             console.error("Error loading/creating draft:", error);
-            // Firestore missing index errors often have a 'code' of 'failed-precondition'
             if (error.code === 'failed-precondition') {
                  setLoadingError("Could not load ePRF. This is likely due to a database configuration issue (missing index). Please contact your administrator.");
             } else {
@@ -398,7 +397,6 @@ const EPRF: React.FC = () => {
         dispatch({ type: 'UPDATE_FIELD', field: fieldName, payload: timeString });
     };
 
-    // FIX: Add helper to set time for nested fields to support the refactored TimeInputField.
     const handleSetTimeToNowNested = (field: string, subField: string) => () => {
         const timeString = new Date().toTimeString().split(' ')[0].substring(0, 5);
         dispatch({ type: 'UPDATE_NESTED_FIELD', field, subField, payload: timeString });
@@ -509,6 +507,10 @@ const EPRF: React.FC = () => {
     };
 
     const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isOnline) {
+            showToast('Attachments can only be added when online.', 'error');
+            return;
+        }
         if (e.target.files && e.target.files[0] && state.id) {
             const file = e.target.files[0];
             try {
@@ -598,23 +600,35 @@ const EPRF: React.FC = () => {
         }
 
         setIsSaving(true);
-        let updatedState = { ...state };
+        let updatedState: EPRFForm = { ...state, signaturesNeedSync: !isOnline };
 
         try {
             const clinicianSignatureDataUrl = clinicianSigRef.current?.getSignature();
             if (clinicianSignatureDataUrl) {
-                const blob = dataURLtoBlob(clinicianSignatureDataUrl);
-                const filePath = `signatures/${state.id}/clinician_${Date.now()}.png`;
-                const downloadURL = await uploadFile(blob, filePath);
-                updatedState = { ...updatedState, clinicianSignatureUrl: downloadURL };
+                if (isOnline) {
+                    const blob = dataURLtoBlob(clinicianSignatureDataUrl);
+                    const filePath = `signatures/${state.id}/clinician_${Date.now()}.png`;
+                    const downloadURL = await uploadFile(blob, filePath);
+                    updatedState.clinicianSignatureUrl = downloadURL;
+                } else {
+                    updatedState.clinicianSignatureUrl = clinicianSignatureDataUrl;
+                }
             }
 
             const patientSignatureDataUrl = patientSigRef.current?.getSignature();
             if (patientSignatureDataUrl) {
-                const blob = dataURLtoBlob(patientSignatureDataUrl);
-                const filePath = `signatures/${state.id}/patient_${Date.now()}.png`;
-                const downloadURL = await uploadFile(blob, filePath);
-                updatedState = { ...updatedState, patientSignatureUrl: downloadURL };
+                if (isOnline) {
+                    const blob = dataURLtoBlob(patientSignatureDataUrl);
+                    const filePath = `signatures/${state.id}/patient_${Date.now()}.png`;
+                    const downloadURL = await uploadFile(blob, filePath);
+                    updatedState.patientSignatureUrl = downloadURL;
+                } else {
+                    updatedState.patientSignatureUrl = patientSignatureDataUrl;
+                }
+            }
+            
+            if (!isOnline) {
+                showToast('Offline: Signature saved locally, will sync when online.', 'info');
             }
 
             await finalizeEPRF(state.id, updatedState);
@@ -645,7 +659,6 @@ const EPRF: React.FC = () => {
         }
     };
 
-    // FIX: Refactored TimeInputField to accept a generic name (string) and an onSetTimeToNow callback to handle both top-level and nested fields correctly, fixing the original TypeScript error.
     const TimeInputField: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSetTimeToNow: () => void; className?: string; }> = ({ label, name, value, onChange, onSetTimeToNow, className }) => (
         <FieldWrapper className={className}>
             <label htmlFor={name} className={labelBaseClasses}>{label}</label>
@@ -677,9 +690,10 @@ const EPRF: React.FC = () => {
 
     if (!activeEvent) {
         return (
-            <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="flex flex-col items-center justify-center text-center p-10 bg-white dark:bg-gray-800 rounded-lg shadow h-full">
+                 <EventsIcon className="w-20 h-20 text-ams-blue dark:text-ams-light-blue mb-4" />
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-4">No Active Event</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">Please log on to an event from the Events page before creating an ePRF.</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">Please log on to an event from the Events page before creating an ePRF. This links the report to the correct location and time.</p>
                 <button onClick={() => navigate('/events')} className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90">
                     Go to Events
                 </button>
@@ -1033,10 +1047,10 @@ const EPRF: React.FC = () => {
                                         </button>
                                     </div>
                                 ))}
-                                <label className="flex flex-col items-center justify-center w-full h-full min-h-[160px] p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
+                                <label title={!isOnline ? "Attachments can only be added when online" : "Add Photo"} className={`flex flex-col items-center justify-center w-full h-full min-h-[160px] p-4 border-2 border-dashed rounded-lg ${isOnline ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : 'cursor-not-allowed bg-gray-100 dark:bg-gray-800 opacity-50'} dark:border-gray-600 `}>
                                     <CameraIcon className="w-10 h-10 text-gray-400" />
                                     <span className="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">Add Photo</span>
-                                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAddAttachment} />
+                                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAddAttachment} disabled={!isOnline} />
                                 </label>
                             </div>
                         </FieldWrapper>
