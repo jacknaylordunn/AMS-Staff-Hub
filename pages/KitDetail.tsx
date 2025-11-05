@@ -160,7 +160,7 @@ const KitDetail: React.FC = () => {
                                     <div className="flex justify-center">
                                         <img 
                                             id="qr-code-img" 
-                                            src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(kit.qrCodeValue)}&choe=UTF-8`} 
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(kit.qrCodeValue)}`} 
                                             alt="Kit QR Code"
                                         />
                                     </div>

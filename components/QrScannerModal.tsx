@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import { SpinnerIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -14,14 +15,28 @@ const isBarcodeDetectorSupported = typeof BarcodeDetector !== 'undefined';
 
 const QrScannerModal: React.FC<QrScannerModalProps> = ({ isOpen, onClose, onScan }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
         let animationFrameId: number;
 
+        const stopScan = () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current = null;
+            }
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        };
+
         const startScan = async () => {
-            if (!isOpen || !isBarcodeDetectorSupported) {
+            if (!isOpen) {
                 return;
             }
 
@@ -36,24 +51,54 @@ const QrScannerModal: React.FC<QrScannerModalProps> = ({ isOpen, onClose, onScan
                     await videoRef.current.play();
                 }
 
-                const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-
-                const detect = async () => {
-                    if (videoRef.current && videoRef.current.readyState >= 2) {
-                        try {
-                            const barcodes = await barcodeDetector.detect(videoRef.current);
-                            if (barcodes.length > 0) {
-                                onScan(barcodes[0].rawValue);
-                                onClose();
+                if (isBarcodeDetectorSupported) {
+                    const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+                    const detect = async () => {
+                        if (videoRef.current && videoRef.current.readyState >= 2) {
+                            try {
+                                const barcodes = await barcodeDetector.detect(videoRef.current);
+                                if (barcodes.length > 0) {
+                                    onScan(barcodes[0].rawValue);
+                                    onClose();
+                                    return; // Stop scanning
+                                }
+                            } catch (err) {
+                                console.error('Barcode detection failed:', err);
                             }
-                        } catch (err) {
-                            console.error('Barcode detection failed:', err);
                         }
+                        animationFrameId = requestAnimationFrame(detect);
+                    };
+                    detect();
+                } else {
+                    // Fallback to jsQR
+                    if (!videoRef.current || !canvasRef.current) return;
+                    const video = videoRef.current;
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    if (!ctx) {
+                        setError('Could not initialize QR scanner.');
+                        return;
                     }
-                    animationFrameId = requestAnimationFrame(detect);
-                };
 
-                detect();
+                    const tick = () => {
+                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                            canvas.height = video.videoHeight;
+                            canvas.width = video.videoWidth;
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                            if (code) {
+                                onScan(code.data);
+                                onClose();
+                                return; // Stop scanning
+                            }
+                        }
+                        animationFrameId = requestAnimationFrame(tick);
+                    };
+                    tick();
+                }
+
             } catch (err: any) {
                 console.error('Camera access error:', err);
                 if (err.name === 'NotAllowedError') {
@@ -64,21 +109,8 @@ const QrScannerModal: React.FC<QrScannerModalProps> = ({ isOpen, onClose, onScan
             }
         };
 
-        const stopScan = () => {
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-                streamRef.current = null;
-            }
-            if (videoRef.current) {
-                videoRef.current.srcObject = null;
-            }
-            cancelAnimationFrame(animationFrameId);
-        };
-
         if (isOpen) {
             startScan();
-        } else {
-            stopScan();
         }
 
         return () => {
@@ -96,17 +128,14 @@ const QrScannerModal: React.FC<QrScannerModalProps> = ({ isOpen, onClose, onScan
             aria-modal="true"
         >
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-4 relative modal-content" onClick={e => e.stopPropagation()}>
-                <h2 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue mb-4 text-center">Scan Vehicle QR Code</h2>
+                <h2 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue mb-4 text-center">Scan Asset QR Code</h2>
                 <div className="relative w-full aspect-square bg-gray-900 rounded-md overflow-hidden">
-                    {!isBarcodeDetectorSupported ? (
-                        <div className="flex items-center justify-center h-full text-center text-red-500 p-4">
-                            QR code scanning is not supported by your browser. Please use a recent version of Chrome or Safari.
-                        </div>
-                    ) : error ? (
+                    {error ? (
                         <div className="flex items-center justify-center h-full text-center text-red-500 p-4">{error}</div>
                     ) : (
                         <>
                             <video ref={videoRef} className="w-full h-full object-cover" playsInline />
+                            <canvas ref={canvasRef} className="hidden" />
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="w-3/4 h-3/4 border-4 border-dashed border-white/50 rounded-lg" />
                             </div>

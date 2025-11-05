@@ -88,7 +88,7 @@ const PrintAsset: React.FC = () => {
                         <div className="flex justify-center my-4">
                              <img 
                                 id="qr-code-img" 
-                                src={`https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(asset.qrCodeValue || '')}&choe=UTF-8`} 
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(asset.qrCodeValue || '')}`} 
                                 alt="Asset QR Code" 
                             />
                         </div>

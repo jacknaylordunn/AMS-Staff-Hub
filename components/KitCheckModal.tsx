@@ -61,12 +61,12 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         e.preventDefault();
         setLoading(true);
 
-        // FIX: Replaced spread operator with explicit property assignment to fix "Spread types may only be created from object types" error.
-        const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]) => ({
+        // FIX: Explicitly typed the `data` parameter in the map callback to resolve errors where properties did not exist on type `unknown`.
+        const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]: [string, CheckedItemState]) => ({
             itemName,
-            status: data?.status || 'N/A',
-            expiryDate: data?.expiryDate,
-            batchNumber: data?.batchNumber,
+            status: data.status || 'N/A',
+            expiryDate: data.expiryDate,
+            batchNumber: data.batchNumber,
         }));
         const overallStatus = checkedItemsArray.some(item => item.status === 'Fail') ? 'Issues Found' : 'Pass';
         const userFullName = `${user.firstName} ${user.lastName}`.trim();
