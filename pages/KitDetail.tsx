@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Kit, KitCheck } from '../types';
+import type { Kit, KitCheck, KitChecklistItem } from '../types';
 import { getKitById, getKitChecks, addKitCheck, updateKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon, PencilIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import KitCheckModal from '../components/KitCheckModal';
+import KitChecklistEditModal from '../components/KitChecklistEditModal';
 
 const getExpiryColor = (expiryDate?: string): string => {
     if (!expiryDate) return 'text-gray-500 dark:text-gray-400';
@@ -33,6 +34,7 @@ const KitDetail: React.FC = () => {
     const [checks, setChecks] = useState<KitCheck[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCheckModalOpen, setCheckModalOpen] = useState(false);
+    const [isChecklistEditModalOpen, setChecklistEditModalOpen] = useState(false);
     const [checkType, setCheckType] = useState<'Sign Out' | 'Sign In'>('Sign Out');
 
     const fetchData = async () => {
@@ -71,6 +73,19 @@ const KitDetail: React.FC = () => {
         }
     };
     
+    const handleUpdateChecklist = async (newChecklist: KitChecklistItem[]) => {
+        if (!kit) return;
+        try {
+            await updateKit(kit.id!, { checklistItems: newChecklist });
+            showToast("Checklist updated successfully.", "success");
+            fetchData(); // This will re-fetch and update the kit state
+        } catch (e) {
+            showToast("Failed to update checklist.", "error");
+        } finally {
+            setChecklistEditModalOpen(false);
+        }
+    };
+    
     const handleOpenCheckModal = (type: 'Sign Out' | 'Sign In') => {
         setCheckType(type);
         setCheckModalOpen(true);
@@ -93,6 +108,14 @@ const KitDetail: React.FC = () => {
             showToast("Failed to generate QR Code.", "error");
         }
     };
+
+    const checklistByCategory = useMemo(() => {
+        if (!kit?.checklistItems) return {};
+        return kit.checklistItems.reduce((acc, item) => {
+            (acc[item.category] = acc[item.category] || []).push(item);
+            return acc;
+        }, {} as Record<string, KitChecklistItem[]>);
+    }, [kit]);
 
     if (loading) {
         return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /></div>;
@@ -121,6 +144,14 @@ const KitDetail: React.FC = () => {
                     kit={kit}
                     user={user}
                     type={checkType}
+                />
+            )}
+            {isChecklistEditModalOpen && kit && isManager && (
+                <KitChecklistEditModal
+                    isOpen={isChecklistEditModalOpen}
+                    onClose={() => setChecklistEditModalOpen(false)}
+                    onSave={handleUpdateChecklist}
+                    kit={kit}
                 />
             )}
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
@@ -207,30 +238,53 @@ const KitDetail: React.FC = () => {
                         )}
                     </div>
                 </div>
-                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                     <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Recent Checks</h3>
-                     {checks.length > 0 ? (
-                        <ul className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-                            {checks.map(check => (
-                                <li key={check.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-semibold dark:text-gray-200">{check.date.toDate().toLocaleString()}</p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">by {check.user.name} - <span className="font-medium">{check.type}</span></p>
-                                            {check.itemsUsed && check.itemsUsed.length > 0 && <p className="text-sm mt-1">Used: {check.itemsUsed.map(i => `${i.itemName} (x${i.quantity})`).join(', ')}</p>}
-                                            {check.notes && <p className="text-sm mt-2 pt-2 border-t dark:border-gray-600 italic">"{check.notes}"</p>}
+                 <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Recent Checks</h3>
+                        {checks.length > 0 ? (
+                            <ul className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                                {checks.map(check => (
+                                    <li key={check.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold dark:text-gray-200">{check.date.toDate().toLocaleString()}</p>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400">by {check.user.name} - <span className="font-medium">{check.type}</span></p>
+                                                {check.itemsUsed && check.itemsUsed.length > 0 && <p className="text-sm mt-1">Used: {check.itemsUsed.map(i => `${i.itemName} (x${i.quantity})`).join(', ')}</p>}
+                                                {check.notes && <p className="text-sm mt-2 pt-2 border-t dark:border-gray-600 italic">"{check.notes}"</p>}
+                                            </div>
+                                            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${check.overallStatus === 'Pass' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                {check.overallStatus === 'Pass' && <CheckIcon className="w-4 h-4"/>}
+                                                {check.overallStatus}
+                                            </div>
                                         </div>
-                                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${check.overallStatus === 'Pass' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                             {check.overallStatus === 'Pass' && <CheckIcon className="w-4 h-4"/>}
-                                            {check.overallStatus}
-                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-gray-500 dark:text-gray-400">No checks have been recorded for this kit.</p>
+                        )}
+                    </div>
+                    {isManager && (
+                         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                            <div className="flex justify-between items-center border-b dark:border-gray-700 pb-2 mb-4">
+                                <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue">Checklist Content</h3>
+                                <button onClick={() => setChecklistEditModalOpen(true)} className="flex items-center text-sm px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300">
+                                    <PencilIcon className="w-4 h-4 mr-2" /> Edit
+                                </button>
+                            </div>
+                            <div className="space-y-4 max-h-60 overflow-y-auto">
+                                {Object.entries(checklistByCategory).map(([category, items]) => (
+                                    <div key={category}>
+                                        <h4 className="font-bold text-md text-gray-700 dark:text-gray-300">{category}</h4>
+                                        <ul className="list-disc list-inside ml-4 text-sm text-gray-600 dark:text-gray-400">
+                                            {/* FIX: Cast `items` to KitChecklistItem[] as Object.entries loses type information. */}
+                                            {(items as KitChecklistItem[]).map(item => <li key={item.name}>{item.name} {item.trackable && <span className="text-xs text-blue-500">(Tracked)</span>}</li>)}
+                                        </ul>
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
-                     ) : (
-                        <p className="text-gray-500 dark:text-gray-400">No checks have been recorded for this kit.</p>
-                     )}
+                                ))}
+                            </div>
+                        </div>
+                    )}
                  </div>
              </div>
         </div>

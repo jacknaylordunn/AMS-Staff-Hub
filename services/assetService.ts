@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, Timestamp, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Vehicle, VehicleCheck } from '../types';
 
@@ -8,6 +8,14 @@ export const getVehicles = async (): Promise<Vehicle[]> => {
     const snapshot = await getDocs(query(collection(db, 'vehicles'), orderBy('createdAt', 'desc')));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle));
 }
+
+export const listenToVehicles = (callback: (vehicles: Vehicle[]) => void): () => void => {
+    const q = query(collection(db, 'vehicles'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        const vehicles = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle));
+        callback(vehicles);
+    }, (error) => console.error("Error listening to vehicles:", error));
+};
 
 export const getVehicleById = async (vehicleId: string): Promise<Vehicle | null> => {
     const docRef = doc(db, 'vehicles', vehicleId);

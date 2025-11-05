@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Shift, EventLog, User as AppUser } from '../types';
-import { getShiftsForMonth, createShift, updateShift, deleteShift, getShiftsForUser, bidOnShift, cancelBidOnShift } from '../services/rotaService';
+import { listenToShiftsForMonth, createShift, updateShift, deleteShift, bidOnShift, cancelBidOnShift } from '../services/rotaService';
 import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, RefreshIcon } from '../components/icons';
 import ShiftModal from '../components/ShiftModal';
 import { isRoleOrHigher } from '../utils/roleHelper';
 import { showToast } from '../components/Toast';
@@ -20,45 +20,44 @@ const Rota: React.FC = () => {
     const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
     const [modalDate, setModalDate] = useState<Date | null>(null);
     const [modalType, setModalType] = useState<'shift' | 'unavailability'>('shift');
+    const [manualRefresh, setManualRefresh] = useState(0);
 
     // For manager modals
     const [events, setEvents] = useState<EventLog[]>([]);
     const [staff, setStaff] = useState<AppUser[]>([]);
 
-    const fetchRotaData = async () => {
+    const fetchSupportingData = async () => {
+        if (!isManager) return;
+        try {
+            const [eventsData, staffData] = await Promise.all([getEvents(), getUsers()]);
+            setEvents(eventsData);
+            setStaff(staffData);
+        } catch (error) {
+            if (isOnline) {
+                console.error("Failed to fetch rota support data:", error);
+                showToast("Failed to fetch events or staff.", "error");
+            }
+        }
+    };
+    
+    useEffect(() => {
         if (!user) return;
+        
+        fetchSupportingData(); // Fetch non-realtime data
+
         setLoading(true);
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
 
-        try {
-            // Managers see all shifts, staff see only their own + all unavailabilities for visual context
-             if (isManager) {
-                const [shiftsData, eventsData, staffData] = await Promise.all([
-                    getShiftsForMonth(year, month),
-                    getEvents(),
-                    getUsers()
-                ]);
-                setShifts(shiftsData);
-                setEvents(eventsData);
-                setStaff(staffData);
-            } else {
-                const allShifts = await getShiftsForMonth(year, month);
-                setShifts(allShifts);
-            }
-        } catch (error) {
-             if (isOnline) {
-                console.error("Failed to fetch rota data:", error);
-                showToast("Failed to fetch rota data.", "error");
-             }
-        } finally {
+        // Real-time listener for shifts
+        const unsubscribe = listenToShiftsForMonth(year, month, (shiftsData) => {
+            setShifts(shiftsData);
             setLoading(false);
-        }
-    };
+        });
+        
+        return () => unsubscribe();
+    }, [currentDate, user, isManager, manualRefresh]);
 
-    useEffect(() => {
-        fetchRotaData();
-    }, [currentDate, user, isManager, isOnline]);
 
     const calendarGrid = useMemo(() => {
         const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -103,13 +102,11 @@ const Rota: React.FC = () => {
         } else {
             await createShift(shiftData);
         }
-        await fetchRotaData();
+        // No need to fetch data, listener will update state
     };
 
     const handleDeleteShift = async (shiftId: string) => {
-        setLoading(true);
         await deleteShift(shiftId);
-        await fetchRotaData();
         handleCloseModal();
     }
 
@@ -136,7 +133,7 @@ const Rota: React.FC = () => {
                     staff={staff}
                     type={modalType}
                     currentUser={user!}
-                    refreshShifts={fetchRotaData}
+                    refreshShifts={() => setManualRefresh(c => c + 1)} // Pass refresh function to modal
                 />
             )}
             <div className="flex justify-between items-center mb-4">
@@ -147,6 +144,9 @@ const Rota: React.FC = () => {
                 <button onClick={() => changeMonth(1)} className="px-4 py-2 bg-ams-blue text-white rounded">Next &gt;</button>
             </div>
              <div className="flex flex-col sm:flex-row justify-end mb-4 gap-2">
+                 <button onClick={() => setManualRefresh(c => c + 1)} className="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200">
+                    <RefreshIcon className="w-5 h-5 mr-2" /> Refresh Data
+                </button>
                 <button onClick={() => handleOpenModal(null, new Date(), 'unavailability')} disabled={!isOnline} className="flex items-center justify-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
                     <PlusIcon className="w-5 h-5 mr-2" /> Add Unavailability
                 </button>

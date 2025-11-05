@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUserProfile } from '../services/userService';
+import { listenToUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUserProfile } from '../services/userService';
 import type { User } from '../types';
-import { SpinnerIcon } from '../components/icons';
+import { SpinnerIcon, RefreshIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import { ALL_ROLES } from '../utils/roleHelper';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -21,21 +21,14 @@ const Staff: React.FC = () => {
     const [userToDecline, setUserToDecline] = useState<User | null>(null);
     const navigate = useNavigate();
 
-    const fetchUsers = async () => {
-        setLoading(true);
-        try {
-            const userList = await getUsers();
-            setUsers(userList);
-        } catch (error) {
-            console.error("Failed to fetch users:", error);
-            showToast("Could not load user data.", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchUsers();
+        setLoading(true);
+        const unsubscribe = listenToUsers((userList) => {
+            setUsers(userList);
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
     }, []);
 
     const filteredUsers = useMemo(() => {
@@ -57,7 +50,7 @@ const Staff: React.FC = () => {
         try {
             await updateUserProfile(userId, { role: newRole });
             showToast("User role updated successfully.", "success");
-            setUsers(prevUsers => prevUsers.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+            // No need to update local state, listener will do it.
         } catch (error) {
             console.error("Failed to update role:", error);
             showToast("Failed to update user role.", "error");
@@ -78,7 +71,6 @@ const Staff: React.FC = () => {
         setIsSaving(true);
         try {
             await approveRoleChange(modalUser.uid, modalUser.pendingRole);
-            setUsers(prev => prev.map(u => u.uid === modalUser.uid ? { ...u, role: modalUser.pendingRole, pendingRole: undefined } : u));
             showToast("Role change approved.", "success");
         } catch (e) {
             showToast("Failed to approve role change.", "error");
@@ -93,7 +85,6 @@ const Staff: React.FC = () => {
         setIsSaving(true);
         try {
             await rejectRoleChange(userId);
-            setUsers(prev => prev.map(u => u.uid === userId ? { ...u, pendingRole: undefined } : u));
             showToast("Role change rejected.", "info");
         } catch (e) {
             showToast("Failed to reject role change.", "error");
@@ -113,7 +104,6 @@ const Staff: React.FC = () => {
         try {
             await deleteUserProfile(userToDecline.uid);
             showToast("User registration declined and profile deleted.", "success");
-            setUsers(prev => prev.filter(u => u.uid !== userToDecline.uid));
         } catch (e) {
             showToast("Failed to decline user.", "error");
         } finally {
@@ -164,6 +154,11 @@ const Staff: React.FC = () => {
                     </button>
                     <button onClick={() => setFilter('all')} className={`px-3 py-1 text-sm font-medium rounded-full ${filter === 'all' ? 'bg-ams-blue text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>
                         All Staff
+                    </button>
+                </div>
+                <div className="flex-grow flex justify-end">
+                    <button onClick={() => window.location.reload()} className="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200">
+                        <RefreshIcon className="w-5 h-5 mr-2" /> Refresh
                     </button>
                 </div>
             </div>

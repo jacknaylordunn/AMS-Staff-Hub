@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../services/firebase';
-import { getUserProfile } from '../services/userService';
+import { onSnapshot, doc } from 'firebase/firestore'; // Import onSnapshot and doc
+import { auth, db } from '../services/firebase'; // Import db
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -23,38 +23,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    let unsubscribeFirestore: () => void | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      // Clean up previous Firestore listener if user changes
+      if (unsubscribeFirestore) unsubscribeFirestore();
+
       if (firebaseUser) {
         setIsEmailVerified(firebaseUser.emailVerified);
-        // Fetch profile from Firestore
-        const userProfile = await getUserProfile(firebaseUser.uid);
-        if (userProfile) {
-           setUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              firstName: userProfile.firstName,
-              lastName: userProfile.lastName,
-              role: userProfile.role,
-              registrationNumber: userProfile.registrationNumber
-           });
-        } else {
-            // Handle case where auth exists but no profile in DB yet (e.g., during registration)
-             setUser({
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                // These will be undefined but the type allows it temporarily during signup
-                firstName: '',
-                lastName: '',
-            });
-        }
+        
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        unsubscribeFirestore = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const userProfile = docSnap.data();
+                setUser({
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    ...userProfile,
+                } as User);
+            } else {
+                 setUser({
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    firstName: '',
+                    lastName: '',
+                });
+            }
+            setLoading(false);
+        }, (error) => {
+            console.error("Auth profile listener error:", error);
+            setUser(null);
+            setLoading(false);
+        });
+
       } else {
         setUser(null);
         setIsEmailVerified(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribeAuth();
+        if (unsubscribeFirestore) unsubscribeFirestore();
+    };
   }, []);
 
   return (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Vehicle, VehicleCheck, User } from '../types';
+import { VEHICLE_CHECKLIST_ITEMS } from '../types';
 import { SpinnerIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -11,12 +12,6 @@ interface VehicleCheckModalProps {
     user: User;
 }
 
-const CHECKLIST_ITEMS = {
-    'Exterior': ['Bodywork & Livery', 'Tyres & Wheels', 'Lights & Sirens'],
-    'Interior': ['Dash Warnings', 'Cleanliness', 'Fire Extinguisher'],
-    'Clinical': ['Defibrillator', 'Oxygen Levels', 'Suction Unit', 'Resus Kit'],
-};
-
 type ChecklistState = { [key: string]: 'Pass' | 'Fail' | 'N/A' };
 
 const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, onSave, vehicle, user }) => {
@@ -25,7 +20,7 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
     const [notes, setNotes] = useState('');
     const [checklist, setChecklist] = useState<ChecklistState>(() => {
         const initialState: ChecklistState = {};
-        Object.values(CHECKLIST_ITEMS).flat().forEach(item => {
+        Object.values(VEHICLE_CHECKLIST_ITEMS).flat().forEach(item => {
             initialState[item] = 'Pass';
         });
         return initialState;
@@ -74,9 +69,9 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
             aria-modal="true"
             aria-labelledby="vehicle-check-modal-title"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
-                <h2 id="vehicle-check-modal-title" className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6">Daily Check for {vehicle.name}</h2>
-                <form onSubmit={handleSubmit}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-3xl max-h-[90vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
+                <h2 id="vehicle-check-modal-title" className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6 flex-shrink-0">Daily Check for {vehicle.name}</h2>
+                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label className={labelClasses}>Current Mileage</label>
@@ -91,7 +86,7 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
                      </div>
                      
                      <div className="space-y-6">
-                        {Object.entries(CHECKLIST_ITEMS).map(([category, items]) => (
+                        {Object.entries(VEHICLE_CHECKLIST_ITEMS).map(([category, items]) => (
                             <div key={category}>
                                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300 border-b dark:border-gray-600 pb-1 mb-3">{category}</h3>
                                 <div className="space-y-2">
@@ -117,15 +112,14 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
                         <label className={labelClasses}>Notes (document any faults or issues)</label>
                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className={inputClasses}/>
                      </div>
-                    
-                    <div className="flex justify-end gap-4 mt-8">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
-                        <button type="submit" disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
-                            {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
-                            Submit Check
-                        </button>
-                    </div>
                 </form>
+                <div className="flex justify-end gap-4 mt-8 flex-shrink-0">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
+                    <button type="submit" onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
+                        {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
+                        Submit Check
+                    </button>
+                </div>
             </div>
         </div>
     );

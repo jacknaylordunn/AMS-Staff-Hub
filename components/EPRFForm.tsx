@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { searchPatients, addPatient } from '../services/patientService';
-import { updateEPRF, finalizeEPRF, deleteEPRF } from '../services/eprfService';
+import { updateEPRF, finalizeEPRF, deleteEPRF, getIncidentNumber } from '../services/eprfService';
 import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
@@ -433,9 +433,25 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
         dispatch({ type: 'UPDATE_FIELD', field: 'crewMembers', payload: newCrew });
     };
     
+    const handleGenerateIncidentNumber = async () => {
+        if (state.incidentNumber) return; // Don't generate if one already exists
+        
+        setIsSaving(true);
+        try {
+            const newIncidentNumber = await getIncidentNumber();
+            dispatch({ type: 'UPDATE_FIELD', field: 'incidentNumber', payload: newIncidentNumber });
+            showToast("Incident number generated.", "success");
+        } catch (error) {
+            showToast("Failed to generate incident number.", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const validateForm = (): boolean => {
         const errors: string[] = [];
         if (!state.patientName.trim()) errors.push("Patient name is required.");
+        if (!state.incidentNumber.trim()) errors.push("Incident Number must be generated.");
         if (!state.incidentDate || !state.incidentTime) errors.push("Incident date and time are required.");
         if (state.presentationType !== 'Welfare/Intox' && !state.presentingComplaint.trim()) errors.push("Presenting complaint is required for this presentation type.");
         if (state.disposition === 'Not Set') errors.push("Final patient disposition must be selected.");
@@ -568,8 +584,146 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
 
     return (
         <div>
-            {/* The full EPRF form JSX would be rendered here */}
-             <p>ePRF Form for {state.patientName || 'New Patient'}</p>
+            <SaveStatusIndicator status={saveStatus} />
+            <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
+            <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
+            <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
+            <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
+
+            {/* Stepper UI */}
+            <div className="mb-4 sticky top-20 z-10 bg-ams-gray dark:bg-gray-900 py-4">
+                <div className="flex items-start justify-center">
+                    {steps.map((step, index) => (
+                        <React.Fragment key={step}>
+                            <div className="flex flex-col items-center text-center">
+                                <button
+                                    onClick={() => setCurrentStep(index + 1)}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold transition-all ${
+                                        currentStep === index + 1 ? 'bg-ams-blue text-white ring-4 ring-ams-light-blue/50' : currentStep > index + 1 ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-200'
+                                    }`}
+                                >
+                                    {currentStep > index + 1 ? <CheckIcon className="w-5 h-5"/> : index + 1}
+                                </button>
+                                <p className={`mt-1 text-xs w-20 break-words ${currentStep === index + 1 ? 'text-ams-blue dark:text-ams-light-blue font-semibold' : 'text-gray-500'}`}>{step}</p>
+                            </div>
+                            {index < steps.length - 1 && <div className={`flex-auto border-t-2 mt-4 mx-2 transition-colors duration-500 ${currentStep > index + 1 ? 'border-green-500' : 'border-gray-300 dark:border-gray-600'}`}></div>}
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={(e) => e.preventDefault()}>
+                {/* Step 1: Incident */}
+                {currentStep === 1 && (
+                    <Section title={steps[0]}>
+                        <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange}>
+                            <option>Medical/Trauma</option>
+                            <option>Minor Injury</option>
+                            <option>Welfare/Intox</option>
+                        </SelectField>
+
+                        <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" required />
+                        
+                        <FieldWrapper>
+                            <label className={labelBaseClasses}>Incident Time</label>
+                            <div className="flex items-center gap-2">
+                                <input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} required className={inputBaseClasses} />
+                                <button type="button" onClick={handleSetTimeToNow('incidentTime')} className="p-2 bg-gray-200 rounded-md dark:bg-gray-600"><ClockIcon className="w-5 h-5"/></button>
+                            </div>
+                        </FieldWrapper>
+
+                        <FieldWrapper className="lg:col-span-2">
+                            <label htmlFor="incidentNumber" className={labelBaseClasses}>Incident #</label>
+                            <div className="flex items-center gap-2 mt-1">
+                                <input 
+                                    type="text" 
+                                    id="incidentNumber" 
+                                    name="incidentNumber" 
+                                    value={state.incidentNumber} 
+                                    readOnly 
+                                    placeholder="Click generate..."
+                                    className={`${inputBaseClasses} !mt-0 bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed`} 
+                                />
+                                {!state.incidentNumber && (
+                                    <button 
+                                        type="button" 
+                                        onClick={handleGenerateIncidentNumber}
+                                        disabled={isSaving}
+                                        className="px-4 py-2 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400"
+                                    >
+                                        {isSaving ? <SpinnerIcon className="w-4 h-4" /> : 'Generate'}
+                                    </button>
+                                )}
+                            </div>
+                        </FieldWrapper>
+
+                        <InputField label="Location of Incident" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="lg:col-span-2" />
+                    </Section>
+                )}
+                
+                {/* Step 2: Patient */}
+                 {currentStep === 2 && (
+                    <Section title={steps[1]}>
+                        {/* Patient Search */}
+                        <div className="relative md:col-span-2 lg:col-span-4">
+                            <label className={labelBaseClasses}>Search Existing Patient</label>
+                            <input
+                                type="text"
+                                value={patientSearch}
+                                onChange={e => setPatientSearch(e.target.value)}
+                                placeholder="Search by name or DOB (YYYY-MM-DD)..."
+                                className={inputBaseClasses}
+                            />
+                            {searchLoading && <SpinnerIcon className="absolute right-3 top-9 w-5 h-5 text-gray-400" />}
+                            {searchResults.length > 0 && (
+                                <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border rounded-md shadow-lg">
+                                    {searchResults.map(p => (
+                                        <li key={p.id} onClick={() => handleSelectPatient(p)} className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">
+                                            {p.firstName} {p.lastName} ({p.dob})
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <div className="md:col-span-2 lg:col-span-4 flex items-center justify-between">
+                            <p className="text-sm text-gray-500">OR</p>
+                            <button type="button" onClick={() => setPatientModalOpen(true)} className="px-4 py-2 text-sm bg-ams-blue text-white rounded-md">Create New Patient</button>
+                        </div>
+                        
+                        <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required />
+                        <InputField label="Age" name="patientAge" value={state.patientAge} onChange={handleChange} type="number" />
+                        <SelectField label="Gender" name="patientGender" value={state.patientGender} onChange={handleChange}>
+                            <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
+                        </SelectField>
+                        {state.patientId && <button type="button" onClick={() => dispatch({type: 'CLEAR_PATIENT'})} className="text-sm text-red-500 self-end mb-2">Clear Patient</button>}
+                    </Section>
+                )}
+
+
+            </form>
+            
+             {/* Navigation and Actions */}
+            <div className="mt-8 flex justify-between items-center">
+                <button onClick={() => setCurrentStep(s => Math.max(1, s - 1))} disabled={currentStep === 1} className="px-6 py-2 bg-gray-300 dark:bg-gray-600 rounded-md disabled:opacity-50 flex items-center">
+                    <ChevronLeftIcon className="w-5 h-5 mr-1" /> Previous
+                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setQuickAddOpen(true)} className="px-4 py-2 bg-ams-light-blue text-white font-semibold rounded-md flex items-center gap-2"><PlusIcon className="w-5 h-5" /> Quick Add</button>
+                    <button onClick={() => setGuidelineModalOpen(true)} className="px-4 py-2 bg-ams-blue text-white font-semibold rounded-md flex items-center gap-2"><SparklesIcon className="w-5 h-5" /> AI Assistant</button>
+                </div>
+                {currentStep === steps.length ? (
+                    <button onClick={handleFinalize} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white font-bold rounded-md flex items-center">
+                         {isSaving ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}
+                        Finalize & Submit
+                    </button>
+                ) : (
+                    <button onClick={() => setCurrentStep(s => Math.min(steps.length, s + 1))} className="px-6 py-2 bg-gray-300 dark:bg-gray-600 rounded-md flex items-center">
+                        Next <ChevronRightIcon className="w-5 h-5 ml-1" />
+                    </button>
+                )}
+            </div>
+
         </div>
     );
 };

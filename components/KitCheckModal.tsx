@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import type { Kit, KitCheck, User } from '../types';
-import { KIT_CHECKLIST_ITEMS } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Kit, KitCheck, User, KitChecklistItem } from '../types';
+import { DEFAULT_KIT_CHECKLISTS } from '../types';
 import { SpinnerIcon, PlusIcon, TrashIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -26,10 +26,19 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
     const [itemsUsed, setItemsUsed] = useState<ItemsUsedState>([]);
     const [loading, setLoading] = useState(false);
 
+    const checklistSource = useMemo(() => kit.checklistItems || DEFAULT_KIT_CHECKLISTS[kit.type] || [], [kit]);
+
+    const itemsByCategory = useMemo(() => {
+        return checklistSource.reduce((acc, item) => {
+            (acc[item.category] = acc[item.category] || []).push(item);
+            return acc;
+        }, {} as Record<string, KitChecklistItem[]>);
+    }, [checklistSource]);
+
     useEffect(() => {
         if (!isOpen) return;
         const initialState: { [key: string]: CheckedItemState } = {};
-        Object.values(KIT_CHECKLIST_ITEMS).flat().forEach(item => {
+        checklistSource.forEach(item => {
             const existingTrackedData = kit.trackedItems?.find(t => t.itemName === item.name);
             initialState[item.name] = {
                 status: 'Pass',
@@ -40,7 +49,7 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         setCheckedItems(initialState);
         setItemsUsed([]);
         setNotes('');
-    }, [isOpen, kit]);
+    }, [isOpen, kit, checklistSource]);
     
     const handleItemChange = (itemName: string, field: keyof CheckedItemState, value: string) => {
         setCheckedItems(prev => ({
@@ -61,7 +70,6 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         e.preventDefault();
         setLoading(true);
 
-        // FIX: Explicitly typed the `data` parameter in the map callback to resolve errors where properties did not exist on type `unknown`.
         const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]: [string, CheckedItemState]) => ({
             itemName,
             status: data.status || 'N/A',
@@ -101,11 +109,12 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6 flex-shrink-0">{type} Check for {kit.name}</h2>
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2">
                      <div className="space-y-6">
-                        {Object.entries(KIT_CHECKLIST_ITEMS).map(([category, items]) => (
+                        {Object.entries(itemsByCategory).map(([category, items]) => (
                             <div key={category}>
                                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300 border-b dark:border-gray-600 pb-1 mb-3">{category}</h3>
                                 <div className="space-y-3">
-                                    {items.map(item => (
+                                    {/* FIX: Cast `items` to KitChecklistItem[] as Object.entries loses type information. */}
+                                    {(items as KitChecklistItem[]).map(item => (
                                         <div key={item.name} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
                                             <label className="text-gray-700 dark:text-gray-300 font-medium">{item.name}</label>
                                             

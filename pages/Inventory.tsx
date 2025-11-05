@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import type { Vehicle, Kit } from '../types';
-import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from '../services/assetService';
-import { getKits, addKit, updateKit, deleteKit } from '../services/inventoryService';
+import { listenToVehicles, addVehicle, updateVehicle, deleteVehicle } from '../services/assetService';
+import { listenToKits, addKit, updateKit, deleteKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, TrashIcon, AmbulanceIcon, BoxIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, TrashIcon, AmbulanceIcon, BoxIcon, RefreshIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import VehicleModal from '../components/VehicleModal';
 import KitModal from '../components/KitModal';
@@ -31,25 +31,25 @@ const Inventory: React.FC = () => {
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'vehicle' | 'kit' } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const [vehicleList, kitList] = await Promise.all([getVehicles(), getKits()]);
-            setVehicles(vehicleList);
-            setKits(kitList);
-        } catch (error) {
-            if (isOnline) {
-                showToast("Failed to fetch inventory.", "error");
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
     
     useEffect(() => {
-        fetchData();
-    }, [isOnline]);
+        setLoading(true);
+        
+        const unsubVehicles = listenToVehicles((vehicleList) => {
+            setVehicles(vehicleList);
+            if (activeTab === 'vehicles') setLoading(false);
+        });
+
+        const unsubKits = listenToKits((kitList) => {
+            setKits(kitList);
+            if (activeTab === 'kits') setLoading(false);
+        });
+
+        return () => {
+            unsubVehicles();
+            unsubKits();
+        };
+    }, []);
 
     const handleOpenVehicleModal = (vehicle: Vehicle | null) => { setSelectedVehicle(vehicle); setVehicleModalOpen(true); };
     const handleOpenKitModal = (kit: Kit | null) => { setSelectedKit(kit); setKitModalOpen(true); };
@@ -63,7 +63,6 @@ const Inventory: React.FC = () => {
                 await addVehicle(vehicleData);
                 showToast("Vehicle added.", "success");
             }
-            fetchData();
         } catch (e) { showToast("Failed to save vehicle.", "error"); }
         finally { setVehicleModalOpen(false); setSelectedVehicle(null); }
     };
@@ -77,7 +76,6 @@ const Inventory: React.FC = () => {
                 await addKit(kitData);
                 showToast("Kit added.", "success");
             }
-            fetchData();
         } catch (e) { showToast("Failed to save kit.", "error"); }
         finally { setKitModalOpen(false); setSelectedKit(null); }
     };
@@ -97,7 +95,7 @@ const Inventory: React.FC = () => {
                 await deleteKit(itemToDelete.id);
             }
             showToast(`${itemToDelete.type === 'vehicle' ? 'Vehicle' : 'Kit'} deleted.`, "success");
-            fetchData();
+            // No need to fetch data, listener will update state
         } catch (error) { showToast("Failed to delete item.", "error"); }
         finally {
             setIsDeleting(false);
@@ -211,18 +209,23 @@ const Inventory: React.FC = () => {
     
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Inventory</h1>
-                 {isManager && <button 
-                    onClick={() => activeTab === 'vehicles' ? handleOpenVehicleModal(null) : handleOpenKitModal(null)} 
-                    disabled={!isOnline}
-                    title={!isOnline ? "You must be online to add new items" : ""}
-                    className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    <PlusIcon className="w-5 h-5 mr-2" /> Add New {activeTab === 'vehicles' ? 'Vehicle' : 'Kit'}
-                </button>}
+                 <div className="flex items-center gap-2">
+                    <button onClick={() => window.location.reload()} className="flex items-center justify-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200">
+                        <RefreshIcon className="w-5 h-5 mr-2" /> Refresh
+                    </button>
+                    {isManager && <button 
+                        onClick={() => activeTab === 'vehicles' ? handleOpenVehicleModal(null) : handleOpenKitModal(null)} 
+                        disabled={!isOnline}
+                        title={!isOnline ? "You must be online to add new items" : ""}
+                        className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <PlusIcon className="w-5 h-5 mr-2" /> Add New {activeTab === 'vehicles' ? 'Vehicle' : 'Kit'}
+                    </button>}
+                 </div>
             </div>
             
             {!isOnline && (
                 <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
-                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached inventory. Please reconnect to make changes.</p>
+                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached inventory. Real-time updates are paused.</p>
                 </div>
             )}
             

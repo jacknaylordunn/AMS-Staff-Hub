@@ -1,11 +1,20 @@
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, Timestamp, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Kit, KitCheck } from '../types';
+import { DEFAULT_KIT_CHECKLISTS } from '../types';
 
 // Kit Functions
 export const getKits = async (): Promise<Kit[]> => {
     const snapshot = await getDocs(query(collection(db, 'kits'), orderBy('name')));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
+};
+
+export const listenToKits = (callback: (kits: Kit[]) => void): () => void => {
+    const q = query(collection(db, 'kits'), orderBy('name'));
+    return onSnapshot(q, (snapshot) => {
+        const kits = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
+        callback(kits);
+    }, (error) => console.error("Error listening to kits:", error));
 };
 
 export const getKitById = async (kitId: string): Promise<Kit | null> => {
@@ -16,9 +25,11 @@ export const getKitById = async (kitId: string): Promise<Kit | null> => {
 };
 
 export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck'>): Promise<string> => {
+    const defaultChecklist = DEFAULT_KIT_CHECKLISTS[kitData.type] || [];
     const docRef = await addDoc(collection(db, 'kits'), {
         ...kitData,
         createdAt: Timestamp.now(),
+        checklistItems: defaultChecklist,
     });
     // Add the generated QR code value back to the doc
     const qrCodeValue = `aegis-kit-qr:${docRef.id}`;

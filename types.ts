@@ -282,6 +282,17 @@ export interface Vehicle {
   qrCodeValue?: string;
 }
 
+export const VEHICLE_CHECKLIST_ITEMS = {
+    'Exterior': ['Bodywork & Livery', 'Windscreen & Wipers', 'Mirrors'],
+    'Tyres & Wheels': ['All Tyre Pressures', 'All Tyre Condition', 'Wheel Nuts Secure'],
+    'Engine Bay': ['Engine Oil Level', 'Coolant Level', 'Brake Fluid Level', 'Windscreen Washer Fluid'],
+    'Interior & Cab': ['Dash Warnings', 'Fuel Level', 'Cab Cleanliness', 'Seatbelts', 'Fire Extinguisher'],
+    'Emergency Systems': ['Blue Lights', 'Headlights / Taillights', 'Indicators', 'Brake Lights', 'Sirens & Horn'],
+    'Patient Compartment - General': ['Compartment Cleanliness', 'Stretcher & Carry Chair', 'Sharps Bins'],
+    'Patient Compartment - Clinical': ['Main Oxygen Cylinder Level', 'Portable Oxygen Cylinder Level', 'Defibrillator Check', 'Suction Unit Check', 'Entonox Cylinder Level'],
+};
+
+
 export interface VehicleCheck {
     id?: string;
     vehicleId: string;
@@ -344,6 +355,12 @@ export interface StaffCheckin {
     timestamp: Timestamp;
 }
 
+export type KitChecklistItem = {
+  name: string;
+  category: string;
+  trackable?: boolean; // To flag items like drugs that need expiry/batch tracking
+};
+
 export interface Kit {
   id?: string;
   name: string; // e.g., 'Response Bag 1'
@@ -358,23 +375,47 @@ export interface Kit {
   createdAt: Timestamp;
   qrCodeValue?: string; // This will be the unique ID, formatted like 'aegis-kit-qr:KIT_ID'
   trackedItems?: { itemName: string; expiryDate?: string; batchNumber?: string; }[];
+  checklistItems?: KitChecklistItem[];
 }
 
-export type KitChecklistItem = {
-  name: string;
-  trackable?: boolean; // To flag items like drugs that need expiry/batch tracking
-};
-
-export const KIT_CHECKLIST_ITEMS: { [key: string]: KitChecklistItem[] } = {
-    'Airway': [{name: 'OPAs'}, {name: 'NPAs'}, {name: 'i-gel', trackable: true}, {name: 'Catheter Mount'}],
-    'Breathing': [{name: 'BVM'}, {name: 'Oxygen Mask'}, {name: 'Nebuliser Kit'}, {name: 'Chest Seal', trackable: true}],
-    'Circulation': [{name: 'Dressings'}, {name: 'Tourniquet'}, {name: 'Bandages'}, {name: 'IV Cannula', trackable: true}],
-    'Diagnostics': [{name: 'Stethoscope'}, {name: 'Pulse Oximeter'}, {name: 'BP Cuff'}, {name: 'Thermometer'}],
-    'Drugs': [
-        {name: 'Aspirin', trackable: true}, 
-        {name: 'GTN Spray', trackable: true}, 
-        {name: 'Salbutamol', trackable: true}, 
-        {name: 'Adrenaline 1:1000', trackable: true}
+export const DEFAULT_KIT_CHECKLISTS: { [key in Kit['type']]: KitChecklistItem[] } = {
+    'Response Bag': [
+        {name: 'OPAs', category: 'Airway'}, 
+        {name: 'NPAs', category: 'Airway'}, 
+        {name: 'i-gel', category: 'Airway', trackable: true}, 
+        {name: 'Catheter Mount', category: 'Airway'},
+        {name: 'BVM', category: 'Breathing'}, 
+        {name: 'Oxygen Mask', category: 'Breathing'}, 
+        {name: 'Nebuliser Kit', category: 'Breathing'}, 
+        {name: 'Chest Seal', category: 'Breathing', trackable: true},
+        {name: 'Dressings', category: 'Circulation'}, 
+        {name: 'Tourniquet', category: 'Circulation'}, 
+        {name: 'Bandages', category: 'Circulation'}, 
+        {name: 'IV Cannula', category: 'Circulation', trackable: true},
+        {name: 'Stethoscope', category: 'Diagnostics'}, 
+        {name: 'Pulse Oximeter', category: 'Diagnostics'}, 
+        {name: 'BP Cuff', category: 'Diagnostics'}, 
+        {name: 'Thermometer', category: 'Diagnostics'},
+    ],
+    'Drug Kit': [
+        {name: 'Aspirin', category: 'Drugs', trackable: true}, 
+        {name: 'GTN Spray', category: 'Drugs', trackable: true}, 
+        {name: 'Salbutamol', category: 'Drugs', trackable: true}, 
+        {name: 'Adrenaline 1:1000', category: 'Drugs', trackable: true},
+        {name: 'IV Fluids', category: 'IV Admin', trackable: true},
+        {name: 'Giving Set', category: 'IV Admin', trackable: true},
+    ],
+    'Trauma Bag': [
+        {name: 'Haemostatic Dressing', category: 'Haemorrhage', trackable: true},
+        {name: 'Tourniquet', category: 'Haemorrhage'},
+        {name: 'Chest Seal', category: 'Breathing', trackable: true},
+        {name: 'Pelvic Binder', category: 'Splinting'},
+        {name: 'Fracture Straps', category: 'Splinting'},
+    ],
+    'O2 Bag': [
+        {name: 'CD Oxygen Cylinder', category: 'Oxygen'},
+        {name: 'BVM', category: 'Airway'},
+        {name: 'Non-Rebreath Mask', category: 'Masks'},
     ],
 };
 

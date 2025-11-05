@@ -9,7 +9,7 @@ const prepareEPRFForFirebase = (eprfData: EPRFForm): Omit<EPRFForm, 'id'> => {
     return dataToSave;
 };
 
-const getIncidentNumber = async (): Promise<string> => {
+export const getIncidentNumber = async (): Promise<string> => {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -32,7 +32,6 @@ const getIncidentNumber = async (): Promise<string> => {
 
 
 export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => {
-    const incidentNumber = await getIncidentNumber();
     const auditEntry: AuditEntry = {
         timestamp: Timestamp.now(),
         user: eprfData.createdBy,
@@ -40,13 +39,13 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
     };
     const dataToSave = {
         ...prepareEPRFForFirebase(eprfData),
-        incidentNumber,
+        incidentNumber: '',
         status: 'Draft' as const,
         createdAt: Timestamp.now(),
         auditLog: [auditEntry]
     };
     const docRef = await addDoc(collection(db, 'eprfs'), dataToSave);
-    return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry], incidentNumber };
+    return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry], incidentNumber: '' };
 };
 
 export const getActiveDraftsForEvent = async (userId: string, eventId: string): Promise<EPRFForm[]> => {

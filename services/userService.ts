@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc, deleteField } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc, deleteField, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import type { User } from '../types';
 import { createNotification } from './notificationService';
@@ -38,6 +38,14 @@ export const getUsers = async (): Promise<User[]> => {
     const usersCol = collection(db, 'users');
     const snapshot = await getDocs(query(usersCol, orderBy('lastName')));
     return snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
+};
+
+export const listenToUsers = (callback: (users: User[]) => void): () => void => {
+    const q = query(collection(db, 'users'), orderBy('lastName'));
+    return onSnapshot(q, (snapshot) => {
+        const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
+        callback(users);
+    }, (error) => console.error("Error listening to users:", error));
 };
 
 export const requestRoleChange = async (uid: string, newRole: User['role']) => {
