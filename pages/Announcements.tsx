@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { getAnnouncements, sendAnnouncementToAllUsers } from '../services/firestoreService';
+// FIX: Corrected import path for announcement service functions.
+import { getAnnouncements, sendAnnouncementToAllUsers } from '../services/announcementService';
 import type { Announcement } from '../types';
 import { SpinnerIcon, MegaphoneIcon } from '../components/icons';
 import { showToast } from '../components/Toast';

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -16,6 +17,7 @@ import Rota from './pages/Rota';
 import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
 import Patients from './pages/Patients';
+// FIX: The component PatientDetail was not exported correctly. This is fixed in pages/PatientDetail.tsx.
 import PatientDetail from './pages/PatientDetail';
 import Events from './pages/Events';
 import EPRFReviews from './pages/EPRFReviews';
@@ -23,6 +25,7 @@ import Assets from './pages/Assets';
 import VehicleDetail from './pages/VehicleDetail';
 import Reports from './pages/Reports';
 import Announcements from './pages/Announcements';
+import Admin from './pages/Admin';
 
 const AppRoutes: React.FC = () => {
     const { user, loading } = useAuth();
@@ -92,6 +95,14 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute roles={['Manager', 'Admin']}>
                             <Announcements />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <Route 
+                    path="admin" 
+                    element={
+                        <ProtectedRoute roles={['Admin']}>
+                            <Admin />
                         </ProtectedRoute>
                     } 
                 />

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { CompanyDocument } from '../types';
 import { SpinnerIcon } from './icons';
+import { uploadFile } from '../services/storageService';
+import { showToast } from './Toast';
 
 interface DocumentUploadModalProps {
     isOpen: boolean;
@@ -13,22 +15,39 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ isOpen, onClo
         title: '',
         category: 'SOP' as CompanyDocument['category'],
         version: '',
-        // In a real app, you'd handle file state
-        // file: null as File | null, 
     });
+    const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!file) {
+            showToast("Please select a file to upload.", "error");
+            return;
+        }
+
         setLoading(true);
-        // This is a placeholder. Real implementation would upload file to storage first.
-        const mockUrl = `https://example.com/docs/${formData.title.replace(/\s+/g, '-')}.pdf`;
-        await onSave({ ...formData, url: mockUrl });
-        setLoading(false);
+        try {
+            const filePath = `documents/${Date.now()}_${file.name}`;
+            const downloadURL = await uploadFile(file, filePath);
+            await onSave({ ...formData, url: downloadURL });
+            setFile(null);
+            setFormData({ title: '', category: 'SOP', version: '' });
+        } catch (error) {
+            console.error("File upload failed:", error);
+            showToast("File upload failed. Please try again.", "error");
+            setLoading(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -66,8 +85,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ isOpen, onClo
                         </div>
                         <div>
                             <label className={labelClasses}>File</label>
-                            <input type="file" required className={`${inputClasses} p-1.5 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-ams-light-blue/10 file:text-ams-light-blue hover:file:bg-ams-light-blue/20 dark:file:bg-ams-light-blue/20 dark:file:text-ams-light-blue dark:hover:file:bg-ams-light-blue/30`}/>
-                            <p className="text-xs text-gray-500 mt-1">Note: File upload is for demonstration. This will use a placeholder URL.</p>
+                            <input type="file" required onChange={handleFileChange} accept=".pdf,.doc,.docx,.txt" className={`${inputClasses} p-1.5 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-ams-light-blue/10 file:text-ams-light-blue hover:file:bg-ams-light-blue/20 dark:file:bg-ams-light-blue/20 dark:file:text-ams-light-blue dark:hover:file:bg-ams-light-blue/30`}/>
                         </div>
                     </div>
                     <div className="flex justify-end gap-4 mt-6">

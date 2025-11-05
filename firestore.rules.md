@@ -83,6 +83,23 @@ service cloud.firestore {
             // No update/delete to preserve audit trail
         }
     }
+    
+    // Announcements
+    // - All authenticated users can read.
+    // - Only Managers/Admins can create.
+    match /announcements/{announcementId} {
+        allow read: if request.auth != null;
+        allow create: if isManager();
+        allow update, delete: if false; // Announcements are immutable
+    }
+
+    // Notifications
+    // - Users can read and update their own notifications (e.g., mark as read).
+    // - Users cannot create or delete their own notifications (system responsibility).
+    match /notifications/{notificationId} {
+        allow read, update: if request.auth.uid == resource.data.userId;
+        allow create, delete: if false;
+    }
   }
 }
 ```

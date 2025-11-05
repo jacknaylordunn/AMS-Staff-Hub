@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getActiveDraftForUser, getShiftsForUser, getNotificationsForUser, markNotificationAsRead, getRecentEPRFsForUser } from '../services/firestoreService';
+import { getActiveDraftForUser, getRecentEPRFsForUser } from '../services/eprfService';
+import { getShiftsForUser } from '../services/rotaService';
+import { getNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
 import type { EPRFForm, Shift, Notification } from '../types';
 import { EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, LogoutIcon, BellIcon, TrashIcon } from '../components/icons';
 

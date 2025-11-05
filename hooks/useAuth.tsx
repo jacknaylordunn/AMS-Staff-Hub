@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// Fix: Use v8 compatibility API and types
-import type firebase from 'firebase/compat/app';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { getUserProfile } from '../services/firestoreService';
+import { getUserProfile } from '../services/userService';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -22,8 +21,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
-    // Fix: Use v8 `auth.onAuthStateChanged` method and `firebase.User` type
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: firebase.User | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         // Fetch profile from Firestore
         const userProfile = await getUserProfile(firebaseUser.uid);

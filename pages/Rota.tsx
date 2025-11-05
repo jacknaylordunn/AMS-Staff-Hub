@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Shift, EventLog, User as AppUser } from '../types';
-import { getShiftsForMonth, getEvents, getUsers, createShift, updateShift, deleteShift, getShiftsForUser } from '../services/firestoreService';
+import { getShiftsForMonth, createShift, updateShift, deleteShift, getShiftsForUser } from '../services/rotaService';
+import { getEvents } from '../services/eventService';
+import { getUsers } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { SpinnerIcon, PlusIcon } from '../components/icons';

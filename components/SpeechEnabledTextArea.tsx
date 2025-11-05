@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MicrophoneIcon } from './icons';
 
@@ -11,7 +12,7 @@ interface SpeechEnabledTextAreaProps {
 }
 
 // Check for browser support
-// Fix: Cast window to 'any' to access vendor-prefixed or non-standard SpeechRecognition API
+// FIX: Cast window to 'any' to access vendor-prefixed or non-standard SpeechRecognition API
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
@@ -38,7 +39,7 @@ const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, na
     useEffect(() => {
         if (!recognition) return;
 
-        // Fix: Use 'any' type for the event as SpeechRecognitionEvent is not available in default TS types.
+        // FIX: Use 'any' type for the event as SpeechRecognitionEvent is not available in default TS types.
         recognition.onresult = (event: any) => {
             let finalTranscript = '';
 
@@ -65,7 +66,7 @@ const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, na
             }
         };
 
-        // Fix: Use 'any' type for the event as SpeechRecognitionErrorEvent is not available in default TS types.
+        // FIX: Use 'any' type for the event as SpeechRecognitionErrorEvent is not available in default TS types.
         recognition.onerror = (event: any) => {
             console.error('Speech recognition error:', event.error);
              if (isListening) {
@@ -78,7 +79,7 @@ const SpeechEnabledTextArea: React.FC<SpeechEnabledTextAreaProps> = ({ label, na
                 recognition.stop();
             }
         };
-    }, [name, onChange, value]);
+    }, [name, onChange, value, isListening]);
     
     const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
     const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";

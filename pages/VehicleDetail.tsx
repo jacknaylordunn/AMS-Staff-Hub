@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { Vehicle, VehicleCheck } from '../types';
-import { getVehicleById, getVehicleChecks, addVehicleCheck } from '../services/firestoreService';
+// FIX: Corrected import path for asset service functions.
+import { getVehicleById, getVehicleChecks, addVehicleCheck } from '../services/assetService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { SpinnerIcon, PlusIcon, CheckIcon } from '../components/icons';

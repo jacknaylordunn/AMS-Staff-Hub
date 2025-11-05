@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';
@@ -152,8 +153,9 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {eprf.attachments.map(att => (
                             <div key={att.id}>
-                                <a href={att.base64Data} target="_blank" rel="noopener noreferrer">
-                                    <img src={att.base64Data} alt={att.description || 'Attachment'} className="rounded-lg w-full h-40 object-cover" />
+                                {/* FIX: Attachment object has 'url' not 'base64Data'. */}
+                                <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                    <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-40 object-cover" />
                                 </a>
                                 <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">{att.description || 'No description'}</p>
                             </div>

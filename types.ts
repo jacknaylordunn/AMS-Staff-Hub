@@ -1,5 +1,4 @@
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 export interface User {
   uid: string;
@@ -8,6 +7,7 @@ export interface User {
   lastName: string;
   role?: 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   registrationNumber?: string;
+  createdAt?: Timestamp;
 }
 
 export interface Patient {
@@ -21,7 +21,7 @@ export interface Patient {
     allergies: string;
     medications: string;
     medicalHistory: string;
-    createdAt: firebase.firestore.Timestamp;
+    createdAt: Timestamp;
 }
 
 export interface EventLog {
@@ -33,7 +33,7 @@ export interface EventLog {
 }
 
 export interface AuditEntry {
-  timestamp: firebase.firestore.Timestamp;
+  timestamp: Timestamp;
   user: {
     uid: string;
     name: string;
@@ -44,7 +44,8 @@ export interface AuditEntry {
 
 export interface Attachment {
   id: string;
-  base64Data: string;
+  url: string;
+  fileName: string;
   mimeType: string;
   description: string;
 }
@@ -157,9 +158,9 @@ export interface EPRFForm {
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
   createdBy: { uid: string; name: string; };
-  reviewedBy?: { uid: string; name: string; date: firebase.firestore.Timestamp; };
+  reviewedBy?: { uid: string; name: string; date: Timestamp; };
   reviewNotes?: string;
   auditLog: AuditEntry[];
 }
@@ -220,8 +221,8 @@ export interface Shift {
   id?: string;
   eventId: string;
   eventName: string;
-  start: firebase.firestore.Timestamp;
-  end: firebase.firestore.Timestamp;
+  start: Timestamp;
+  end: Timestamp;
   assignedStaff: { uid: string; name: string; }[];
   assignedStaffUids: string[]; // For efficient querying
   roleRequired: string;
@@ -236,7 +237,7 @@ export interface Notification {
   message: string;
   link?: string;
   read: boolean;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
 }
 
 export interface ClinicalSuggestion {
@@ -248,7 +249,7 @@ export interface Announcement {
     id?: string;
     message: string;
     sentBy: { uid: string; name: string; };
-    createdAt: firebase.firestore.Timestamp;
+    createdAt: Timestamp;
 }
 
 export interface Vehicle {
@@ -258,18 +259,18 @@ export interface Vehicle {
   type: 'Ambulance' | 'RRV' | 'Car' | 'Buggy';
   status: 'In Service' | 'Maintenance Required' | 'Out of Service';
   lastCheck?: {
-    date: firebase.firestore.Timestamp;
+    date: Timestamp;
     user: { uid: string; name:string; };
     status: 'Pass' | 'Issues Found';
   };
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
 }
 
 export interface VehicleCheck {
     id?: string;
     vehicleId: string;
     vehicleName: string;
-    date: firebase.firestore.Timestamp;
+    date: Timestamp;
     user: { uid: string; name: string; };
     mileage: number;
     fuelLevel: 'Full' | '3/4' | '1/2' | '1/4' | 'Empty';

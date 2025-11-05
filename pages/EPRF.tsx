@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useReducer, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timestamp } from 'firebase/firestore';
@@ -7,7 +8,10 @@ import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, SparklesIcon, CameraIcon }
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { searchPatients, addPatient, getActiveDraftEPRF, createDraftEPRF, updateEPRF, finalizeEPRF, deleteEPRF, getUsers } from '../services/firestoreService';
+import { searchPatients, addPatient } from '../services/patientService';
+import { getActiveDraftEPRF, createDraftEPRF, updateEPRF, finalizeEPRF, deleteEPRF } from '../services/eprfService';
+import { getUsers } from '../services/userService';
+import { uploadFile } from '../services/storageService';
 import { showToast } from '../components/Toast';
 import PatientModal from '../components/PatientModal';
 import { calculateNews2Score, getNews2RiskColor } from '../utils/news2Calculator';
@@ -35,7 +39,7 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return {
             ...state,
             [field]: {
-                // Fix: Cast to object for spread operator. Based on usage, 'field' will always be an object property on the state.
+                // FIX: Cast to object for spread operator. Based on usage, 'field' will always be an object property on the state.
                 ...(state[field as keyof EPRFForm] as object),
                 [subField]: payload
             }
@@ -53,7 +57,7 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return {
              ...state,
             [field]: {
-                // Fix: Cast the nested state property to an object to satisfy TypeScript's spread operator requirements.
+                // FIX: Cast the nested state property to an object to satisfy TypeScript's spread operator requirements.
                 // The usage of this action ensures `field` refers to an object property on the state.
                 ...(parentObject as object),
                 [subField]: newArray
@@ -416,47 +420,63 @@ const EPRF: React.FC = () => {
         dispatch({ type: 'UPDATE_INJURIES', payload: newInjuries });
     };
 
-    const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-    });
-
-    const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = base64Str;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let { width, height } = img;
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width;
-                        width = maxWidth;
-                    }
-                } else if (height > maxHeight) {
-                    width *= maxHeight / height;
-                    height = maxHeight;
+    const resizeImage = (file: File, maxWidth = 800, maxHeight = 800): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                if (!event.target?.result) {
+                    return reject(new Error("Could not read file."));
                 }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
+                const img = new Image();
+                img.src = event.target.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        return reject(new Error("Could not get canvas context."));
+                    }
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(
+                      (blob) => {
+                        if (blob) {
+                          resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                        } else {
+                          reject(new Error('Canvas to Blob conversion failed'));
+                        }
+                      },
+                      'image/jpeg',
+                      0.7
+                    );
+                };
             };
+            reader.onerror = (error) => reject(error);
         });
     };
 
     const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files && e.target.files[0] && state.id) {
             const file = e.target.files[0];
             try {
-                const base64 = await fileToBase64(file);
-                const resizedBase64 = await resizeImage(base64);
+                const resizedFile = await resizeImage(file);
+                const filePath = `attachments/${state.id}/${Date.now()}_${resizedFile.name}`;
+                const downloadURL = await uploadFile(resizedFile, filePath);
                 const newAttachment: Attachment = {
                     id: Date.now().toString(),
-                    base64Data: resizedBase64,
+                    url: downloadURL,
+                    fileName: resizedFile.name,
                     mimeType: 'image/jpeg',
                     description: '',
                 };
@@ -468,6 +488,7 @@ const EPRF: React.FC = () => {
         }
     };
     const handleRemoveAttachment = (id: string) => {
+        // Note: This only removes from Firestore doc. For a full implementation, you'd also delete from Firebase Storage.
         dispatch({ type: 'UPDATE_ATTACHMENTS', payload: state.attachments.filter(a => a.id !== id) });
     };
     const handleAttachmentDescriptionChange = (id: string, description: string) => {
@@ -984,7 +1005,7 @@ const EPRF: React.FC = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                             {state.attachments.map((att) => (
                                 <div key={att.id} className="relative group border rounded-lg p-2 dark:border-gray-700">
-                                    <img src={att.base64Data} alt="Attachment" className="rounded-md w-full h-32 object-cover" />
+                                    <img src={att.url} alt={att.fileName} className="rounded-md w-full h-32 object-cover" />
                                     <input
                                         type="text"
                                         placeholder="Description..."

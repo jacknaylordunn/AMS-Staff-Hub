@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { EventLog, Shift } from '../types';
 import { useAuth } from './useAuth';
-import { getShiftsForUser } from '../services/firestoreService';
+// FIX: Corrected the import path for getShiftsForUser.
+import { getShiftsForUser } from '../services/rotaService';
 
 interface AppContextType {
   activeEvent: EventLog | null;

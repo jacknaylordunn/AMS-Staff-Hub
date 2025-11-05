@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon } from './icons';
+import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, AmbulanceIcon, ChartIcon, MegaphoneIcon, AdminIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 
 interface SidebarProps {
@@ -9,7 +9,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
-  const { isManager } = useAuth();
+  const { isManager, isAdmin } = useAuth();
 
   const handleLinkClick = () => {
     if (isOpen) {
@@ -82,6 +82,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     <MegaphoneIcon className="w-6 h-6 mr-3" />
                     Announcements
                 </NavLink>
+                {isAdmin && (
+                    <NavLink to="/admin" className={navLinkClasses} onClick={handleLinkClick}>
+                        <AdminIcon className="w-6 h-6 mr-3" />
+                        Admin
+                    </NavLink>
+                )}
               </>
             )}
           </nav>

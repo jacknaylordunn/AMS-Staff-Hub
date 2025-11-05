@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { getAllFinalizedEPRFs, getPendingEPRFs } from '../services/firestoreService';
+// FIX: Corrected import path for EPRF service functions.
+import { getAllFinalizedEPRFs, getPendingEPRFs } from '../services/eprfService';
 import type { EPRFForm } from '../types';
 import { SpinnerIcon } from '../components/icons';
 
@@ -148,7 +150,7 @@ const Reports: React.FC = () => {
                     if (!isNaN(onSceneH) && !isNaN(onSceneM) && !isNaN(leftSceneH) && !isNaN(leftSceneM)) {
                        const start = new Date(0, 0, 0, onSceneH, onSceneM);
                        const end = new Date(0, 0, 0, leftSceneH, leftSceneM);
-                       // Fix: Use .getTime() to perform arithmetic on Date objects.
+                       // FIX: Use .getTime() to perform arithmetic on Date objects and correct parentheses for division.
                        let diff = (end.getTime() - start.getTime()) / (1000 * 60);
                        if (diff < 0) diff += 24 * 60; // Handle overnight cases
                        totalMinutes += diff;

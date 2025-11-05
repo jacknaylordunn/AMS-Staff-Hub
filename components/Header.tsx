@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-// Fix: `signOut` is a method on the auth object in v8, not a separate import.
+import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
@@ -30,6 +30,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     // Specific sub-page titles
     if (location.pathname.includes('/assets/vehicle/')) return 'Vehicle Details';
     if (location.pathname.includes('/patients/')) return 'Patient Details';
+    if (location.pathname.includes('/admin')) return 'Admin Panel';
 
     const path = pathSegments[0];
 
@@ -45,8 +46,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const handleLogout = async () => {
     try {
-      // Fix: Use v8 `auth.signOut()` method
-      await auth.signOut();
+      await signOut(auth);
       clearActiveEvent();
       navigate('/login');
     } catch (error) {

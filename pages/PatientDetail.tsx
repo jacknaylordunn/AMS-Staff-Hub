@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPatientById, getEPRFsForPatient, approveEPRF, returnEPRFToDraft } from '../services/firestoreService';
+import { getPatientById } from '../services/patientService';
+import { getEPRFsForPatient, approveEPRF, returnEPRFToDraft } from '../services/eprfService';
 import type { Patient, EPRFForm, VitalSign, MedicationAdministered, Intervention, AuditEntry } from '../types';
 import { SpinnerIcon, PdfIcon, CheckIcon, TimelineIcon, FormIcon, AuditIcon } from '../components/icons';
 import EPRFView from '../components/EPRFView';
@@ -146,96 +148,84 @@ const ReturnToDraftModal: React.FC<{ isOpen: boolean, onClose: () => void, onCon
 
 const PatientDetail: React.FC = () => {
     const { patientId } = useParams<{ patientId: string }>();
+    // FIX: Completed the line to call the useAuth hook.
     const { user, isManager } = useAuth();
     const [patient, setPatient] = useState<Patient | null>(null);
     const [eprfs, setEprfs] = useState<EPRFForm[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEPRF, setSelectedEPRF] = useState<EPRFForm | null>(null);
-    const [isApproving, setIsApproving] = useState(false);
-    const [isReturning, setIsReturning] = useState(false);
+    const [viewMode, setViewMode] = useState<'form' | 'timeline' | 'audit'>('form');
+    
+    // modals state
     const [isReturnModalOpen, setReturnModalOpen] = useState(false);
-    const [view, setView] = useState<'form' | 'timeline' | 'audit'>('form');
-
-    const fetchData = async () => {
-        if (!patientId) {
-            setLoading(false);
-            return;
-        }
-        try {
-            setLoading(true);
-            const patientData = await getPatientById(patientId);
-            const eprfData = await getEPRFsForPatient(patientId);
-            setPatient(patientData);
-            setEprfs(eprfData);
-            if (eprfData.length > 0 && !selectedEPRF) {
-                setSelectedEPRF(eprfData[0]);
-            } else if (selectedEPRF) {
-                // If an ePRF was selected, find its updated version in the new data
-                const updatedSelectedEPRF = eprfData.find(e => e.id === selectedEPRF.id);
-                setSelectedEPRF(updatedSelectedEPRF || (eprfData.length > 0 ? eprfData[0] : null));
-            }
-        } catch (error) {
-            console.error("Failed to fetch patient data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [isApproveModalOpen, setApproveModalOpen] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
+        if (!patientId) return;
+
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [patientData, eprfsData] = await Promise.all([
+                    getPatientById(patientId),
+                    getEPRFsForPatient(patientId)
+                ]);
+                setPatient(patientData);
+                setEprfs(eprfsData);
+                if (eprfsData.length > 0) {
+                    setSelectedEPRF(eprfsData[0]);
+                }
+            } catch (error) {
+                console.error("Failed to load patient details:", error);
+                showToast("Could not load patient details.", "error");
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchData();
     }, [patientId]);
     
-    useEffect(() => {
-        // When selectedEPRF changes, reset to form view
-        setView('form');
-    }, [selectedEPRF])
-
-    const handleGeneratePdf = () => {
-        if (selectedEPRF && patient) {
-            try {
-                generateHandoverPdf(selectedEPRF, patient);
-                showToast("PDF generated successfully.", "success");
-            } catch (error) {
-                console.error("PDF Generation Error:", error);
-                showToast("Failed to generate PDF.", "error");
-            }
+    const handleGeneratePdf = (eprf: EPRFForm) => {
+        if (patient) {
+            generateHandoverPdf(eprf, patient);
         }
     };
     
     const handleApprove = async () => {
         if (!selectedEPRF || !user) return;
-        setIsApproving(true);
+        setIsProcessing(true);
         try {
-            const reviewerName = `${user.firstName} ${user.lastName}`.trim();
-            await approveEPRF(selectedEPRF.id!, selectedEPRF, { uid: user.uid, name: reviewerName });
-            showToast("ePRF Approved!", "success");
-            fetchData(); // Refresh data to show updated status
+            await approveEPRF(selectedEPRF.id!, selectedEPRF, { uid: user.uid, name: `${user.firstName} ${user.lastName}`.trim() });
+            showToast("ePRF Approved.", "success");
+            setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? { ...e, status: 'Reviewed', reviewNotes: undefined } : e));
+            setSelectedEPRF(prev => prev ? { ...prev, status: 'Reviewed', reviewNotes: undefined } : null);
         } catch (error) {
-            console.error("Failed to approve ePRF:", error);
-            showToast("Could not approve ePRF.", "error");
+            showToast("Failed to approve ePRF.", "error");
         } finally {
-            setIsApproving(false);
+            setIsProcessing(false);
+            setApproveModalOpen(false);
         }
     };
     
     const handleReturnToDraft = async (reason: string) => {
         if (!selectedEPRF || !user) return;
-        setIsReturning(true);
+        setIsProcessing(true);
         try {
-             const managerName = `${user.firstName} ${user.lastName}`.trim();
-             await returnEPRFToDraft(selectedEPRF.id!, selectedEPRF, { uid: user.uid, name: managerName }, reason);
-             showToast("ePRF returned to creator.", "success");
-             fetchData();
-        } catch(e) {
+            await returnEPRFToDraft(selectedEPRF.id!, selectedEPRF, { uid: user.uid, name: `${user.firstName} ${user.lastName}`.trim() }, reason);
+            showToast("ePRF returned to draft.", "success");
+            setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? { ...e, status: 'Draft', reviewNotes: reason } : e));
+            setSelectedEPRF(prev => prev ? { ...prev, status: 'Draft', reviewNotes: reason } : null);
+        } catch (error) {
             showToast("Failed to return ePRF.", "error");
         } finally {
-            setIsReturning(false);
+            setIsProcessing(false);
             setReturnModalOpen(false);
         }
-    }
+    };
 
-
-    if (loading && !patient) { // Only show full page loader on initial load
+    if (loading) {
         return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" /></div>;
     }
 
@@ -245,114 +235,82 @@ const PatientDetail: React.FC = () => {
 
     const getStatusChip = (status?: EPRFForm['status']) => {
         switch(status) {
-            case 'Draft': return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-            case 'Pending Review': return 'bg-orange-200 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-            case 'Reviewed': return 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200';
-            default: return 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200';
+            case 'Reviewed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            case 'Pending Review': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+            case 'Draft': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+            default: return '';
         }
     };
-    
-    const viewButtonClasses = (buttonView: typeof view) => 
-        `flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-            view === buttonView 
-            ? 'bg-ams-blue text-white shadow' 
-            : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
-        }`;
-
 
     return (
         <div>
-            <ReturnToDraftModal isOpen={isReturnModalOpen} onClose={() => setReturnModalOpen(false)} onConfirm={handleReturnToDraft} isLoading={isReturning} />
-            <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-                <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200">{patient.firstName} {patient.lastName}</h1>
-                <div className="flex items-center gap-4 flex-wrap">
-                    {isManager && selectedEPRF?.status === 'Pending Review' && (
-                        <>
-                        <button onClick={() => setReturnModalOpen(true)} disabled={isReturning} className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-400">Return to Draft</button>
-                        <button onClick={handleApprove} disabled={isApproving} className="flex items-center gap-2 px-4 py-2 bg-ams-light-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 min-w-[150px] justify-center">
-                            {isApproving ? <SpinnerIcon className="w-5 h-5"/> : <><CheckIcon className="w-5 h-5"/>Approve ePRF</>}
-                        </button>
-                        </>
-                    )}
-                    <button
-                        onClick={handleGeneratePdf}
-                        disabled={!selectedEPRF || selectedEPRF.status === 'Draft'}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                        title={selectedEPRF?.status === 'Draft' ? "Cannot generate PDF for a draft" : "Generate Handover PDF"}
-                    >
-                        <PdfIcon className="w-5 h-5"/>
-                        Generate PDF
-                    </button>
-                    <Link to="/patients" className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-opacity-90">
-                        &larr; Patient List
-                    </Link>
-                </div>
-            </div>
+            <ConfirmationModal isOpen={isApproveModalOpen} onClose={() => setApproveModalOpen(false)} onConfirm={handleApprove} title="Approve ePRF" message="Are you sure you want to approve this ePRF? This will mark it as complete and lock it from further edits." confirmText="Approve" isLoading={isProcessing}/>
+            <ReturnToDraftModal isOpen={isReturnModalOpen} onClose={() => setReturnModalOpen(false)} onConfirm={handleReturnToDraft} isLoading={isProcessing}/>
             
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-2">{patient.firstName} {patient.lastName}</h1>
+            <p className="text-lg text-gray-500 dark:text-gray-400 mb-6">{patient.dob} ({new Date().getFullYear() - new Date(patient.dob).getFullYear()} years) - {patient.gender}</p>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Demographics and Encounter List */}
-                <div className="lg:col-span-1 flex flex-col gap-6">
-                    <DetailCard title="Demographics">
-                        <p><strong>DOB:</strong> {patient.dob}</p>
-                        <p><strong>Gender:</strong> {patient.gender}</p>
-                        <p><strong>Address:</strong> {patient.address || 'N/A'}</p>
+                <div className="lg:col-span-1 space-y-6">
+                    <DetailCard title="Contact & Demographics">
+                        <p><strong>NHS Number:</strong> {patient.nhsNumber || 'Not provided'}</p>
+                        <p><strong>Address:</strong> {patient.address || 'Not provided'}</p>
                     </DetailCard>
-                     <DetailCard title="Clinical Background">
-                        <p><strong>Allergies:</strong> {patient.allergies || 'None Known'}</p>
+                     <DetailCard title="Medical Information">
+                        <p><strong>Allergies:</strong> {patient.allergies || 'None known'}</p>
                         <p><strong>Medications:</strong> {patient.medications || 'None'}</p>
-                        <p><strong>History:</strong> {patient.medicalHistory || 'None'}</p>
+                         <p><strong>History:</strong> {patient.medicalHistory || 'None'}</p>
                     </DetailCard>
-                    <DetailCard title="Past Encounters">
+
+                     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue border-b dark:border-gray-700 pb-2 mb-4">Care Encounters</h3>
                          {eprfs.length > 0 ? (
                             <ul className="space-y-2">
                                 {eprfs.map(eprf => (
                                     <li key={eprf.id}>
-                                        <button
-                                            onClick={() => setSelectedEPRF(eprf)}
-                                            className={`w-full text-left p-3 rounded-md transition-colors ${selectedEPRF?.id === eprf.id ? 'bg-ams-light-blue text-white shadow' : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
-                                        >
-                                            <div className="flex justify-between items-center">
-                                                <p className={`font-semibold ${selectedEPRF?.id !== eprf.id && 'dark:text-gray-200'}`}>{eprf.incidentDate} - {eprf.incidentTime}</p>
-                                                {eprf.status && (
-                                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusChip(eprf.status)}`}>
-                                                        {eprf.status}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className={`text-sm truncate ${selectedEPRF?.id !== eprf.id && 'dark:text-gray-400'}`}>{eprf.presentingComplaint}</p>
+                                        <button onClick={() => setSelectedEPRF(eprf)} className={`w-full text-left p-3 rounded-md transition-colors ${selectedEPRF?.id === eprf.id ? 'bg-ams-light-blue text-white' : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}>
+                                            <p className="font-semibold">{eprf.incidentDate} at {eprf.eventName}</p>
+                                            <p className="text-sm truncate">{eprf.presentingComplaint}</p>
+                                            <span className={`mt-1 inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusChip(eprf.status)}`}>{eprf.status}</span>
                                         </button>
                                     </li>
                                 ))}
                             </ul>
-                         ) : (
-                            <p className="text-gray-500 dark:text-gray-400">No past ePRFs found.</p>
-                         )}
-                    </DetailCard>
+                         ) : <p className="text-gray-500 dark:text-gray-400">No care encounters found for this patient.</p>}
+                    </div>
+
                 </div>
-                
-                {/* Right Column: Selected ePRF View */}
                 <div className="lg:col-span-2">
                     {selectedEPRF ? (
                         <div>
-                             <div className="mb-4 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex items-center gap-2">
-                                <button className={viewButtonClasses('form')} onClick={() => setView('form')}>
-                                    <FormIcon className="w-5 h-5" /> Form View
-                                </button>
-                                <button className={viewButtonClasses('timeline')} onClick={() => setView('timeline')}>
-                                    <TimelineIcon className="w-5 h-5" /> Timeline
-                                </button>
-                                <button className={viewButtonClasses('audit')} onClick={() => setView('audit')}>
-                                    <AuditIcon className="w-5 h-5" /> Audit Trail
-                                </button>
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-4 flex flex-wrap justify-between items-center gap-4">
+                                <div>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={() => setViewMode('form')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'form' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><FormIcon className="w-5 h-5"/> View Form</button>
+                                        <button onClick={() => setViewMode('timeline')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'timeline' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><TimelineIcon className="w-5 h-5"/> Timeline</button>
+                                        <button onClick={() => setViewMode('audit')} className={`flex items-center gap-2 p-2 rounded-md ${viewMode === 'audit' ? 'bg-ams-blue text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}><AuditIcon className="w-5 h-5"/> Audit</button>
+                                        <button onClick={() => handleGeneratePdf(selectedEPRF)} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"><PdfIcon className="w-5 h-5"/> PDF</button>
+                                    </div>
+                                    {isManager && selectedEPRF.status === 'Pending Review' && (
+                                        <div className="flex gap-2 mt-4">
+                                            <button onClick={() => setReturnModalOpen(true)} className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-md hover:bg-orange-600">Return to Draft</button>
+                                            <button onClick={() => setApproveModalOpen(true)} className="px-4 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 flex items-center"><CheckIcon className="w-5 h-5 mr-1"/> Approve</button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-
-                            {view === 'form' && <EPRFView eprf={selectedEPRF} />}
-                            {view === 'timeline' && <ClinicalTimeline eprf={selectedEPRF} />}
-                            {view === 'audit' && <AuditTrailView auditLog={selectedEPRF.auditLog || []} />}
+                             {selectedEPRF.reviewNotes && (
+                                <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
+                                    <p><span className="font-bold">Manager's Note:</span> {selectedEPRF.reviewNotes}</p>
+                                </div>
+                            )}
+                            {viewMode === 'form' && <EPRFView eprf={selectedEPRF} />}
+                            {viewMode === 'timeline' && <ClinicalTimeline eprf={selectedEPRF} />}
+                            {viewMode === 'audit' && <AuditTrailView auditLog={selectedEPRF.auditLog} />}
                         </div>
                     ) : (
-                        <div className="bg-white dark:bg-gray-800 p-10 rounded-lg shadow text-center text-gray-500 dark:text-gray-400 h-full flex items-center justify-center">
-                            <p>Select an encounter from the list to view details.</p>
+                        <div className="flex items-center justify-center h-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                            <p className="text-gray-500 dark:text-gray-400">Select a care encounter to view details.</p>
                         </div>
                     )}
                 </div>

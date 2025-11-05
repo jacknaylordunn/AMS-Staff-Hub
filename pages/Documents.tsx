@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { CompanyDocument } from '../types';
-import { getDocuments, createDocument, deleteDocument } from '../services/firestoreService';
+import { getDocuments, createDocument, deleteDocument } from '../services/documentService';
 import { SpinnerIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';

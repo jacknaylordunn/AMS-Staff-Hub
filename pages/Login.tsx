@@ -1,8 +1,14 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Fix: Remove v9 imports, use methods on `auth` and `user` objects for v8
+import { 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    sendEmailVerification, 
+    updateProfile,
+    sendPasswordResetEmail
+} from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { createUserProfile } from '../services/firestoreService';
+import { createUserProfile } from '../services/userService';
 import { SpinnerIcon } from '../components/icons';
 import type { User } from '../types';
 
@@ -43,6 +49,30 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+        setError('Please enter your email address to reset your password.');
+        return;
+    }
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+        await sendPasswordResetEmail(auth, email);
+        setMessage('Password reset email sent. Please check your inbox.');
+    } catch (err: any) {
+        if (err.code === 'auth/user-not-found') {
+            setError('No account found with this email address.');
+        } else {
+            setError('Failed to send password reset email. Please try again.');
+        }
+        console.error(err);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -57,7 +87,7 @@ const Login: React.FC = () => {
 
     if (isLogin) {
         try {
-            await auth.signInWithEmailAndPassword(email, password);
+            await signInWithEmailAndPassword(auth, email, password);
             navigate('/');
         } catch (err: any) {
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -93,9 +123,11 @@ const Login: React.FC = () => {
         grecaptcha.enterprise.ready(async () => {
             try {
                 const token = await grecaptcha.enterprise.execute('6Le1gAIsAAAAAD3DTUOjQ43zpdLDXmBl-86T0B2G', {action: 'SIGNUP'});
-                console.log('reCAPTCHA token:', token); // In a real app, send this to your backend for verification.
+                // In a real production app, this token must be sent to a backend (e.g., Cloud Function)
+                // for verification before creating the user. This client-side implementation is for demonstration.
+                console.log('reCAPTCHA token:', token); 
 
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 
                 if (!userCredential.user) {
                   throw new Error("User could not be created.");
@@ -103,7 +135,7 @@ const Login: React.FC = () => {
                 
                 const displayName = `${firstName} ${lastName}`.trim();
 
-                await userCredential.user.updateProfile({ displayName });
+                await updateProfile(userCredential.user, { displayName });
                 await createUserProfile(userCredential.user.uid, {
                     email: userCredential.user.email!,
                     firstName,
@@ -112,7 +144,7 @@ const Login: React.FC = () => {
                     registrationNumber
                 });
 
-                await userCredential.user.sendEmailVerification();
+                await sendEmailVerification(userCredential.user);
                 setMessage('Account created. Please check your email to verify your account before logging in.');
                 
                 setFirstName('');
@@ -191,7 +223,14 @@ const Login: React.FC = () => {
             <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClasses} />
           </div>
           <div>
-            <label htmlFor="password"  className={labelClasses}>Password</label>
+            <div className="flex justify-between items-center">
+                <label htmlFor="password"  className={labelClasses}>Password</label>
+                {isLogin && (
+                    <button type="button" onClick={handlePasswordReset} className="text-xs text-ams-light-blue hover:underline focus:outline-none">
+                        Forgot password?
+                    </button>
+                )}
+            </div>
             <input id="password" name="password" type="password" autoComplete={isLogin ? "current-password" : "new-password"} required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClasses} />
              {!isLogin && (
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">

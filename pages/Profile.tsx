@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-// Fix: `updateProfile` is a method on the user object in v8, not a separate import.
+import { updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { updateUserProfile } from '../services/firestoreService';
+import { updateUserProfile } from '../services/userService';
 import { showToast } from '../components/Toast';
 import { SpinnerIcon } from '../components/icons';
 import type { User } from '../types';
@@ -38,8 +38,7 @@ const Profile: React.FC = () => {
                 const newDisplayName = `${firstName} ${lastName}`.trim();
                 // Update Firebase Auth profile
                 if(auth.currentUser.displayName !== newDisplayName) {
-                    // Fix: Use v8 `user.updateProfile()` method
-                    await auth.currentUser.updateProfile({ displayName: newDisplayName });
+                    await updateProfile(auth.currentUser, { displayName: newDisplayName });
                 }
                 
                 // Update Firestore profile

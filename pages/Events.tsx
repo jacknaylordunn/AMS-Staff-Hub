@@ -3,7 +3,7 @@ import type { EventLog } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/firestoreService';
+import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { SpinnerIcon, CheckIcon, PlusIcon, TrashIcon } from '../components/icons';
 import EventModal from '../components/EventModal';
 import ConfirmationModal from '../components/ConfirmationModal';

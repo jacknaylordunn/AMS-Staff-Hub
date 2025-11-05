@@ -1,7 +1,12 @@
+
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useAuth } from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
-import { getDocuments, getEvents, getUsers, getShiftsForUser } from '../services/firestoreService';
+// FIX: Corrected import paths for multiple services.
+import { getDocuments } from '../services/documentService';
+import { getEvents } from '../services/eventService';
+import { getUsers } from '../services/userService';
+import { getShiftsForUser } from '../services/rotaService';
 
 // This context and provider don't hold state, they're just for triggering side effects.
 const DataSyncContext = createContext<void>(undefined);

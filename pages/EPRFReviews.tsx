@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { EPRFForm } from '../types';
-import { getPendingEPRFs } from '../services/firestoreService';
+// FIX: Corrected import path for EPRF service functions.
+import { getPendingEPRFs } from '../services/eprfService';
 import { SpinnerIcon } from '../components/icons';
 
 const EPRFReviews: React.FC = () => {

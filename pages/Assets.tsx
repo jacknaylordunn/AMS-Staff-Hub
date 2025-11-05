@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Vehicle } from '../types';
-import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from '../services/firestoreService';
+// FIX: Corrected import path for asset service functions.
+import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from '../services/assetService';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { SpinnerIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { showToast } from '../components/Toast';

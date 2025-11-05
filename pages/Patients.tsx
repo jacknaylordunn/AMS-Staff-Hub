@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Patient } from '../types';
-import { getPatients, addPatient } from '../services/firestoreService';
+import { getPatients, addPatient } from '../services/patientService';
 import { SpinnerIcon } from '../components/icons';
 import PatientModal from '../components/PatientModal';
 import { showToast } from '../components/Toast';
