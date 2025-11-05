@@ -1,4 +1,5 @@
-import { collection, doc, addDoc, getDocs, getDoc, updateDoc, deleteDoc, query, where, orderBy, limit, Timestamp, FieldValue, arrayUnion, getCountFromServer } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { EPRFForm, AuditEntry } from '../types';
 import { createNotification } from './notificationService';
@@ -17,12 +18,12 @@ export const getIncidentNumber = async (): Promise<string> => {
     const datePrefix = `AMS${yyyy}${mm}${dd}`;
 
     const startOfDay = new Date(yyyy, now.getMonth(), now.getDate());
-    const startTimestamp = Timestamp.fromDate(startOfDay);
+    const startTimestamp = firestore.Timestamp.fromDate(startOfDay);
 
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol, where('createdAt', '>=', startTimestamp));
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol, firestore.where('createdAt', '>=', startTimestamp));
     
-    const snapshot = await getCountFromServer(q);
+    const snapshot = await firestore.getCountFromServer(q);
     const count = snapshot.data().count;
 
     const nextId = String(count + 1).padStart(4, '0');
@@ -33,7 +34,7 @@ export const getIncidentNumber = async (): Promise<string> => {
 
 export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => {
     const auditEntry: AuditEntry = {
-        timestamp: Timestamp.now(),
+        timestamp: firestore.Timestamp.now(),
         user: eprfData.createdBy,
         action: 'Draft Created'
     };
@@ -41,19 +42,19 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
         ...prepareEPRFForFirebase(eprfData),
         incidentNumber: '',
         status: 'Draft' as const,
-        createdAt: Timestamp.now(),
+        createdAt: firestore.Timestamp.now(),
         auditLog: [auditEntry]
     };
-    const docRef = await addDoc(collection(db, 'eprfs'), dataToSave);
+    const docRef = await firestore.addDoc(firestore.collection(db, 'eprfs'), dataToSave);
     return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry], incidentNumber: '' };
 };
 
 export const getActiveDraftsForEvent = async (userId: string, eventId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol,
-        where('createdBy.uid', '==', userId),
-        where('status', '==', 'Draft'));
-    const snapshot = await getDocs(q);
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol,
+        firestore.where('createdBy.uid', '==', userId),
+        firestore.where('status', '==', 'Draft'));
+    const snapshot = await firestore.getDocs(q);
 
     if (snapshot.empty) {
         return [];
@@ -66,12 +67,12 @@ export const getActiveDraftsForEvent = async (userId: string, eventId: string): 
 
 
 export const getAllDraftsForUser = async (userId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol,
-        where('createdBy.uid', '==', userId),
-        where('status', '==', 'Draft'),
-        orderBy('createdAt', 'desc'));
-     const snapshot = await getDocs(q);
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol,
+        firestore.where('createdBy.uid', '==', userId),
+        firestore.where('status', '==', 'Draft'),
+        firestore.orderBy('createdAt', 'desc'));
+     const snapshot = await firestore.getDocs(q);
     if (snapshot.empty) {
         return [];
     }
@@ -79,53 +80,53 @@ export const getAllDraftsForUser = async (userId: string): Promise<EPRFForm[]> =
 }
 
 export const getEPRFById = async (eprfId: string): Promise<EPRFForm | null> => {
-    const docRef = doc(db, 'eprfs', eprfId);
-    const docSnap = await getDoc(docRef);
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    const docSnap = await firestore.getDoc(docRef);
     if (!docSnap.exists()) return null;
     return { id: docSnap.id, ...docSnap.data() } as EPRFForm;
 }
 
 export const updateEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
-    const docRef = doc(db, 'eprfs', eprfId);
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
-    await updateDoc(docRef, { ...dataToSave });
+    await firestore.updateDoc(docRef, { ...dataToSave });
 };
 
 export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
-    const docRef = doc(db, 'eprfs', eprfId);
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
     const auditEntry: AuditEntry = {
-        timestamp: Timestamp.now(),
+        timestamp: firestore.Timestamp.now(),
         user: eprfData.createdBy,
         action: 'Submitted for Review'
     };
-    await updateDoc(docRef, {
+    await firestore.updateDoc(docRef, {
         ...dataToSave,
         status: 'Pending Review' as const,
-        auditLog: arrayUnion(auditEntry)
+        auditLog: firestore.arrayUnion(auditEntry)
     });
 };
 
 export const deleteEPRF = async (eprfId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'eprfs', eprfId));
+    await firestore.deleteDoc(firestore.doc(db, 'eprfs', eprfId));
 };
 
 
 export const getEPRFsForPatient = async (patientId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol, where('patientId', '==', patientId), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol, firestore.where('patientId', '==', patientId), firestore.orderBy('createdAt', 'desc'));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 }
 
 export const getRecentEPRFsForUser = async (userId: string, limitCount: number = 5): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
+    const eprfsCol = firestore.collection(db, 'eprfs');
     // Simplified query to avoid composite index on status field. Filtering and limiting is done client-side.
-    const q = query(eprfsCol,
-        where('createdBy.uid', '==', userId),
-        orderBy('createdAt', 'desc'));
+    const q = firestore.query(eprfsCol,
+        firestore.where('createdBy.uid', '==', userId),
+        firestore.orderBy('createdAt', 'desc'));
     
-    const snapshot = await getDocs(q);
+    const snapshot = await firestore.getDocs(q);
     const allUserEprfs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
 
     // Client-side filtering to exclude drafts and apply limit
@@ -134,46 +135,46 @@ export const getRecentEPRFsForUser = async (userId: string, limitCount: number =
 }
 
 export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol, where('status', '==', 'Pending Review'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol, firestore.where('status', '==', 'Pending Review'), firestore.orderBy('createdAt', 'desc'));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
 export const getAllFinalizedEPRFs = async (): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol, where('status', 'in', ['Pending Review', 'Reviewed']));
-    const snapshot = await getDocs(q);
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol, firestore.where('status', 'in', ['Pending Review', 'Reviewed']));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
 export const approveEPRF = async (eprfId: string, reviewer: {uid: string, name: string}): Promise<void> => {
-    const docRef = doc(db, 'eprfs', eprfId);
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
     const auditEntry: AuditEntry = {
-        timestamp: Timestamp.now(),
+        timestamp: firestore.Timestamp.now(),
         user: reviewer,
         action: 'Reviewed & Approved'
     };
-    await updateDoc(docRef, {
+    await firestore.updateDoc(docRef, {
         status: 'Reviewed' as const,
-        reviewedBy: { ...reviewer, date: Timestamp.now() },
+        reviewedBy: { ...reviewer, date: firestore.Timestamp.now() },
         reviewNotes: null, // Clear any previous "return to draft" notes
-        auditLog: arrayUnion(auditEntry)
+        auditLog: firestore.arrayUnion(auditEntry)
     });
 };
 
 export const returnEPRFToDraft = async (eprfId: string, eprfData: EPRFForm, manager: {uid: string, name: string}, reason: string): Promise<void> => {
-    const docRef = doc(db, 'eprfs', eprfId);
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
     const auditEntry: AuditEntry = {
-        timestamp: Timestamp.now(),
+        timestamp: firestore.Timestamp.now(),
         user: manager,
         action: 'Returned for Correction',
         details: reason,
     };
-    await updateDoc(docRef, {
+    await firestore.updateDoc(docRef, {
         status: 'Draft' as const,
         reviewNotes: reason,
-        auditLog: arrayUnion(auditEntry)
+        auditLog: firestore.arrayUnion(auditEntry)
     });
     await createNotification(
         eprfData.createdBy.uid,
@@ -183,18 +184,18 @@ export const returnEPRFToDraft = async (eprfId: string, eprfData: EPRFForm, mana
 }
 
 export const getEPRFsToSyncSignatures = async (userId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = collection(db, 'eprfs');
-    const q = query(eprfsCol, 
-        where('createdBy.uid', '==', userId), 
-        where('signaturesNeedSync', '==', true)
+    const eprfsCol = firestore.collection(db, 'eprfs');
+    const q = firestore.query(eprfsCol, 
+        firestore.where('createdBy.uid', '==', userId), 
+        firestore.where('signaturesNeedSync', '==', true)
     );
-    const snapshot = await getDocs(q);
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
 export const updateSyncedSignatures = async (eprfId: string, updates: { clinicianSignatureUrl?: string, patientSignatureUrl?: string }): Promise<void> => {
-    const docRef = doc(db, 'eprfs', eprfId);
-    await updateDoc(docRef, {
+    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    await firestore.updateDoc(docRef, {
         ...updates,
         signaturesNeedSync: false
     });

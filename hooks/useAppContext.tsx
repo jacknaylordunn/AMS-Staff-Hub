@@ -1,7 +1,9 @@
 
 
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import type { EventLog, Shift, EPRFForm } from '../types';
 import { useAuth } from './useAuth';
 import { getShiftsForUser } from '../services/rotaService';
@@ -45,8 +47,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const parsed = JSON.parse(savedShift);
         // Re-hydrate Timestamps from plain objects stored in JSON
         if (parsed.start && parsed.end) {
-            parsed.start = new Timestamp(parsed.start.seconds, parsed.start.nanoseconds);
-            parsed.end = new Timestamp(parsed.end.seconds, parsed.end.nanoseconds);
+            parsed.start = new firestore.Timestamp(parsed.start.seconds, parsed.start.nanoseconds);
+            parsed.end = new firestore.Timestamp(parsed.end.seconds, parsed.end.nanoseconds);
         }
         return parsed;
     } catch (e) {

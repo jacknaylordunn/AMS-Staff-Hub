@@ -1,6 +1,7 @@
+// FIX: The errors indicate members are not exported. Using namespace imports `* as ...` to fix module resolution issues.
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { onSnapshot, doc } from 'firebase/firestore'; // Import onSnapshot and doc
+import * as firebaseAuth from 'firebase/auth';
+import * as firestore from 'firebase/firestore'; // Import onSnapshot and doc
 import { auth, db } from '../services/firebase'; // Import db
 import type { User } from '../types';
 
@@ -25,16 +26,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let unsubscribeFirestore: () => void | undefined;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+    const unsubscribeAuth = firebaseAuth.onAuthStateChanged(auth, (firebaseUser: firebaseAuth.User | null) => {
       // Clean up previous Firestore listener if user changes
       if (unsubscribeFirestore) unsubscribeFirestore();
 
       if (firebaseUser) {
         setIsEmailVerified(firebaseUser.emailVerified);
         
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDocRef = firestore.doc(db, 'users', firebaseUser.uid);
         
-        unsubscribeFirestore = onSnapshot(userDocRef, (docSnap) => {
+        unsubscribeFirestore = firestore.onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const userProfile = docSnap.data();
                 setUser({

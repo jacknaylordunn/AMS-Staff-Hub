@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { collection, doc, getDoc, setDoc, Timestamp, getDocs, query, orderBy } from "firebase/firestore";
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from "firebase/firestore";
 import { db } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
@@ -43,7 +44,7 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
     }
 
     // 1. Fetch associated patient data
-    const patientDoc = await getDoc(doc(db, 'patients', eprf.patientId!));
+    const patientDoc = await firestore.getDoc(firestore.doc(db, 'patients', eprf.patientId!));
     if (!patientDoc.exists()) throw new Error("Patient not found for audit");
     const patient = { id: patientDoc.id, ...patientDoc.data() } as Patient;
 
@@ -112,19 +113,19 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
         patientId: eprf.patientId!,
         eventName: eprf.eventName,
         incidentDate: eprf.incidentDate,
-        auditedAt: Timestamp.now(),
+        auditedAt: firestore.Timestamp.now(),
         auditedBy: { uid: managerId, name: `${managerProfile.firstName} ${managerProfile.lastName}` },
     };
 
-    const auditDocRef = doc(db, 'audits', eprf.id!); // Use ePRF ID as audit ID for 1:1 mapping
-    await setDoc(auditDocRef, auditResult);
+    const auditDocRef = firestore.doc(db, 'audits', eprf.id!); // Use ePRF ID as audit ID for 1:1 mapping
+    await firestore.setDoc(auditDocRef, auditResult);
 
     return auditDocRef.id;
 };
 
 export const getAuditResults = async (): Promise<AiAuditResult[]> => {
-    const auditsCol = collection(db, 'audits');
-    const q = query(auditsCol, orderBy('auditedAt', 'desc'));
-    const snapshot = await getDocs(q);
+    const auditsCol = firestore.collection(db, 'audits');
+    const q = firestore.query(auditsCol, firestore.orderBy('auditedAt', 'desc'));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AiAuditResult));
 }

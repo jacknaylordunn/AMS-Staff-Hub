@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -37,7 +38,8 @@ import Staff from './pages/Staff';
 import StaffDetail from './pages/StaffDetail';
 import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
-import { signOut, sendEmailVerification } from 'firebase/auth';
+// FIX: The error indicates signOut and sendEmailVerification are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
+import * as firebaseAuth from 'firebase/auth';
 import { auth } from './services/firebase';
 import { showToast } from './components/Toast';
 import { SpinnerIcon } from './components/icons';
@@ -48,7 +50,7 @@ const PendingApproval: React.FC = () => {
     const navigate = ReactRouterDOM.useNavigate();
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await firebaseAuth.signOut(auth);
             navigate('/login');
         } catch (error) {
             console.error('Error signing out: ', error);
@@ -81,7 +83,7 @@ const EmailVerification: React.FC = () => {
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await firebaseAuth.signOut(auth);
             navigate('/login');
         } catch (error) {
             showToast('Error signing out.', 'error');
@@ -92,7 +94,7 @@ const EmailVerification: React.FC = () => {
         if (auth.currentUser) {
             setSending(true);
             try {
-                await sendEmailVerification(auth.currentUser);
+                await firebaseAuth.sendEmailVerification(auth.currentUser);
                 showToast('Verification email sent! Please check your inbox.', 'success');
             } catch (error) {
                 showToast('Failed to send verification email.', 'error');

@@ -1,29 +1,30 @@
-import { collection, addDoc, getDocs, updateDoc, query, where, orderBy, limit, Timestamp, doc } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Notification } from '../types';
 
 // Notification Functions
 export const createNotification = async (userId: string, message: string, link?: string) => {
-    await addDoc(collection(db, 'notifications'), {
+    await firestore.addDoc(firestore.collection(db, 'notifications'), {
         userId,
         message,
         link: link || '',
         read: false,
-        createdAt: Timestamp.now(),
+        createdAt: firestore.Timestamp.now(),
     });
 };
 
 export const getNotificationsForUser = async (userId: string): Promise<Notification[]> => {
-    const notificationsCol = collection(db, 'notifications');
-    const q = query(notificationsCol,
-        where('userId', '==', userId),
-        where('read', '==', false),
-        orderBy('createdAt', 'desc'),
-        limit(10));
-    const snapshot = await getDocs(q);
+    const notificationsCol = firestore.collection(db, 'notifications');
+    const q = firestore.query(notificationsCol,
+        firestore.where('userId', '==', userId),
+        firestore.where('read', '==', false),
+        firestore.orderBy('createdAt', 'desc'),
+        firestore.limit(10));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
-    await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+    await firestore.updateDoc(firestore.doc(db, 'notifications', notificationId), { read: true });
 };

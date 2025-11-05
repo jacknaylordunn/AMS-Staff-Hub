@@ -1,4 +1,5 @@
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import type { EPRFForm, EventLog, User as AppUser } from '../types';
 
 export const getInitialFormState = (event: EventLog | null, user: AppUser | null): EPRFForm => {
@@ -56,7 +57,7 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     clinicianSignatureUrl: '',
     signaturesNeedSync: false,
     crewMembers: user ? [{ uid: user.uid, name: fullName }] : [],
-    createdAt: Timestamp.now(),
+    createdAt: firestore.Timestamp.now(),
     createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },
     status: 'Draft',
     auditLog: [],

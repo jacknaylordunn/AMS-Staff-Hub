@@ -5,7 +5,8 @@ import type { User, ComplianceDocument } from '../types';
 import { SpinnerIcon, TrashIcon, PlusIcon, DocsIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import ComplianceUploadModal from '../components/ComplianceUploadModal';
 
 const DetailCard: React.FC<{ title: string, children: React.ReactNode, className?: string }> = ({ title, children, className }) => (

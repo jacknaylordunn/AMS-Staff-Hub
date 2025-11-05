@@ -1,8 +1,9 @@
-import { initializeApp } from 'firebase/app';
+// FIX: The errors indicate members are not exported. Using namespace imports `* as ...` to fix module resolution issues.
+import * as firebaseApp from 'firebase/app';
 // import { getAnalytics } from 'firebase/analytics';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import * as firebaseAuth from 'firebase/auth';
+import * as firestore from 'firebase/firestore';
+import * as firebaseStorage from 'firebase/storage';
 
 // Firebase configuration embedded as per request to resolve environment variable issues.
 const firebaseConfig = {
@@ -16,16 +17,16 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize services
 // getAnalytics(app);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const auth = firebaseAuth.getAuth(app);
+export const db = firestore.getFirestore(app);
+export const storage = firebaseStorage.getStorage(app);
 
 // Enable offline persistence
-enableIndexedDbPersistence(db).catch((err) => {
+firestore.enableIndexedDbPersistence(db).catch((err) => {
     if (err.code == 'failed-precondition') {
         console.warn('Firestore persistence failed: multiple tabs open.');
     } else if (err.code == 'unimplemented') {

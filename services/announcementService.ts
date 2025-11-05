@@ -1,11 +1,12 @@
-import { collection, getDocs, addDoc, query, orderBy, limit, Timestamp, writeBatch, doc } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Announcement } from '../types';
 import { getUsers } from './userService';
 
 // Announcement Functions
 export const getAnnouncements = async (): Promise<Announcement[]> => {
-    const snapshot = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(20)));
+    const snapshot = await firestore.getDocs(firestore.query(firestore.collection(db, 'announcements'), firestore.orderBy('createdAt', 'desc'), firestore.limit(20)));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
 }
 
@@ -13,25 +14,25 @@ export const sendAnnouncementToAllUsers = async (message: string, sender: { uid:
     const announcementData = {
         message,
         sentBy: sender,
-        createdAt: Timestamp.now(),
+        createdAt: firestore.Timestamp.now(),
     };
     // 1. Save the announcement to its own collection for history
-    await addDoc(collection(db, 'announcements'), announcementData);
+    await firestore.addDoc(firestore.collection(db, 'announcements'), announcementData);
 
     // 2. Create notifications for all users
     const users = await getUsers();
-    const batch = writeBatch(db);
+    const batch = firestore.writeBatch(db);
 
     users.forEach(user => {
-        const notificationsRef = collection(db, 'notifications');
+        const notificationsRef = firestore.collection(db, 'notifications');
         const truncatedMessage = message.substring(0, 50) + (message.length > 50 ? '...' : '');
         // Create a new doc with a random ID
-        const newNotifRef = doc(notificationsRef);
+        const newNotifRef = firestore.doc(notificationsRef);
         batch.set(newNotifRef, {
             userId: user.uid,
             message: `New Hub Announcement: "${truncatedMessage}"`,
             read: false,
-            createdAt: Timestamp.now(),
+            createdAt: firestore.Timestamp.now(),
             link: link || '/dashboard'
         });
     });

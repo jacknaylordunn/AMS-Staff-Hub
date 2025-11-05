@@ -1,4 +1,5 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, doc, getDoc } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { EventLog } from '../types';
 
@@ -21,15 +22,15 @@ const getEventStatus = (eventDateStr: string): EventLog['status'] => {
 
 // Event Functions
 export const getEvents = async (): Promise<EventLog[]> => {
-    const eventsCol = collection(db, 'events');
-    const q = query(eventsCol, orderBy('date', 'desc'));
-    const snapshot = await getDocs(q);
+    const eventsCol = firestore.collection(db, 'events');
+    const q = firestore.query(eventsCol, firestore.orderBy('date', 'desc'));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data(), status: getEventStatus(d.data().date) } as EventLog));
 }
 
 export const getEventById = async (eventId: string): Promise<EventLog | null> => {
-    const docRef = doc(db, 'events', eventId);
-    const docSnap = await getDoc(docRef);
+    const docRef = firestore.doc(db, 'events', eventId);
+    const docSnap = await firestore.getDoc(docRef);
     if (!docSnap.exists()) return null;
     const data = docSnap.data();
     const status = getEventStatus(data.date);
@@ -37,11 +38,11 @@ export const getEventById = async (eventId: string): Promise<EventLog | null> =>
 }
 
 export const createEvent = async (eventData: Omit<EventLog, 'id'>): Promise<void> => {
-    await addDoc(collection(db, 'events'), eventData);
+    await firestore.addDoc(firestore.collection(db, 'events'), eventData);
 }
 export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventLog, 'id'>>): Promise<void> => {
-    await updateDoc(doc(db, 'events', eventId), eventData);
+    await firestore.updateDoc(firestore.doc(db, 'events', eventId), eventData);
 }
 export const deleteEvent = async (eventId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'events', eventId));
+    await firestore.deleteDoc(firestore.doc(db, 'events', eventId));
 }

@@ -1,67 +1,68 @@
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc, query, orderBy, limit, Timestamp, writeBatch, onSnapshot } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Kit, KitCheck } from '../types';
 import { DEFAULT_KIT_CHECKLISTS } from '../types';
 
 // Kit Functions
 export const getKits = async (): Promise<Kit[]> => {
-    const snapshot = await getDocs(query(collection(db, 'kits'), orderBy('name')));
+    const snapshot = await firestore.getDocs(firestore.query(firestore.collection(db, 'kits'), firestore.orderBy('name')));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
 };
 
 export const listenToKits = (callback: (kits: Kit[]) => void): () => void => {
-    const q = query(collection(db, 'kits'), orderBy('name'));
-    return onSnapshot(q, (snapshot) => {
+    const q = firestore.query(firestore.collection(db, 'kits'), firestore.orderBy('name'));
+    return firestore.onSnapshot(q, (snapshot) => {
         const kits = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
         callback(kits);
     }, (error) => console.error("Error listening to kits:", error));
 };
 
 export const getKitById = async (kitId: string): Promise<Kit | null> => {
-    const docRef = doc(db, 'kits', kitId);
-    const docSnap = await getDoc(docRef);
+    const docRef = firestore.doc(db, 'kits', kitId);
+    const docSnap = await firestore.getDoc(docRef);
     if (!docSnap.exists()) return null;
     return { id: docSnap.id, ...docSnap.data() } as Kit;
 };
 
 export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck'>): Promise<string> => {
     const defaultChecklist = DEFAULT_KIT_CHECKLISTS[kitData.type] || [];
-    const docRef = await addDoc(collection(db, 'kits'), {
+    const docRef = await firestore.addDoc(firestore.collection(db, 'kits'), {
         ...kitData,
-        createdAt: Timestamp.now(),
+        createdAt: firestore.Timestamp.now(),
         checklistItems: defaultChecklist,
     });
     // Add the generated QR code value back to the doc
     const qrCodeValue = `aegis-kit-qr:${docRef.id}`;
-    await updateDoc(docRef, { qrCodeValue });
+    await firestore.updateDoc(docRef, { qrCodeValue });
     return docRef.id;
 };
 
 export const updateKit = async (kitId: string, kitData: Partial<Omit<Kit, 'id'>>): Promise<void> => {
-    await updateDoc(doc(db, 'kits', kitId), kitData);
+    await firestore.updateDoc(firestore.doc(db, 'kits', kitId), kitData);
 };
 
 export const deleteKit = async (kitId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'kits', kitId));
+    await firestore.deleteDoc(firestore.doc(db, 'kits', kitId));
 };
 
 // Kit Check Functions
 export const getKitChecks = async (kitId: string): Promise<KitCheck[]> => {
-    const checksCol = collection(db, 'kits', kitId, 'checks');
-    const q = query(checksCol, orderBy('date', 'desc'), limit(20));
-    const snapshot = await getDocs(q);
+    const checksCol = firestore.collection(db, 'kits', kitId, 'checks');
+    const q = firestore.query(checksCol, firestore.orderBy('date', 'desc'), firestore.limit(20));
+    const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as KitCheck));
 };
 
 export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' | 'date'>): Promise<void> => {
-    const kitRef = doc(db, 'kits', kitId);
-    const checksCol = collection(kitRef, 'checks');
-    const now = Timestamp.now();
+    const kitRef = firestore.doc(db, 'kits', kitId);
+    const checksCol = firestore.collection(kitRef, 'checks');
+    const now = firestore.Timestamp.now();
     
-    const batch = writeBatch(db);
+    const batch = firestore.writeBatch(db);
 
     // Add the check document
-    batch.set(doc(checksCol), {
+    batch.set(firestore.doc(checksCol), {
         ...checkData,
         date: now,
     });

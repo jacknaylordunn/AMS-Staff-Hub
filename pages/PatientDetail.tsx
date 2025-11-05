@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
@@ -13,7 +14,8 @@ import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { performAiAudit } from '../services/auditService';
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 
 const DetailCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -236,7 +238,7 @@ const PatientDetail: React.FC = () => {
                 ...selectedEPRF, 
                 status: 'Reviewed', 
                 reviewNotes: undefined,
-                reviewedBy: { ...reviewer, date: Timestamp.now() }
+                reviewedBy: { ...reviewer, date: firestore.Timestamp.now() }
             };
             
             setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? approvedEprf : e));

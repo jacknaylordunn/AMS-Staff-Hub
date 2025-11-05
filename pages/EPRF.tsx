@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { getActiveDraftsForEvent, createDraftEPRF } from '../services/eprfService';
@@ -46,8 +46,14 @@ export const EPRF: React.FC = () => {
             setIsLoading(false);
         }
     }, [activeEvent, loadDrafts, openEPRFDrafts]);
+    
+    // This is the key change to prevent flicker.
+    // We filter the drafts from context to only include ones for the current event *before* rendering.
+    const activeDraft = useMemo(() => {
+        if (!activeEvent) return undefined;
+        return openEPRFDrafts.find(d => d.id === activeEPRFId && d.eventId === activeEvent.id);
+    }, [activeEvent, openEPRFDrafts, activeEPRFId]);
 
-    const activeDraft = openEPRFDrafts.find(d => d.id === activeEPRFId);
 
     if (!activeEvent) {
         return (

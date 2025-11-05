@@ -1,4 +1,5 @@
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 
 export interface ComplianceDocument {
   id: string;
@@ -6,7 +7,7 @@ export interface ComplianceDocument {
   url: string;
   fileName: string;
   expiryDate?: string; // YYYY-MM-DD
-  uploadedAt: Timestamp;
+  uploadedAt: firestore.Timestamp;
 }
 
 export interface User {
@@ -19,7 +20,7 @@ export interface User {
   role?: 'Pending' | 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   pendingRole?: User['role'];
   registrationNumber?: string;
-  createdAt?: Timestamp;
+  createdAt?: firestore.Timestamp;
   complianceDocuments?: ComplianceDocument[];
 }
 
@@ -34,7 +35,7 @@ export interface Patient {
     allergies: string;
     medications: string;
     medicalHistory: string;
-    createdAt: Timestamp;
+    createdAt: firestore.Timestamp;
 }
 
 export interface EventLog {
@@ -46,7 +47,7 @@ export interface EventLog {
 }
 
 export interface AuditEntry {
-  timestamp: Timestamp;
+  timestamp: firestore.Timestamp;
   user: {
     uid: string;
     name: string;
@@ -176,9 +177,9 @@ export interface EPRFForm {
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
   createdBy: { uid: string; name: string; };
-  reviewedBy?: { uid: string; name: string; date: Timestamp; };
+  reviewedBy?: { uid: string; name: string; date: firestore.Timestamp; };
   reviewNotes?: string;
   auditLog: AuditEntry[];
 }
@@ -239,12 +240,12 @@ export interface Shift {
   id?: string;
   eventId: string;
   eventName: string;
-  start: Timestamp;
-  end: Timestamp;
+  start: firestore.Timestamp;
+  end: firestore.Timestamp;
   status: 'Open' | 'Assigned' | 'Completed';
   assignedStaff: { uid: string; name: string; }[];
   assignedStaffUids: string[]; // For efficient querying
-  bids: { uid: string; name: string; timestamp: Timestamp; }[];
+  bids: { uid: string; name: string; timestamp: firestore.Timestamp; }[];
   roleRequired: string;
   notes?: string;
   isUnavailability?: boolean;
@@ -257,14 +258,14 @@ export interface Notification {
   message: string;
   link?: string;
   read: boolean;
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
 }
 
 export interface Announcement {
     id?: string;
     message: string;
     sentBy: { uid: string; name: string; };
-    createdAt: Timestamp;
+    createdAt: firestore.Timestamp;
 }
 
 export interface Vehicle {
@@ -274,11 +275,11 @@ export interface Vehicle {
   type: 'Ambulance' | 'RRV' | 'Car' | 'Buggy';
   status: 'In Service' | 'Maintenance Required' | 'Out of Service';
   lastCheck?: {
-    date: Timestamp;
+    date: firestore.Timestamp;
     user: { uid: string; name:string; };
     status: 'Pass' | 'Issues Found';
   };
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
   qrCodeValue?: string;
 }
 
@@ -297,7 +298,7 @@ export interface VehicleCheck {
     id?: string;
     vehicleId: string;
     vehicleName: string;
-    date: Timestamp;
+    date: firestore.Timestamp;
     user: { uid: string; name: string; };
     mileage: number;
     fuelLevel: 'Full' | '3/4' | '1/2' | '1/4' | 'Empty';
@@ -317,7 +318,7 @@ export interface CPDEntry {
   reflection: string;
   attachmentUrl?: string;
   attachmentFileName?: string;
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
 }
 
 export interface MajorIncident {
@@ -325,16 +326,16 @@ export interface MajorIncident {
     name: string;
     location: string;
     status: 'Active' | 'Stood Down';
-    declaredAt: Timestamp;
+    declaredAt: firestore.Timestamp;
     declaredBy: { uid: string; name: string; };
-    stoodDownAt?: Timestamp;
+    stoodDownAt?: firestore.Timestamp;
     initialDetails: string;
 }
 
 export interface METHANEreport {
     id?: string;
     incidentId: string;
-    submittedAt: Timestamp;
+    submittedAt: firestore.Timestamp;
     submittedBy: { uid: string; name: string; };
     majorIncident: 'Yes' | 'No';
     exactLocation: string;
@@ -352,7 +353,7 @@ export interface StaffCheckin {
     userName: string;
     userRole: User['role'];
     status: 'Available - On Site' | 'Available - En Route' | 'Unavailable';
-    timestamp: Timestamp;
+    timestamp: firestore.Timestamp;
 }
 
 export type KitChecklistItem = {
@@ -368,11 +369,11 @@ export interface Kit {
   status: 'In Service' | 'Needs Restocking' | 'Out of Service' | 'With Crew';
   assignedTo?: { uid: string; name: string; };
   lastCheck?: {
-    date: Timestamp;
+    date: firestore.Timestamp;
     user: { uid: string; name:string; };
     status: 'Pass' | 'Issues Found';
   };
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
   qrCodeValue?: string; // This will be the unique ID, formatted like 'aegis-kit-qr:KIT_ID'
   trackedItems?: { itemName: string; expiryDate?: string; batchNumber?: string; }[];
   checklistItems?: KitChecklistItem[];
@@ -424,7 +425,7 @@ export interface KitCheck {
     id?: string;
     kitId: string;
     kitName: string;
-    date: Timestamp;
+    date: firestore.Timestamp;
     user: { uid: string; name: string; };
     type: 'Sign Out' | 'Sign In';
     checkedItems: { itemName: string; status: 'Pass' | 'Fail' | 'N/A'; expiryDate?: string; batchNumber?: string; }[];
@@ -438,7 +439,7 @@ export interface ControlledDrugLedgerEntry {
     drugName: 'Morphine Sulphate 10mg/1ml' | 'Diazepam 10mg/2ml' | 'Midazolam 10mg/2ml' | 'Ketamine 100mg/2ml';
     batchNumber: string;
     expiryDate: string; // YYYY-MM-DD
-    timestamp: Timestamp;
+    timestamp: firestore.Timestamp;
     type: 'Received' | 'Moved' | 'Administered' | 'Wasted' | 'Balance Check';
     
     // For movement/receiving
@@ -468,14 +469,14 @@ export interface Kudo {
   to: { uid: string; name: string; };
   from: { uid: string; name: string; };
   message: string;
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
 }
 
 export interface AnonymousFeedback {
   id?: string;
   message: string;
   category: 'Concern' | 'Suggestion' | 'Positive';
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
 }
 
 export interface AiAuditResult {
@@ -484,7 +485,7 @@ export interface AiAuditResult {
     patientId: string;
     eventName: string;
     incidentDate: string;
-    auditedAt: Timestamp;
+    auditedAt: firestore.Timestamp;
     auditedBy: { uid: string; name: string; };
     
     completenessScore: number;

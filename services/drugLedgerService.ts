@@ -1,20 +1,21 @@
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { ControlledDrugLedgerEntry } from '../types';
 
 export const getLedgerEntries = (callback: (entries: ControlledDrugLedgerEntry[]) => void) => {
-    const ledgerCol = collection(db, 'controlledDrugLedger');
-    const q = query(ledgerCol, orderBy('timestamp', 'desc'));
+    const ledgerCol = firestore.collection(db, 'controlledDrugLedger');
+    const q = firestore.query(ledgerCol, firestore.orderBy('timestamp', 'desc'));
 
-    return onSnapshot(q, (snapshot) => {
+    return firestore.onSnapshot(q, (snapshot) => {
         const entries = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ControlledDrugLedgerEntry));
         callback(entries);
     });
 };
 
 export const addLedgerEntry = async (entryData: Omit<ControlledDrugLedgerEntry, 'id' | 'timestamp'>): Promise<void> => {
-    await addDoc(collection(db, 'controlledDrugLedger'), {
+    await firestore.addDoc(firestore.collection(db, 'controlledDrugLedger'), {
         ...entryData,
-        timestamp: Timestamp.now(),
+        timestamp: firestore.Timestamp.now(),
     });
 };

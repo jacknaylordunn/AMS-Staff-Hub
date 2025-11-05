@@ -1,12 +1,13 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, doc, Timestamp } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { CPDEntry } from '../types';
 
 export const getCPDEntriesForUser = async (userId: string): Promise<CPDEntry[]> => {
-    const cpdCol = collection(db, 'cpd');
+    const cpdCol = firestore.collection(db, 'cpd');
     // Simplified query to avoid composite index. Sorting is now done client-side.
-    const q = query(cpdCol, where('userId', '==', userId));
-    const snapshot = await getDocs(q);
+    const q = firestore.query(cpdCol, firestore.where('userId', '==', userId));
+    const snapshot = await firestore.getDocs(q);
     const entries = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CPDEntry));
     
     // Client-side sorting
@@ -14,17 +15,17 @@ export const getCPDEntriesForUser = async (userId: string): Promise<CPDEntry[]> 
 };
 
 export const addCPDEntry = async (entryData: Omit<CPDEntry, 'id' | 'createdAt'>): Promise<void> => {
-    await addDoc(collection(db, 'cpd'), {
+    await firestore.addDoc(firestore.collection(db, 'cpd'), {
         ...entryData,
-        createdAt: Timestamp.now(),
+        createdAt: firestore.Timestamp.now(),
     });
 };
 
 export const updateCPDEntry = async (entryId: string, entryData: Partial<Omit<CPDEntry, 'id'>>): Promise<void> => {
-    await updateDoc(doc(db, 'cpd', entryId), entryData);
+    await firestore.updateDoc(firestore.doc(db, 'cpd', entryId), entryData);
 };
 
 export const deleteCPDEntry = async (entryId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'cpd', entryId));
+    await firestore.deleteDoc(firestore.doc(db, 'cpd', entryId));
     // Note: For a full implementation, you'd also delete the associated file from Firebase Storage if it exists.
 };

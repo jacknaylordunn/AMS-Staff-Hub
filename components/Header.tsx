@@ -1,8 +1,10 @@
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { signOut } from 'firebase/auth';
+// FIX: The error indicates signOut is not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
+import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
@@ -55,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await firebaseAuth.signOut(auth);
       clearActiveSession();
       navigate('/login');
     } catch (error) {

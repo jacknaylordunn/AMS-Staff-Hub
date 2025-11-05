@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
@@ -101,8 +102,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             const shiftData = {
                 eventId: formData.eventId,
                 eventName: formData.eventName,
-                start: Timestamp.fromDate(new Date(formData.start)),
-                end: Timestamp.fromDate(new Date(formData.end)),
+                start: firestore.Timestamp.fromDate(new Date(formData.start)),
+                end: firestore.Timestamp.fromDate(new Date(formData.end)),
                 roleRequired: formData.roleRequired,
                 notes: formData.notes,
                 assignedStaff,

@@ -1,20 +1,21 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, orderBy, Timestamp, serverTimestamp, deleteDoc, deleteField, onSnapshot } from 'firebase/firestore';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
-import type { User } from '../types';
+import type { User, ComplianceDocument } from '../types';
 import { createNotification } from './notificationService';
 
 // User Profile Functions
 export const createUserProfile = async (uid: string, data: { email: string; firstName: string; lastName: string; registrationNumber?: string }) => {
-  await setDoc(doc(db, 'users', uid), {
+  await firestore.setDoc(firestore.doc(db, 'users', uid), {
     ...data,
     role: 'Pending', // All new users must be approved by a manager
-    createdAt: Timestamp.now(),
+    createdAt: firestore.Timestamp.now(),
   });
 };
 
 export const getUserProfile = async (uid:string): Promise<User | null> => {
-  const docRef = doc(db, 'users', uid);
-  const docSnap = await getDoc(docRef);
+  const docRef = firestore.doc(db, 'users', uid);
+  const docSnap = await firestore.getDoc(docRef);
   if (docSnap.exists()) {
     return { uid, ...docSnap.data() } as User;
   }
@@ -22,35 +23,42 @@ export const getUserProfile = async (uid:string): Promise<User | null> => {
 };
 
 export const updateUserProfile = async (uid: string, data: Partial<Omit<User, 'uid' | 'email'>>) => {
-  const userRef = doc(db, 'users', uid);
-  await updateDoc(userRef, data);
+  const userRef = firestore.doc(db, 'users', uid);
+  await firestore.updateDoc(userRef, data);
+};
+
+export const addComplianceDocumentToUser = async (uid: string, newDocument: ComplianceDocument) => {
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, {
+        complianceDocuments: firestore.arrayUnion(newDocument)
+    });
 };
 
 export const deleteUserProfile = async (uid: string): Promise<void> => {
-    const userRef = doc(db, 'users', uid);
-    await deleteDoc(userRef);
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.deleteDoc(userRef);
     // Note: This does not delete the user from Firebase Authentication.
     // A cloud function would be required for that. For now, this effectively
     // blocks them from using the app.
 };
 
 export const getUsers = async (): Promise<User[]> => {
-    const usersCol = collection(db, 'users');
-    const snapshot = await getDocs(query(usersCol, orderBy('lastName')));
+    const usersCol = firestore.collection(db, 'users');
+    const snapshot = await firestore.getDocs(firestore.query(usersCol, firestore.orderBy('lastName')));
     return snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
 };
 
 export const listenToUsers = (callback: (users: User[]) => void): () => void => {
-    const q = query(collection(db, 'users'), orderBy('lastName'));
-    return onSnapshot(q, (snapshot) => {
+    const q = firestore.query(firestore.collection(db, 'users'), firestore.orderBy('lastName'));
+    return firestore.onSnapshot(q, (snapshot) => {
         const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
         callback(users);
     }, (error) => console.error("Error listening to users:", error));
 };
 
 export const requestRoleChange = async (uid: string, newRole: User['role']) => {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, { pendingRole: newRole });
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, { pendingRole: newRole });
     
     // Notify managers
     const users = await getUsers();
@@ -67,18 +75,18 @@ export const requestRoleChange = async (uid: string, newRole: User['role']) => {
 };
 
 export const approveRoleChange = async (uid: string, newRole: User['role']) => {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, {
         role: newRole,
-        pendingRole: deleteField()
+        pendingRole: firestore.deleteField()
     });
     await createNotification(uid, `Your role has been updated to ${newRole}.`, '/profile');
 };
 
 export const rejectRoleChange = async (uid: string) => {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-        pendingRole: deleteField()
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, {
+        pendingRole: firestore.deleteField()
     });
      await createNotification(uid, `Your recent role change request was not approved.`, '/profile');
 };

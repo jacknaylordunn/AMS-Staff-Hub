@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import type { User, ComplianceDocument } from '../types';
-import { updateUserProfile } from '../services/userService';
+import { addComplianceDocumentToUser } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { SpinnerIcon } from './icons';
 import { showToast } from './Toast';
-import { Timestamp } from 'firebase/firestore';
+// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 
 interface ComplianceUploadModalProps {
     isOpen: boolean;
@@ -43,18 +44,10 @@ const ComplianceUploadModal: React.FC<ComplianceUploadModalProps> = ({ isOpen, o
                 url: downloadURL,
                 fileName: file.name,
                 expiryDate: expiryDate || undefined,
-                uploadedAt: Timestamp.now(),
+                uploadedAt: firestore.Timestamp.now(),
             };
 
-            // This is not ideal as it replaces the whole array. Firestore's arrayUnion is better.
-            // For simplicity here, we get existing, append, and update.
-            // In a real app, a transaction or arrayUnion would be safer.
-            const userDoc = await (await import('../services/userService')).getUserProfile(userId);
-            const existingDocs = userDoc?.complianceDocuments || [];
-            
-            await updateUserProfile(userId, {
-                complianceDocuments: [...existingDocs, newDocument]
-            });
+            await addComplianceDocumentToUser(userId, newDocument);
             
             showToast("Document uploaded successfully.", "success");
             onUploadComplete();

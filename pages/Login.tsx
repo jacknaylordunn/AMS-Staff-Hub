@@ -1,13 +1,7 @@
 import React, { useState, FormEvent } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
-    sendEmailVerification, 
-    updateProfile,
-    sendPasswordResetEmail,
-    signOut
-} from 'firebase/auth';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
+import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/userService';
 import { SpinnerIcon } from '../components/icons';
@@ -58,7 +52,7 @@ const Login: React.FC = () => {
     setError('');
     setMessage('');
     try {
-        await sendPasswordResetEmail(auth, email);
+        await firebaseAuth.sendPasswordResetEmail(auth, email);
         setMessage('Password reset email sent. Please check your inbox.');
     } catch (err: any) {
         if (err.code === 'auth/user-not-found') {
@@ -87,7 +81,7 @@ const Login: React.FC = () => {
 
     if (isLogin) {
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await firebaseAuth.signInWithEmailAndPassword(auth, email, password);
             navigate('/');
         } catch (err: any) {
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -115,10 +109,10 @@ const Login: React.FC = () => {
         }
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await firebaseAuth.createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            await updateProfile(user, {
+            await firebaseAuth.updateProfile(user, {
                 displayName: `${firstName} ${lastName}`.trim()
             });
 
@@ -129,10 +123,10 @@ const Login: React.FC = () => {
                 registrationNumber,
             });
 
-            await sendEmailVerification(user);
+            await firebaseAuth.sendEmailVerification(user);
 
             // Sign out the user immediately after registration
-            await signOut(auth);
+            await firebaseAuth.signOut(auth);
             
             setMessage('Registration successful! A verification email has been sent to you. Please verify your email, then await manager approval before logging in.');
             setIsLogin(true); // Switch to login view

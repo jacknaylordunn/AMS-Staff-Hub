@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+// FIX: The errors indicate members are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
+import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { requestRoleChange, updateUserProfile } from '../services/userService';
 import { showToast } from '../components/Toast';
@@ -43,7 +44,7 @@ const Profile: React.FC = () => {
     const handlePasswordReset = async () => {
         if (user && user.email) {
             try {
-                await sendPasswordResetEmail(auth, user.email);
+                await firebaseAuth.sendPasswordResetEmail(auth, user.email);
                 showToast("Password reset email sent. Please check your inbox.", 'success');
             } catch (error) {
                 showToast("Failed to send password reset email.", 'error');
@@ -65,7 +66,7 @@ const Profile: React.FC = () => {
                 const newDisplayName = `${firstName} ${lastName}`.trim();
                 // Update Firebase Auth profile
                 if(auth.currentUser.displayName !== newDisplayName) {
-                    await updateProfile(auth.currentUser, { displayName: newDisplayName });
+                    await firebaseAuth.updateProfile(auth.currentUser, { displayName: newDisplayName });
                 }
                 
                 // Update Firestore profile (non-role fields)
