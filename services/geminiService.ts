@@ -2,13 +2,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { showToast } from '../components/Toast';
 
-// FIX: Define the aistudio property with an inline type on the Window interface to prevent declaration conflicts.
+// FIX: Define the AIStudio interface and augment the Window interface to resolve declaration conflicts.
+interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
 declare global {
   interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
+    aistudio: AIStudio;
   }
 }
 

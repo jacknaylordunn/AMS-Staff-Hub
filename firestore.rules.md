@@ -27,12 +27,12 @@ service cloud.firestore {
     // - Users can read their own profile.
     // - Managers/Admins can read any user profile.
     // - Users can update their own profile, but cannot change their own role.
-    // - Admins can update any user profile, including roles.
+    // - Managers/Admins can update any user profile, including roles.
     match /users/{userId} {
       allow read: if request.auth.uid == userId || isManager();
       allow create: if request.auth.uid == userId;
       allow update: if (request.auth.uid == userId && !("role" in request.resource.data))
-                      || getUserRole() == 'Admin';
+                      || isManager();
     }
 
     // Patients Collection
