@@ -50,10 +50,19 @@ service cloud.firestore {
     // - Managers/Admins can read all ePRFs.
     // - Staff can only update their own ePRFs if they are in 'Draft' status.
     // - Managers can update any ePRF (e.g., for review).
+    // - Writes are blocked if they contain restricted drugs and the user is not a senior clinician.
     match /eprfs/{eprfId} {
         allow read: if resource.data.createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
-        allow create: if request.auth.uid == request.resource.data.createdBy.uid;
-        allow update: if (resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft') || isManagerOrAdmin(request.auth.uid);
+        
+        allow create, update: if (
+            // Standard create/update permissions: User can create or update their own draft, or user is a manager.
+            (request.auth.uid == request.resource.data.createdBy.uid && (resource == null || resource.data.status == 'Draft')) 
+            || isManagerOrAdmin(request.auth.uid)
+          ) && (
+            // Restricted drug check: If the form contains restricted drugs, the user must have a senior clinician role.
+            request.resource.data.get('containsRestrictedDrugs', false) == true ? isSeniorClinician(request.auth.uid) : true
+          );
+
         allow delete: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft';
     }
 

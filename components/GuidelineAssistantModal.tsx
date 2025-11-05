@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../services/firebase';
 import { SpinnerIcon, SparklesIcon } from './icons';
-import { getGeminiClient, handleGeminiError } from '../services/geminiService';
+import { showToast } from './Toast';
 
 interface GuidelineAssistantModalProps {
     isOpen: boolean;
@@ -14,6 +15,10 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const functions = getFunctions(app);
+    const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
+
+
     const handleQuery = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
@@ -22,26 +27,13 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
         setError('');
         setResponse('');
 
-        const ai = await getGeminiClient();
-        if (!ai) {
-            setLoading(false);
-            return;
-        }
-
         try {
-            const systemInstruction = "You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis or recommend specific drug dosages unless they are standard guideline advice. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.";
-            
-            const result = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: query,
-                config: { systemInstruction },
-            });
-            
-            setResponse(result.text);
-
+            const result = await askClinicalAssistant({ query });
+            setResponse(result.data.response);
         } catch (err) {
-            handleGeminiError(err);
-            setError("Sorry, I couldn't fetch the information. Please check your connection and try again.");
+            console.error("Cloud function error:", err);
+            setError("Sorry, I couldn't fetch the information. Please check your connection or contact an administrator.");
+            showToast("Error communicating with AI assistant.", "error");
         } finally {
             setLoading(false);
         }

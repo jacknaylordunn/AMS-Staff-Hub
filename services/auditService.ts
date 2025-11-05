@@ -4,7 +4,9 @@ import * as firestore from "firebase/firestore";
 import { db } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
-import { getGeminiClient } from './geminiService';
+// FIX: Removed import from deprecated geminiService and added imports for Firebase Functions
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from './firebase';
 
 const anonymizeEPRF = (eprf: EPRFForm, patient: Patient): Partial<EPRFForm> => {
     const { 
@@ -38,10 +40,9 @@ const getJRCALCGuidelines = () => {
 };
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
-    const ai = await getGeminiClient({ showToasts: false });
-    if (!ai) {
-        throw new Error("AI client could not be initialized. API key might be missing.");
-    }
+    // FIX: Refactored to use a secure Firebase Cloud Function instead of client-side Gemini SDK.
+    const functions = getFunctions(app);
+    const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
 
     // 1. Fetch associated patient data
     const patientDoc = await firestore.getDoc(firestore.doc(db, 'patients', eprf.patientId!));
@@ -69,42 +70,23 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
     ${eprfJsonString}
     \`\`\`
 
-    Based on the provided data and guidelines, return a JSON object with the specified schema.
-    Scores must be integers between 0 and 100.
-    - completenessScore: How well-documented is the report? Are all relevant fields filled according to the presentation type?
-    - guidelineAdherenceScore: Based on the presenting complaint and findings, was the treatment provided in line with JRCALC guidelines? Score lower if unable to determine due to poor documentation.
-    - documentationScore: How clear, concise, and professional is the written documentation (narratives, history, etc.)?
-    - overallScore: A weighted average of the above scores (40% adherence, 30% completeness, 30% documentation).
-    - summary: A brief one-paragraph summary of the audit findings.
-    - strengths: A list of 2-3 specific things that were done well (e.g., "Excellent, detailed history taking").
-    - areasForImprovement: A list of 2-3 specific, constructive suggestions for improvement (e.g., "Consider documenting a full set of vital signs after administering medication.").
-    - keyLearningPoints: A list of 1-2 key takeaways from this case for wider team training.
+    Based on the provided data and guidelines, your response MUST be a single, valid JSON object and nothing else. Do not wrap it in markdown backticks or any other text.
+    The JSON object schema must be:
+    {
+        "completenessScore": number (0-100),
+        "guidelineAdherenceScore": number (0-100),
+        "documentationScore": number (0-100),
+        "overallScore": number (0-100, weighted average: 40% adherence, 30% completeness, 30% documentation),
+        "summary": string (one-paragraph summary),
+        "strengths": string[] (2-3 specific strengths),
+        "areasForImprovement": string[] (2-3 specific, constructive suggestions),
+        "keyLearningPoints": string[] (1-2 key takeaways)
+    }
     `;
 
-    // 4. Call Gemini API
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    completenessScore: { type: Type.INTEGER },
-                    guidelineAdherenceScore: { type: Type.INTEGER },
-                    documentationScore: { type: Type.INTEGER },
-                    overallScore: { type: Type.INTEGER },
-                    summary: { type: Type.STRING },
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    areasForImprovement: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    keyLearningPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-                },
-                required: ['completenessScore', 'guidelineAdherenceScore', 'documentationScore', 'overallScore', 'summary', 'strengths', 'areasForImprovement', 'keyLearningPoints']
-            }
-        }
-    });
-
-    const resultJson = JSON.parse(response.text);
+    // 4. Call Cloud Function
+    const result = await askClinicalAssistant({ query: prompt });
+    const resultJson = JSON.parse(result.data.response);
 
     // 5. Save results
     const auditResult: Omit<AiAuditResult, 'id'> = {

@@ -182,6 +182,7 @@ export interface EPRFForm {
   reviewedBy?: { uid: string; name: string; date: firestore.Timestamp; };
   reviewNotes?: string;
   auditLog: AuditEntry[];
+  containsRestrictedDrugs?: boolean;
 }
 
 export interface VitalSign {

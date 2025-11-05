@@ -61,5 +61,6 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },
     status: 'Draft',
     auditLog: [],
+    containsRestrictedDrugs: false,
   }
 };

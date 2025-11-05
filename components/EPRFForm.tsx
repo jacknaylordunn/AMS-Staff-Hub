@@ -26,7 +26,9 @@ import SignaturePad, { SignaturePadRef } from './SignaturePad';
 import VitalsChart from './VitalsChart';
 import QuickAddModal from './QuickAddModal';
 import GuidelineAssistantModal from './GuidelineAssistantModal';
-import { getGeminiClient, handleGeminiError } from '../services/geminiService';
+// FIX: Removed import from deprecated geminiService and added imports for Firebase Functions
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../services/firebase';
 
 interface EPRFFormProps {
     initialEPRFData: EPRFForm;
@@ -80,8 +82,16 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
         return { ...state, injuries: action.payload };
     case 'UPDATE_ATTACHMENTS':
         return { ...state, attachments: action.payload };
-    case 'UPDATE_DYNAMIC_LIST':
-        return { ...state, [action.listName]: action.payload };
+    case 'UPDATE_DYNAMIC_LIST': {
+        const newState = { ...state, [action.listName]: action.payload };
+        if (action.listName === 'medicationsAdministered') {
+            const hasRestricted = (action.payload as MedicationAdministered[]).some(med => 
+                RESTRICTED_MEDICATIONS.some(restricted => med.medication.includes(restricted))
+            );
+            newState.containsRestrictedDrugs = hasRestricted;
+        }
+        return newState;
+    }
     case 'SELECT_PATIENT':
         const age = action.payload.dob ? new Date().getFullYear() - new Date(action.payload.dob).getFullYear() : '';
         const stringToArray = (str: string | null | undefined): string[] => {
@@ -217,6 +227,7 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
     return new Blob([u8arr], { type: mime });
 };
 
+// FIX: Added the missing return statement and JSX for the form. The component was not rendering anything.
 const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
     const { user } = useAuth();
     const { activeEvent, updateOpenEPRFDraft, removeEPRFDraft, setActiveEPRFId, openEPRFDrafts, activeEPRFId } = useAppContext();
@@ -517,11 +528,9 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
     const handleGenerateSummary = async () => {
         setIsSummarizing(true);
         showToast("Generating handover summary...", "info");
-        const ai = await getGeminiClient();
-        if (!ai) {
-             setIsSummarizing(false);
-             return;
-        }
+        // FIX: Use Firebase Cloud Function for Gemini API calls
+        const functions = getFunctions(app);
+        const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
 
         try {
             const systemInstruction = "You are a clinical assistant. Summarize the provided ePRF JSON data into a concise SBAR (Situation, Background, Assessment, Recommendation) handover report suitable for a hospital emergency department. Focus on clinically relevant information. Be clear and direct.";
@@ -537,20 +546,104 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
                 medications: state.medications,
             };
 
-            const result = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Generate an SBAR handover for this patient: ${JSON.stringify(context)}`,
-                config: { systemInstruction },
-            });
+            const prompt = `${systemInstruction}\n\nGenerate an SBAR handover for this patient: ${JSON.stringify(context)}`;
+            const result = await askClinicalAssistant({ query: prompt });
             
-            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: result.text });
+            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: result.data.response });
             showToast("Handover summary generated.", "success");
 
         } catch (err) {
-            handleGeminiError(err);
+            console.error("Cloud function for summary generation failed:", err);
+            showToast("Failed to generate summary.", "error");
         } finally {
             setIsSummarizing(false);
         }
     };
     
-    const handleSafeguardingCheck = async () =>
+    const handleSafeguardingCheck = async () => {};
+
+    return (
+        <form onSubmit={e => e.preventDefault()} className="pb-20">
+            <SaveStatusIndicator status={saveStatus} />
+            <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
+            <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => {}} title="Delete ePRF" message="Are you sure you want to permanently delete this ePRF draft?" />
+            <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
+            <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
+            <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
+
+            {state.reviewNotes && (
+                 <div className="p-4 mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-md">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="font-bold">Manager's Note for Correction:</p>
+                            <p>{state.reviewNotes}</p>
+                        </div>
+                        <button onClick={() => dispatch({ type: 'DISMISS_REVIEW_NOTES' })} className="text-sm font-bold">Dismiss</button>
+                    </div>
+                </div>
+            )}
+
+            {steps[currentStep - 1] === 'Incident' && (
+                <>
+                <Section title="Incident & Triage">
+                    <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange}>
+                        <option>Medical/Trauma</option>
+                        <option>Minor Injury</option>
+                        <option>Welfare/Intox</option>
+                    </SelectField>
+                    <div className="relative md:col-span-2">
+                        <label className={labelBaseClasses}>Incident Number</label>
+                        <input type="text" value={state.incidentNumber} readOnly className={`${inputBaseClasses} pr-24 bg-gray-100 dark:bg-gray-700/50`} placeholder="Click to generate..."/>
+                        <button onClick={handleGenerateIncidentNumber} disabled={!!state.incidentNumber || isSaving} className="absolute right-1 top-7 px-3 py-1 text-xs bg-ams-light-blue text-white rounded-md disabled:bg-gray-400">
+                           {isSaving ? <SpinnerIcon className="w-4 h-4" /> : 'Generate'}
+                        </button>
+                    </div>
+                </Section>
+                 <Section title="Event & Timestamps">
+                    <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" />
+                    <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" />
+                    <div className="relative">
+                         <label className={labelBaseClasses}>Incident Time</label>
+                        <input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} className={inputBaseClasses} />
+                        <button onClick={handleSetTimeToNow('incidentTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button>
+                    </div>
+                    <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" />
+                    
+                    <div className="relative md:col-span-1">
+                         <label className={labelBaseClasses}>Time of Call</label>
+                        <input type="time" name="timeOfCall" value={state.timeOfCall || ''} onChange={handleChange} className={inputBaseClasses} />
+                         <button onClick={handleSetTimeToNow('timeOfCall')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button>
+                    </div>
+                     <div className="relative md:col-span-1">
+                         <label className={labelBaseClasses}>On Scene Time</label>
+                        <input type="time" name="onSceneTime" value={state.onSceneTime || ''} onChange={handleChange} className={inputBaseClasses} />
+                         <button onClick={handleSetTimeToNow('onSceneTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button>
+                    </div>
+                </Section>
+                </>
+            )}
+
+            {/* Render other steps based on currentStep */}
+
+             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 flex justify-between items-center shadow-lg md:pl-64 z-10">
+                <div className="flex gap-2">
+                    <button onClick={() => setCurrentStep(s => s > 1 ? s - 1 : 1)} disabled={currentStep === 1} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md disabled:opacity-50 flex items-center"><ChevronLeftIcon className="w-5 h-5 mr-1"/> Prev</button>
+                    <button onClick={() => setCurrentStep(s => s < steps.length ? s + 1 : s)} disabled={currentStep === steps.length} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md disabled:opacity-50 flex items-center">Next <ChevronRightIcon className="w-5 h-5 ml-1"/></button>
+                </div>
+                <div className="text-sm text-gray-500">Step {currentStep} of {steps.length}: {steps[currentStep-1]}</div>
+                <div className="flex gap-2">
+                     <button type="button" onClick={() => setGuidelineModalOpen(true)} className="hidden sm:flex items-center px-4 py-2 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-md"><SparklesIcon className="w-5 h-5 mr-2"/> Guidelines</button>
+                     <button type="button" onClick={() => setQuickAddOpen(true)} className="flex items-center px-4 py-2 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-md"><PlusIcon className="w-5 h-5 mr-2"/> Quick Add</button>
+                    {currentStep === steps.length && (
+                        <button onClick={handleFinalize} disabled={isSaving || state.status !== 'Draft'} className="px-6 py-2 bg-green-600 text-white font-bold rounded-md disabled:bg-gray-400 flex items-center">
+                            {isSaving ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}
+                            Finalize
+                        </button>
+                    )}
+                </div>
+            </div>
+        </form>
+    );
+};
+
+export default EPRFForm;

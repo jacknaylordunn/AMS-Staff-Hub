@@ -133,7 +133,8 @@ const Rota: React.FC = () => {
                     staff={staff}
                     type={modalType}
                     currentUser={user!}
-                    refreshShifts={() => setManualRefresh(c => c + 1)} // Pass refresh function to modal
+                    // FIX: The refreshShifts prop expects a function returning a Promise. Making the function async satisfies this.
+                    refreshShifts={async () => setManualRefresh(c => c + 1)} // Pass refresh function to modal
                 />
             )}
             <div className="flex justify-between items-center mb-4">
