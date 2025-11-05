@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppProvider } from './hooks/useAppContext';
@@ -31,8 +32,10 @@ import KitDetail from './pages/KitDetail';
 import ControlledDrugs from './pages/ControlledDrugs';
 import Wellbeing from './pages/Wellbeing';
 import Quality from './pages/Quality';
-import { signOut } from 'firebase/auth';
+import { signOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from './services/firebase';
+import { showToast } from './components/Toast';
+import { SpinnerIcon } from './components/icons';
 
 
 const PendingApproval: React.FC = () => {
@@ -67,9 +70,67 @@ const PendingApproval: React.FC = () => {
     );
 };
 
+const EmailVerification: React.FC = () => {
+    const navigate = ReactRouterDOM.useNavigate();
+    // FIX: Imported useState hook from React to resolve 'Cannot find name' error.
+    const [sending, setSending] = useState(false);
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            navigate('/login');
+        } catch (error) {
+            showToast('Error signing out.', 'error');
+        }
+    };
+
+    const handleResend = async () => {
+        if (auth.currentUser) {
+            setSending(true);
+            try {
+                await sendEmailVerification(auth.currentUser);
+                showToast('Verification email sent! Please check your inbox.', 'success');
+            } catch (error) {
+                showToast('Failed to send verification email.', 'error');
+            } finally {
+                setSending(false);
+            }
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-ams-gray dark:bg-gray-900 text-center p-4">
+            <img src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Logo%20FINAL%20(2).png" alt="AMS Logo" className="h-16 mb-8" />
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Verify Your Email</h1>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mt-4 max-w-xl">
+                A verification link has been sent to your email address. Please click the link to continue.
+            </p>
+            <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
+                Once verified, refresh this page to log in.
+            </p>
+            <div className="flex items-center gap-4 mt-8">
+                <button
+                    onClick={handleResend}
+                    disabled={sending}
+                    className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center justify-center"
+                >
+                    {sending && <SpinnerIcon className="w-5 h-5 mr-2" />}
+                    Resend Email
+                </button>
+                <button
+                    onClick={handleLogout}
+                    className="px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
+                >
+                    Logout
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 const AppRoutes: React.FC = () => {
-    const { user, loading } = useAuth();
+    const { user, loading, isEmailVerified } = useAuth();
 
     if (loading) {
         return (
@@ -79,6 +140,15 @@ const AppRoutes: React.FC = () => {
         );
     }
 
+    if (user && !isEmailVerified) {
+        return (
+            <ReactRouterDOM.Routes>
+                <ReactRouterDOM.Route path="/login" element={<Login />} />
+                <ReactRouterDOM.Route path="*" element={<EmailVerification />} />
+            </ReactRouterDOM.Routes>
+        );
+    }
+    
     if (user && user.role === 'Pending') {
         return (
             <ReactRouterDOM.Routes>

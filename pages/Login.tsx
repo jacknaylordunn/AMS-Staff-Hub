@@ -5,7 +5,8 @@ import {
     createUserWithEmailAndPassword, 
     sendEmailVerification, 
     updateProfile,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    signOut
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/userService';
@@ -113,24 +114,38 @@ const Login: React.FC = () => {
             return;
         }
 
-        // CRITICAL SECURITY FIX: The insecure client-side registration logic has been removed.
-        // A secure, backend-driven approach is mandatory for production environments.
-        //
-        // RATIONALE: Performing user creation on the client-side with reCAPTCHA is insecure because
-        // the reCAPTCHA token verification can be easily bypassed by an attacker. A malicious user
-        // could intercept the request, remove the reCAPTCHA part, and directly call the Firebase
-        // client-side API to create users, leading to automated abuse (spam account creation).
-        //
-        // REQUIRED IMPLEMENTATION:
-        // 1. Create a Firebase Cloud Function (e.g., 'registerUser').
-        // 2. The client (this form) should get a reCAPTCHA token and send it along with the user's
-        //    email, password, and other details to this Cloud Function.
-        // 3. The Cloud Function MUST verify the reCAPTCHA token with Google's servers using your secret key.
-        // 4. If the token is valid, the Cloud Function (running in a trusted server environment) then uses the
-        //    Firebase Admin SDK to create the Auth user and the Firestore user profile.
-        // 5. This ensures the reCAPTCHA challenge cannot be bypassed.
-        setError('Registration is temporarily disabled. Please contact an administrator.');
-        setLoading(false);
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            await updateProfile(user, {
+                displayName: `${firstName} ${lastName}`.trim()
+            });
+
+            await createUserProfile(user.uid, {
+                email: user.email!,
+                firstName,
+                lastName,
+                registrationNumber,
+            });
+
+            await sendEmailVerification(user);
+
+            // Sign out the user immediately after registration
+            await signOut(auth);
+            
+            setMessage('Registration successful! A verification email has been sent to you. Please verify your email, then await manager approval before logging in.');
+            setIsLogin(true); // Switch to login view
+        } catch(err: any) {
+            if (err.code === 'auth/email-already-in-use') {
+                setError('An account with this email address already exists.');
+            } else {
+                setError('Registration failed. Please try again.');
+                console.error(err);
+            }
+        } finally {
+            setLoading(false);
+        }
     }
   };
 

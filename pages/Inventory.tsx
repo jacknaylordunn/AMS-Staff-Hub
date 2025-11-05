@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import type { Vehicle, Kit } from '../types';
@@ -143,8 +141,8 @@ const Inventory: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(vehicle.status)}`}>{vehicle.status}</span></td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <button onClick={() => navigate(`/inventory/vehicle/${vehicle.id}`)} className="text-ams-light-blue hover:text-ams-blue mr-4">View</button>
-                                        <button onClick={() => handleOpenVehicleModal(vehicle)} className="text-ams-light-blue hover:text-ams-blue mr-4">Edit</button>
-                                        <button onClick={() => openDeleteModal(vehicle, 'vehicle')} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100">Delete</button>
+                                        <button onClick={() => isOnline && handleOpenVehicleModal(vehicle)} disabled={!isOnline} className="text-ams-light-blue hover:text-ams-blue mr-4 disabled:opacity-50">Edit</button>
+                                        <button onClick={() => isOnline && openDeleteModal(vehicle, 'vehicle')} disabled={!isOnline} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 disabled:opacity-0">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -177,8 +175,8 @@ const Inventory: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{kit.assignedTo?.name || 'In Stores'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <button onClick={() => navigate(`/inventory/kit/${kit.id}`)} className="text-ams-light-blue hover:text-ams-blue mr-4">View</button>
-                                        <button onClick={() => handleOpenKitModal(kit)} className="text-ams-light-blue hover:text-ams-blue mr-4">Edit</button>
-                                        <button onClick={() => openDeleteModal(kit, 'kit')} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100">Delete</button>
+                                        <button onClick={() => isOnline && handleOpenKitModal(kit)} disabled={!isOnline} className="text-ams-light-blue hover:text-ams-blue mr-4 disabled:opacity-50">Edit</button>
+                                        <button onClick={() => isOnline && openDeleteModal(kit, 'kit')} disabled={!isOnline} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 disabled:opacity-0">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -210,7 +208,8 @@ const Inventory: React.FC = () => {
                  <button 
                     onClick={() => activeTab === 'vehicles' ? handleOpenVehicleModal(null) : handleOpenKitModal(null)} 
                     disabled={!isOnline}
-                    className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400">
+                    title={!isOnline ? "You must be online to add new items" : ""}
+                    className="flex items-center px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed">
                     <PlusIcon className="w-5 h-5 mr-2" /> Add New {activeTab === 'vehicles' ? 'Vehicle' : 'Kit'}
                 </button>
             </div>

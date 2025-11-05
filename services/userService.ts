@@ -3,9 +3,10 @@ import { db } from './firebase';
 import type { User } from '../types';
 
 // User Profile Functions
-export const createUserProfile = async (uid: string, data: { email: string; firstName: string; lastName: string; role: User['role'], registrationNumber?: string }) => {
+export const createUserProfile = async (uid: string, data: { email: string; firstName: string; lastName: string; registrationNumber?: string }) => {
   await setDoc(doc(db, 'users', uid), {
     ...data,
+    role: 'Pending', // All new users must be approved by a manager
     createdAt: Timestamp.now(),
   });
 };

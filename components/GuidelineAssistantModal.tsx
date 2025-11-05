@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { SpinnerIcon, SparklesIcon } from './icons';
+import { getGeminiClient, handleGeminiError } from '../services/geminiService';
 
 interface GuidelineAssistantModalProps {
     isOpen: boolean;
@@ -21,8 +22,13 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
         setError('');
         setResponse('');
 
+        const ai = await getGeminiClient();
+        if (!ai) {
+            setLoading(false);
+            return;
+        }
+
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const systemInstruction = "You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis or recommend specific drug dosages unless they are standard guideline advice. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.";
             
             const result = await ai.models.generateContent({
@@ -34,7 +40,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
             setResponse(result.text);
 
         } catch (err) {
-            console.error("Guideline Assistant Error:", err);
+            handleGeminiError(err);
             setError("Sorry, I couldn't fetch the information. Please check your connection and try again.");
         } finally {
             setLoading(false);

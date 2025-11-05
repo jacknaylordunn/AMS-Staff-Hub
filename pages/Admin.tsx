@@ -32,6 +32,7 @@ const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filter, setFilter] = useState<'pending' | 'all'>('pending');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -53,12 +54,16 @@ const UserManagement: React.FC = () => {
     }, []);
 
     const filteredUsers = useMemo(() => {
-        if (!searchTerm) return users;
-        return users.filter(user =>
-            `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [users, searchTerm]);
+        return users
+            .filter(user => {
+                if (filter === 'pending') return user.role === 'Pending';
+                return true;
+            })
+            .filter(user =>
+                `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+    }, [users, searchTerm, filter]);
 
     const handleRoleChange = async (userId: string, newRole: User['role']) => {
         if (!newRole) return;
@@ -77,17 +82,26 @@ const UserManagement: React.FC = () => {
     };
 
     const roles: User['role'][] = ['Pending', 'First Aider', 'FREC3', 'FREC4/ECA', 'FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Welfare', 'Admin', 'Manager'];
+    const pendingCount = useMemo(() => users.filter(u => u.role === 'Pending').length, [users]);
 
     return (
         <div>
-            <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col md:flex-row gap-4">
                 <input
                     type="text"
                     placeholder="Search by name or email..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-md focus:ring-ams-light-blue focus:border-ams-light-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                    className="w-full md:w-1/2 px-4 py-2 border rounded-md focus:ring-ams-light-blue focus:border-ams-light-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                 />
+                 <div className="flex items-center space-x-2">
+                    <button onClick={() => setFilter('pending')} className={`px-3 py-1 text-sm font-medium rounded-full ${filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                        Pending ({pendingCount})
+                    </button>
+                    <button onClick={() => setFilter('all')} className={`px-3 py-1 text-sm font-medium rounded-full ${filter === 'all' ? 'bg-ams-blue text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                        All Users
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-md">

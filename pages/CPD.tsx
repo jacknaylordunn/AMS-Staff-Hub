@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { getCPDEntriesForUser, deleteCPDEntry } from '../services/cpdService';
 import type { CPDEntry } from '../types';
 import { SpinnerIcon, PlusIcon, CPDIcon, PencilIcon, TrashIcon, DocsIcon } from '../components/icons';
@@ -9,6 +10,7 @@ import { showToast } from '../components/Toast';
 
 const CPD: React.FC = () => {
     const { user } = useAuth();
+    const { isOnline } = useOnlineStatus();
     const [entries, setEntries] = useState<CPDEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setModalOpen] = useState(false);
@@ -101,12 +103,20 @@ const CPD: React.FC = () => {
                         <p className="text-xl font-bold text-ams-blue dark:text-ams-light-blue">{totalHours}</p>
                     </div>
                     <button 
-                        onClick={() => handleOpenModal(null)} 
-                        className="flex items-center px-4 py-2 bg-ams-blue text-white font-semibold rounded-md shadow hover:bg-opacity-90">
+                        onClick={() => handleOpenModal(null)}
+                        disabled={!isOnline}
+                        title={!isOnline ? "You must be online to add new entries" : "Add New CPD Entry"}
+                        className="flex items-center px-4 py-2 bg-ams-blue text-white font-semibold rounded-md shadow hover:bg-opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <PlusIcon className="w-5 h-5 mr-2" /> Add New Entry
                     </button>
                 </div>
             </div>
+
+            {!isOnline && (
+                <div className="mb-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md dark:bg-yellow-900 dark:text-yellow-200">
+                    <p><span className="font-bold">Offline Mode:</span> You are viewing cached CPD entries. Please reconnect to add or edit entries.</p>
+                </div>
+            )}
 
             {loading ? (
                 <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" /></div>
@@ -135,10 +145,10 @@ const CPD: React.FC = () => {
                                                 <DocsIcon className="w-5 h-5" />
                                             </a>
                                         )}
-                                        <button onClick={() => handleOpenModal(entry)} className="p-2 text-gray-500 hover:text-ams-blue dark:text-gray-400 dark:hover:text-ams-blue" title="Edit Entry">
+                                        <button onClick={() => isOnline && handleOpenModal(entry)} disabled={!isOnline} className="p-2 text-gray-500 hover:text-ams-blue dark:text-gray-400 dark:hover:text-ams-blue disabled:opacity-50" title="Edit Entry">
                                             <PencilIcon className="w-5 h-5" />
                                         </button>
-                                        <button onClick={() => handleDeleteClick(entry)} className="p-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-500" title="Delete Entry">
+                                        <button onClick={() => isOnline && handleDeleteClick(entry)} disabled={!isOnline} className="p-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-500 disabled:opacity-50" title="Delete Entry">
                                             <TrashIcon className="w-5 h-5" />
                                         </button>
                                     </div>

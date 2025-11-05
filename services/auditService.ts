@@ -3,6 +3,7 @@ import { collection, doc, getDoc, setDoc, Timestamp, getDocs, query, orderBy } f
 import { db } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
+import { getGeminiClient } from './geminiService';
 
 const anonymizeEPRF = (eprf: EPRFForm, patient: Patient): Partial<EPRFForm> => {
     const { 
@@ -36,7 +37,10 @@ const getJRCALCGuidelines = () => {
 };
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const ai = await getGeminiClient({ showToasts: false });
+    if (!ai) {
+        throw new Error("AI client could not be initialized. API key might be missing.");
+    }
 
     // 1. Fetch associated patient data
     const patientDoc = await getDoc(doc(db, 'patients', eprf.patientId!));

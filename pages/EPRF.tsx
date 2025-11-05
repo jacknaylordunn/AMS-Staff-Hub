@@ -25,6 +25,7 @@ import SignaturePad, { SignaturePadRef } from '../components/SignaturePad';
 import VitalsChart from '../components/VitalsChart';
 import QuickAddModal from '../components/QuickAddModal';
 import GuidelineAssistantModal from '../components/GuidelineAssistantModal';
+import { getGeminiClient, handleGeminiError } from '../services/geminiService';
 
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
 const SENIOR_CLINICIAN_ROLES: AppUser['role'][] = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
@@ -632,8 +633,12 @@ const EPRF: React.FC = () => {
     
     const handleGenerateSummary = async () => {
         setIsSummarizing(true);
+        const ai = await getGeminiClient();
+        if (!ai) {
+            setIsSummarizing(false);
+            return;
+        }
         try {
-             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
              const prompt = `
               Generate a concise, professional clinical handover summary in SBAR format (Situation, Background, Assessment, Recommendation) based on the following ePRF data. The output must be plain text and only use the information provided.
 
@@ -675,8 +680,7 @@ const EPRF: React.FC = () => {
             showToast("Handover summary generated.", "success");
 
         } catch (error) {
-            console.error("Gemini summary failed:", error);
-            showToast("Could not generate summary.", "error");
+            handleGeminiError(error);
         } finally {
             setIsSummarizing(false);
         }
@@ -689,7 +693,9 @@ const EPRF: React.FC = () => {
         setSafeguardingCheckText(text);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const ai = await getGeminiClient({ showToasts: false });
+            if (!ai) return; // Fail silently if no key
+
             const systemInstruction = "You are an AI assistant trained to identify potential safeguarding concerns in clinical text based on UK safeguarding principles. Your task is to analyze the following text and determine if it contains any indicators of child abuse, adult abuse, domestic violence, neglect, or vulnerability (e.g., inconsistent injury history, concerning quotes, mentions of self-harm). Respond with ONLY the word 'true' if potential indicators are present, and ONLY the word 'false' otherwise. Do not provide any explanation or other text.";
             
             const response = await ai.models.generateContent({

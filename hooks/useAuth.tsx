@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   isManager: boolean;
   isAdmin: boolean;
+  isEmailVerified: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   
   const isManager = user?.role === 'Manager' || user?.role === 'Admin';
   const isAdmin = user?.role === 'Admin';
@@ -23,6 +25,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        setIsEmailVerified(firebaseUser.emailVerified);
         // Fetch profile from Firestore
         const userProfile = await getUserProfile(firebaseUser.uid);
         if (userProfile) {
@@ -46,6 +49,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } else {
         setUser(null);
+        setIsEmailVerified(false);
       }
       setLoading(false);
     });
@@ -54,7 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, isManager, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, isManager, isAdmin, isEmailVerified }}>
       {children}
     </AuthContext.Provider>
   );
