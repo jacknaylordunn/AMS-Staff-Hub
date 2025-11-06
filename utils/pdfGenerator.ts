@@ -1,5 +1,6 @@
-// FIX: Using a named import for jsPDF to correctly resolve the module for augmentation, as the default import was not working.
-import { jsPDF } from 'jspdf';
+// FIX: Changed to a default import for jsPDF, which is the correct syntax for the library.
+// This allows TypeScript to correctly find and augment the module.
+import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
 

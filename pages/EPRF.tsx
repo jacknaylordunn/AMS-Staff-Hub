@@ -7,6 +7,8 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import EPRFForm from '../components/EPRFForm';
 import { SpinnerIcon, EprfIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
+// FIX: Renamed imported type EPRFForm to EPRFFormType to avoid conflict with the EPRFForm component.
+import type { EPRFForm as EPRFFormType } from '../types';
 
 export const EPRF: React.FC = () => {
     const { user } = useAuth();
@@ -38,24 +40,36 @@ export const EPRF: React.FC = () => {
         
         const loadOrCreateDrafts = async () => {
             setIsLoading(true);
+            let drafts: EPRFFormType[] = [];
             try {
-                const drafts = await getAllDraftsForUser(user.uid);
-                if (!isMounted) return;
-
-                if (drafts.length > 0) {
-                    drafts.forEach(addEPRFDraft);
-                    if (!activeEPRFId) {
-                        setActiveEPRFId(drafts[0].id!);
-                    }
-                } else if (activeEvent) {
+                drafts = await getAllDraftsForUser(user.uid);
+            } catch (err) {
+                console.error("Failed to load existing ePRF drafts. This may be due to a missing Firestore index. Proceeding as if none exist.", err);
+                // We swallow this error and proceed as if no drafts were found.
+            }
+        
+            if (!isMounted) return;
+        
+            if (drafts.length > 0) {
+                drafts.forEach(addEPRFDraft);
+                if (!activeEPRFId) {
+                    setActiveEPRFId(drafts[0].id!);
+                }
+                setIsLoading(false);
+            } else if (activeEvent) {
+                try {
                     const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
                     if (!isMounted) return;
                     addEPRFDraft(newDraft);
                     setActiveEPRFId(newDraft.id!);
+                } catch (createError) {
+                    console.error("Failed to create new ePRF draft:", createError);
+                    showToast("Failed to create a new ePRF draft.", "error");
+                } finally {
+                    if (isMounted) setIsLoading(false);
                 }
-            } catch (error) {
-                showToast("Failed to load ePRF drafts.", "error");
-            } finally {
+            } else {
+                // No drafts found, and no active event to create one for.
                 if (isMounted) setIsLoading(false);
             }
         };
