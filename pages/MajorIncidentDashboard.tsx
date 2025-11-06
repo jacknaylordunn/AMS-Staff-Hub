@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { getIncidentById, getIncidentMethaneReports, getIncidentStaffCheckins, standDownIncident } from '../services/majorIncidentService';
 import type { MajorIncident, METHANEreport, StaffCheckin } from '../types';
@@ -49,6 +49,20 @@ const MajorIncidentDashboard: React.FC = () => {
         };
     }, [incidentId]);
 
+    const groupedCheckins = useMemo(() => {
+        const groups: Record<string, StaffCheckin[]> = {
+          'Available - On Site': [],
+          'Available - En Route': [],
+          'Unavailable': [],
+        };
+        checkins.forEach(ci => {
+          if (groups[ci.status]) {
+            groups[ci.status].push(ci);
+          }
+        });
+        return groups;
+      }, [checkins]);
+
     const handleStandDown = async () => {
         if (!incidentId) return;
         setIsProcessing(true);
@@ -65,9 +79,9 @@ const MajorIncidentDashboard: React.FC = () => {
     };
     
     const getStatusColor = (status: StaffCheckin['status']) => {
-        if (status.startsWith('Available')) return 'bg-green-100 text-green-800';
-        if (status === 'Unavailable') return 'bg-red-100 text-red-800';
-        return 'bg-gray-100 text-gray-800';
+        if (status.startsWith('Available')) return 'border-green-500';
+        if (status === 'Unavailable') return 'border-red-500';
+        return 'border-gray-500';
     };
 
     if (loading) {
@@ -105,16 +119,24 @@ const MajorIncidentDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">Personnel Status</h2>
-                    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-                        {checkins.length > 0 ? checkins.map(ci => (
-                            <div key={ci.userId} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                <div className="flex justify-between items-center">
-                                    <p className="font-semibold dark:text-gray-200">{ci.userName}</p>
-                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(ci.status)}`}>{ci.status}</span>
-                                </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{ci.userRole} - Updated at {ci.timestamp.toDate().toLocaleTimeString()}</p>
+                    <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+                        {Object.entries(groupedCheckins).map(([status, staff]) => (
+                            <div key={status}>
+                                <h3 className={`text-lg font-semibold border-l-4 pl-2 mb-2 ${getStatusColor(status as StaffCheckin['status'])}`}>{status} ({staff.length})</h3>
+                                {staff.length > 0 ? (
+                                    <div className="space-y-2 pl-3">
+                                        {staff.map(ci => (
+                                            <div key={ci.userId} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                                <p className="font-semibold dark:text-gray-200">{ci.userName}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{ci.userRole} - Updated at {ci.timestamp.toDate().toLocaleTimeString()}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="pl-3 text-sm text-gray-400">No staff in this category.</p>
+                                )}
                             </div>
-                        )) : <p className="text-sm text-gray-500 dark:text-gray-400">No staff have checked in yet.</p>}
+                        ))}
                     </div>
                 </div>
 

@@ -228,7 +228,6 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
     return new Blob([u8arr], { type: mime });
 };
 
-// FIX: Added the missing return statement and JSX for the form. The component was not rendering anything.
 const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     const { user } = useAuth();
     const { isOnline } = useOnlineStatus();
@@ -651,9 +650,199 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
                 </>
             )}
 
-            {/* Render other steps based on currentStep */}
+            {steps[currentStep - 1] === 'Patient' && (
+                <Section title="Patient Information">
+                    <div className="relative md:col-span-4">
+                        <label className={labelBaseClasses}>Search Existing Patient</label>
+                        <div className="flex gap-2">
+                            <input type="search" value={patientSearch} onChange={e => setPatientSearch(e.target.value)} placeholder="Search by name or DOB..." className={inputBaseClasses}/>
+                            <button type="button" onClick={() => setPatientModalOpen(true)} className="px-4 py-2 bg-ams-blue text-white rounded-md text-sm">New Patient</button>
+                        </div>
+                        {searchLoading && <SpinnerIcon className="absolute top-9 right-32" />}
+                        {searchResults.length > 0 && (
+                            <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border rounded-md shadow-lg max-h-60 overflow-auto">
+                                {searchResults.map(p => <li key={p.id} onClick={() => handleSelectPatient(p)} className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600">{p.firstName} {p.lastName} - {p.dob}</li>)}
+                            </ul>
+                        )}
+                    </div>
+                    {state.patientId && <div className="md:col-span-4 p-2 bg-green-100 dark:bg-green-900/50 rounded flex justify-between items-center"><p>Patient record selected: <strong>{state.patientName}</strong></p><button onClick={() => dispatch({type: 'CLEAR_PATIENT'})} className="text-sm font-bold">Clear</button></div>}
+                    <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required className="md:col-span-2"/>
+                    <InputField label="Age" name="patientAge" value={state.patientAge} onChange={handleChange} />
+                    <SelectField label="Gender" name="patientGender" value={state.patientGender} onChange={handleChange}>
+                        <option>Unknown</option><option>Male</option><option>Female</option><option>Other</option>
+                    </SelectField>
+                </Section>
+            )}
+            
+            {/* Medical/Trauma Steps */}
+            {state.presentationType === 'Medical/Trauma' && steps[currentStep - 1] === 'Assessment' && (
+                <>
+                <Section title="Presenting Complaint & History (SAMPLE)">
+                    <SpeechEnabledTextArea label="Presenting Complaint / Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} rows={3} />
+                    <SpeechEnabledTextArea label="History of Presenting Complaint" name="history" value={state.history} onChange={handleChange} rows={5} />
+                    <SpeechEnabledTextArea label="Mechanism of Injury" name="mechanismOfInjury" value={state.mechanismOfInjury || ''} onChange={handleChange} rows={3} />
+                    <TaggableInput label="Allergies" value={state.allergies} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'allergies', payload: v})} suggestions={['NKDA']} placeholder="e.g., Penicillin, NKDA" />
+                    <TaggableInput label="Medications" value={state.medications} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'medications', payload: v})} suggestions={DRUG_DATABASE} placeholder="e.g., Aspirin, Salbutamol" />
+                    <InputField label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} className="md:col-span-2"/>
+                    <InputField label="Last Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} className="md:col-span-2"/>
+                </Section>
+                <Section title="Primary Survey (ABCDE)">
+                     <InputField label="Airway" name="airway" value={state.airway} onChange={handleChange} />
+                    <InputField label="Breathing" name="breathing" value={state.breathing} onChange={handleChange} />
+                    <InputField label="Circulation" name="circulation" value={state.circulation} onChange={handleChange} />
+                    <InputField label="Exposure" name="exposure" value={state.exposure} onChange={handleChange} />
+                </Section>
+                 <Section title="Disability (GCS)">
+                    <SelectField label="AVPU" name="avpu" value={state.disability.avpu} onChange={e => handleNestedChange('disability', 'avpu', e)}><option>Alert</option><option>Voice</option><option>Pain</option><option>Unresponsive</option></SelectField>
+                    <SelectField label="Eyes" name="eyes" value={state.disability.gcs.eyes} onChange={handleGCSChange}><option value={4}>4 - Spontaneous</option><option value={3}>3 - To Speech</option><option value={2}>2 - To Pain</option><option value={1}>1 - None</option></SelectField>
+                    <SelectField label="Verbal" name="verbal" value={state.disability.gcs.verbal} onChange={handleGCSChange}><option value={5}>5 - Orientated</option><option value={4}>4 - Confused</option><option value={3}>3 - Inappropriate</option><option value={2}>2 - Incomprehensible</option><option value={1}>1 - None</option></SelectField>
+                    <SelectField label="Motor" name="motor" value={state.disability.gcs.motor} onChange={handleGCSChange}><option value={6}>6 - Obeys Commands</option><option value={5}>5 - Localises Pain</option><option value={4}>4 - Withdraws</option><option value={3}>3 - Flexion</option><option value={2}>2 - Extension</option><option value={1}>1 - None</option></SelectField>
+                    <InputField label="GCS Total" name="total" value={state.disability.gcs.total} onChange={() => {}} className="md:col-start-2" />
+                    <InputField label="Pupils" name="pupils" value={state.disability.pupils} onChange={e => handleNestedChange('disability', 'pupils', e)} className="md:col-span-2" />
+                </Section>
+                </>
+            )}
 
-             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 flex justify-between items-center shadow-lg md:pl-64 z-10">
+            {state.presentationType === 'Medical/Trauma' && steps[currentStep - 1] === 'Vitals & Injuries' && (
+                <>
+                <VitalsChart vitals={state.vitals} />
+                <Section title="Observations / Vital Signs">
+                    <div className="md:col-span-4 space-y-4">
+                    {state.vitals.map((vital, index) => (
+                        <div key={index} className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 items-end p-4 border rounded-md dark:border-gray-700">
+                             <InputField type="time" label="Time" name="time" value={vital.time} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="HR" name="hr" value={vital.hr} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="RR" name="rr" value={vital.rr} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="BP" name="bp" value={vital.bp} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="SpO2 (%)" name="spo2" value={vital.spo2} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="Temp (°C)" name="temp" value={vital.temp} onChange={(e) => handleVitalChange(index, e)}/>
+                             <InputField label="BG (mmol/L)" name="bg" value={vital.bg} onChange={(e) => handleVitalChange(index, e)}/>
+                             <SelectField label="Pain" name="painScore" value={vital.painScore} onChange={(e) => handleVitalChange(index, e)}>
+                                {Array.from({length: 11}, (_, i) => <option key={i} value={i}>{i}</option>)}
+                             </SelectField>
+                             <div className="flex items-center"><CheckboxField label="On O2?" name="onOxygen" checked={vital.onOxygen} onChange={(e) => handleVitalChange(index, e)}/></div>
+                             <div className="flex items-center"><p className="text-sm dark:text-gray-300">NEWS2: <span className={`font-bold p-1 rounded ${getNews2RiskColor(vital.news2)} text-white`}>{vital.news2 ?? 'N/A'}</span></p></div>
+                             <div className="flex justify-end"><button type="button" onClick={() => removeVitalSign(index)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button></div>
+                        </div>
+                    ))}
+                    <button type="button" onClick={addVitalSign} className="flex items-center text-sm px-3 py-1 bg-ams-blue text-white rounded-md hover:bg-opacity-90"><PlusIcon className="w-4 h-4 mr-1"/>Add Vitals</button>
+                    </div>
+                </Section>
+                <Section title="Secondary Survey & Injury Map">
+                    <SpeechEnabledTextArea label="Secondary Survey Findings" name="secondarySurvey" value={state.secondarySurvey} onChange={handleChange} />
+                    <div className="md:col-span-4"><InteractiveBodyMap value={state.injuries} onChange={handleInjuriesChange} /></div>
+                </Section>
+                </>
+            )}
+
+             {state.presentationType === 'Medical/Trauma' && steps[currentStep - 1] === 'Treatment' && (
+                <Section title="Treatment & Interventions">
+                    <TaggableInput label="Working Impressions" value={state.impressions} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'impressions', payload: v})} suggestions={commonImpressions} placeholder="e.g., Asthma, Fall" />
+                    <TaggableInput label="Items Used" value={state.itemsUsed} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'itemsUsed', payload: v})} suggestions={commonItemsUsed} placeholder="e.g., Large Dressing" />
+                    
+                    <div className="md:col-span-4">
+                        {/* FIX: Corrected variable name from labelClasses to labelBaseClasses. */}
+                         <div className="flex justify-between items-center mb-2"><h3 className={labelBaseClasses}>Medications Administered</h3><button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center text-sm text-ams-blue dark:text-ams-light-blue"><PlusIcon className="w-4 h-4 mr-1"/>Add Medication</button></div>
+                        {state.medicationsAdministered.map((med, index) => (
+                             <div key={med.id} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end p-2 border-b dark:border-gray-700">
+                                <InputField type="time" label="Time" name="time" value={med.time} onChange={(e) => handleDynamicListChange('medicationsAdministered', index, e)} />
+                                <InputField label="Medication" name="medication" value={med.medication} list="drug-db" onChange={(e) => handleDynamicListChange('medicationsAdministered', index, e)} />
+                                <InputField label="Dose" name="dose" value={med.dose} onChange={(e) => handleDynamicListChange('medicationsAdministered', index, e)} />
+                                <SelectField label="Route" name="route" value={med.route} onChange={(e) => handleDynamicListChange('medicationsAdministered', index, e)}><option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option></SelectField>
+                                <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} className="text-red-500 hover:text-red-700 h-10"><TrashIcon className="w-5 h-5"/></button>
+                            </div>
+                        ))}
+                    </div>
+                     <div className="md:col-span-4">
+                        {/* FIX: Corrected variable name from labelClasses to labelBaseClasses. */}
+                         <div className="flex justify-between items-center mb-2"><h3 className={labelBaseClasses}>Interventions Performed</h3><button type="button" onClick={() => addDynamicListItem('interventions')} className="flex items-center text-sm text-ams-blue dark:text-ams-light-blue"><PlusIcon className="w-4 h-4 mr-1"/>Add Intervention</button></div>
+                        {state.interventions.map((item, index) => (
+                             <div key={item.id} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end p-2 border-b dark:border-gray-700">
+                                <InputField type="time" label="Time" name="time" value={item.time} onChange={(e) => handleDynamicListChange('interventions', index, e)} className="sm:col-span-1" />
+                                <InputField label="Intervention" name="intervention" value={item.intervention} onChange={(e) => handleDynamicListChange('interventions', index, e)} className="sm:col-span-2" />
+                                <InputField label="Details" name="details" value={item.details} onChange={(e) => handleDynamicListChange('interventions', index, e)} className="sm:col-span-2" />
+                                <button type="button" onClick={() => removeDynamicListItem('interventions', index)} className="text-red-500 hover:text-red-700 h-10"><TrashIcon className="w-5 h-5"/></button>
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
+            {/* Minor Injury Step */}
+            {state.presentationType === 'Minor Injury' && steps[currentStep - 1] === 'Injury Assessment' && (
+                <Section title="Injury Assessment & Treatment">
+                     <SpeechEnabledTextArea label="History of Injury" name="history" value={state.history} onChange={handleChange} rows={4} />
+                     <TaggableInput label="Items Used" value={state.itemsUsed} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'itemsUsed', payload: v})} suggestions={commonItemsUsed} placeholder="e.g., Large Dressing" />
+                     <SpeechEnabledTextArea label="Treatment Provided & Advice Given" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} rows={4} />
+                     <div className="md:col-span-4"><InteractiveBodyMap value={state.injuries} onChange={handleInjuriesChange} /></div>
+                </Section>
+            )}
+
+            {/* Welfare Step */}
+            {state.presentationType === 'Welfare/Intox' && steps[currentStep - 1] === 'Welfare Log' && (
+                <Section title="Welfare Log">
+                     <SpeechEnabledTextArea label="Presenting Situation" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} rows={3} />
+                     <div className="md:col-span-4">
+                        {/* FIX: Corrected variable name from labelClasses to labelBaseClasses. */}
+                         <div className="flex justify-between items-center mb-2"><h3 className={labelBaseClasses}>Log Entries</h3><button type="button" onClick={() => addDynamicListItem('welfareLog')} className="flex items-center text-sm text-ams-blue dark:text-ams-light-blue"><PlusIcon className="w-4 h-4 mr-1"/>Add Entry</button></div>
+                        {state.welfareLog.map((item, index) => (
+                             <div key={item.id} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end p-2 border-b dark:border-gray-700">
+                                <InputField type="time" label="Time" name="time" value={item.time} onChange={(e) => handleDynamicListChange('welfareLog', index, e)} className="sm:col-span-1" />
+                                <InputField label="Observation / Action" name="observation" value={item.observation} onChange={(e) => handleDynamicListChange('welfareLog', index, e)} className="sm:col-span-4" />
+                                <button type="button" onClick={() => removeDynamicListItem('welfareLog', index)} className="text-red-500 hover:text-red-700 h-10"><TrashIcon className="w-5 h-5"/></button>
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
+            {steps[currentStep - 1] === 'Disposition & Signatures' && (
+                <>
+                <Section title="Disposition & Handover">
+                    <SelectField label="Final Patient Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2">
+                        <option value="Not Set">-- Select --</option>
+                        <option>Conveyed to ED</option>
+                        <option>Left at Home (Own Consent)</option>
+                        <option>Left at Home (Against Advice)</option>
+                        <option>Referred to Other Service</option>
+                        <option>Deceased on Scene</option>
+                    </SelectField>
+                    {state.disposition === 'Conveyed to ED' && <>
+                        <InputField label="Destination" name="destination" value={state.dispositionDetails.destination} onChange={(e) => handleNestedChange('dispositionDetails', 'destination', e)} />
+                        <InputField label="Receiving Clinician" name="receivingClinician" value={state.dispositionDetails.receivingClinician} onChange={(e) => handleNestedChange('dispositionDetails', 'receivingClinician', e)} />
+                    </>}
+                    {state.disposition === 'Referred to Other Service' && <InputField label="Referral Details" name="referralDetails" value={state.dispositionDetails.referralDetails} onChange={(e) => handleNestedChange('dispositionDetails', 'referralDetails', e)} className="md:col-span-2" />}
+                    <div className="md:col-span-4 relative">
+                        <SpeechEnabledTextArea label="Handover Details (SBAR)" name="handoverDetails" value={state.handoverDetails} onChange={handleChange} rows={5} />
+                        <button type="button" onClick={handleGenerateSummary} disabled={isSummarizing} className="absolute top-0 right-0 flex items-center text-sm px-3 py-1 bg-purple-100 text-purple-800 rounded-md hover:bg-purple-200 disabled:bg-gray-200">
+                           {isSummarizing ? <SpinnerIcon className="w-4 h-4 mr-2"/> : <SparklesIcon className="w-4 h-4 mr-2"/>} Generate Summary
+                        </button>
+                    </div>
+                </Section>
+                <Section title="Crew & Signatures">
+                    <div className="md:col-span-2">
+                        <label className={labelBaseClasses}>Attending Crew</label>
+                        <ul className="mt-1 space-y-1">
+                            {state.crewMembers.map(c => <li key={c.uid} className="flex justify-between items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-md">{c.name} {c.uid !== user?.uid && <button onClick={() => handleRemoveCrewMember(c.uid)} className="text-red-500 text-xs">remove</button>}</li>)}
+                        </ul>
+                        <div className="flex gap-2 mt-2">
+                            <select value={selectedCrewMember} onChange={e => setSelectedCrewMember(e.target.value)} className={`${inputBaseClasses} flex-grow`}><option value="">Add crew member...</option>{allStaff.filter(s => !state.crewMembers.some(c => c.uid === s.uid)).map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}</select>
+                            <button type="button" onClick={handleAddCrewMember} className="px-3 bg-ams-blue text-white rounded-md text-sm">Add</button>
+                        </div>
+                    </div>
+                    <div className="md:col-span-1">
+                        <label className={labelBaseClasses}>Clinician Signature</label>
+                        <SignaturePad ref={clinicianSigRef} />
+                    </div>
+                     <div className="md:col-span-1">
+                        <label className={labelBaseClasses}>Patient / Guardian Signature</label>
+                        <SignaturePad ref={patientSigRef} />
+                    </div>
+                </Section>
+                </>
+            )}
+
+            <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 flex justify-between items-center shadow-lg md:pl-64 z-10">
                 <div className="flex gap-2 items-center">
                     <button type="button" onClick={() => setIsDeleteModalOpen(true)} disabled={isDeleting} className="p-2 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-full hover:bg-red-200">
                         {isDeleting ? <SpinnerIcon className="w-5 h-5" /> : <TrashIcon className="w-5 h-5" />}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-import { getAllDraftsForUser, getPendingEPRFs } from '../services/eprfService';
+import { getAllDraftsForUser, getPendingEPRFs, getRecentEPRFsForUser } from '../services/eprfService';
 import { getShiftsForUser } from '../services/rotaService';
 import { getActiveIncidents } from '../services/majorIncidentService';
 import { getUsers } from '../services/userService';
@@ -52,6 +52,25 @@ const ActionCard: React.FC<{ to?: string, onClick?: () => void, icon: React.Reac
     return to ? <ReactRouterDOM.Link to={to}>{content}</ReactRouterDOM.Link> : <button onClick={onClick} className="w-full h-full">{content}</button>;
 };
 
+const RecentReports: React.FC<{ reports: EPRFForm[] }> = ({ reports }) => (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow h-full">
+        <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-4">My Recent Reports</h2>
+        <div className="space-y-4">
+            {reports.length > 0 ? (
+                reports.map(report => (
+                    <ReactRouterDOM.Link key={report.id} to={`/patients/${report.patientId}`} className="block p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <p className="font-semibold text-ams-blue dark:text-ams-light-blue">{report.patientName}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{report.presentingComplaint}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{report.incidentDate} at {report.eventName}</p>
+                    </ReactRouterDOM.Link>
+                ))
+            ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-4">No finalized reports found.</p>
+            )}
+        </div>
+    </div>
+);
+
 
 const Dashboard: React.FC = () => {
     const { user, isManager } = useAuth();
@@ -62,6 +81,9 @@ const Dashboard: React.FC = () => {
     const [drafts, setDrafts] = useState<EPRFForm[]>([]);
     const [nextShift, setNextShift] = useState<Shift | null>(null);
     const [activeIncident, setActiveIncident] = useState<MajorIncident | null>(null);
+    const [recentReports, setRecentReports] = useState<EPRFForm[]>([]);
+
+    // Manager State
     const [pendingReviews, setPendingReviews] = useState<EPRFForm[]>([]);
     const [pendingStaff, setPendingStaff] = useState<AppUser[]>([]);
     const [vehiclesRequiringMaintenance, setVehiclesRequiringMaintenance] = useState<Vehicle[]>([]);
@@ -78,7 +100,8 @@ const Dashboard: React.FC = () => {
                 const promises: Promise<any>[] = [
                     getAllDraftsForUser(user.uid),
                     getActiveIncidents(),
-                    getShiftsForUser(user.uid, today.getFullYear(), today.getMonth())
+                    getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()),
+                    getRecentEPRFsForUser(user.uid, 5)
                 ];
 
                 if (isManager) {
@@ -107,11 +130,13 @@ const Dashboard: React.FC = () => {
                         .sort((a, b) => a.start.toMillis() - b.start.toMillis());
                     if (upcomingShifts.length > 0) setNextShift(upcomingShifts[0]);
                 }
+                if (results[3].status === 'fulfilled') setRecentReports(results[3].value as EPRFForm[]);
+
                 
                 if (isManager) {
-                    if (results[3].status === 'fulfilled') setPendingReviews(results[3].value as EPRFForm[]);
-                    if (results[4].status === 'fulfilled') setPendingStaff((results[4].value as AppUser[]).filter(u => u.role === 'Pending'));
-                    if (results[5].status === 'fulfilled') setVehiclesRequiringMaintenance((results[5].value as Vehicle[]).filter(v => v.status === 'Maintenance Required'));
+                    if (results[4].status === 'fulfilled') setPendingReviews(results[4].value as EPRFForm[]);
+                    if (results[5].status === 'fulfilled') setPendingStaff((results[5].value as AppUser[]).filter(u => u.role === 'Pending'));
+                    if (results[6].status === 'fulfilled') setVehiclesRequiringMaintenance((results[6].value as Vehicle[]).filter(v => v.status === 'Maintenance Required'));
                 }
             };
     
@@ -220,7 +245,8 @@ const Dashboard: React.FC = () => {
                     <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
                     <ActionCard to="/inventory" icon={<AmbulanceIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Inventory" description="Manage vehicles & kits." />
                 </div>
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-6">
+                    <RecentReports reports={recentReports} />
                     {user && <HubFeed user={user} />}
                 </div>
             </div>

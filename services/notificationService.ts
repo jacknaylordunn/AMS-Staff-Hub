@@ -14,6 +14,20 @@ export const createNotification = async (userId: string, message: string, link?:
     });
 };
 
+export const listenToNotificationsForUser = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
+    const notificationsCol = firestore.collection(db, 'notifications');
+    const q = firestore.query(notificationsCol,
+        firestore.where('userId', '==', userId),
+        firestore.where('read', '==', false),
+        firestore.orderBy('createdAt', 'desc'),
+        firestore.limit(10));
+    
+    return firestore.onSnapshot(q, (snapshot) => {
+        const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+        callback(notifications);
+    });
+};
+
 export const getNotificationsForUser = async (userId: string): Promise<Notification[]> => {
     const notificationsCol = firestore.collection(db, 'notifications');
     const q = firestore.query(notificationsCol,

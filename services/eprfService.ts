@@ -121,17 +121,14 @@ export const getEPRFsForPatient = async (patientId: string): Promise<EPRFForm[]>
 
 export const getRecentEPRFsForUser = async (userId: string, limitCount: number = 5): Promise<EPRFForm[]> => {
     const eprfsCol = firestore.collection(db, 'eprfs');
-    // Simplified query to avoid composite index on status field. Filtering and limiting is done client-side.
     const q = firestore.query(eprfsCol,
         firestore.where('createdBy.uid', '==', userId),
-        firestore.orderBy('createdAt', 'desc'));
+        firestore.where('status', 'in', ['Pending Review', 'Reviewed']),
+        firestore.orderBy('createdAt', 'desc'),
+        firestore.limit(limitCount));
     
     const snapshot = await firestore.getDocs(q);
-    const allUserEprfs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
-
-    // Client-side filtering to exclude drafts and apply limit
-    const finalizedEprfs = allUserEprfs.filter(eprf => eprf.status !== 'Draft');
-    return finalizedEprfs.slice(0, limitCount);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
 }
 
 export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {

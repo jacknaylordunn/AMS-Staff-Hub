@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
@@ -19,58 +19,62 @@ export const EPRF: React.FC = () => {
         removeEPRFDraft
     } = useAppContext();
     const [isLoading, setIsLoading] = useState(true);
+    const hasRunEffect = useRef(false);
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || hasRunEffect.current) {
+            return;
+        }
 
-        const loadAndManageDrafts = async () => {
+        // If drafts are already in context (e.g., from navigating back), don't re-fetch.
+        if (openEPRFDrafts.length > 0) {
+            setIsLoading(false);
+            return;
+        }
+
+        hasRunEffect.current = true;
+        let isMounted = true;
+        
+        const loadOrCreateDrafts = async () => {
             setIsLoading(true);
             try {
                 const drafts = await getAllDraftsForUser(user.uid);
-                
+                if (!isMounted) return;
+
                 if (drafts.length > 0) {
                     drafts.forEach(addEPRFDraft);
                     if (!activeEPRFId) {
                         setActiveEPRFId(drafts[0].id!);
                     }
-                } else {
-                    if (!activeEvent) {
-                        // No drafts and not on duty, can't start a new one.
-                        // The UI will show a prompt in this case.
-                    } else {
-                        // On duty but no drafts, create one automatically.
-                        const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
-                        addEPRFDraft(newDraft);
-                        setActiveEPRFId(newDraft.id!);
-                    }
+                } else if (activeEvent) {
+                    const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
+                    if (!isMounted) return;
+                    addEPRFDraft(newDraft);
+                    setActiveEPRFId(newDraft.id!);
                 }
             } catch (error) {
                 showToast("Failed to load ePRF drafts.", "error");
             } finally {
-                setIsLoading(false);
+                if (isMounted) setIsLoading(false);
             }
         };
 
-        loadAndManageDrafts();
-
-        // On unmount, clear drafts from context to ensure they are fresh on next visit.
-        return () => {
-            openEPRFDrafts.forEach(draft => removeEPRFDraft(draft.id!));
-            setActiveEPRFId(null);
-        }
+        loadOrCreateDrafts();
+        
+        return () => { isMounted = false; };
     }, [user, activeEvent]);
 
     const handleCloseForm = (formId: string) => {
+        const draftIndex = openEPRFDrafts.findIndex(d => d.id === formId);
+        removeEPRFDraft(formId);
+
         if (openEPRFDrafts.length <= 1) {
-            // If it's the last one, just clear it and show the start screen
-            removeEPRFDraft(formId);
             setActiveEPRFId(null);
         } else {
-            const draftIndex = openEPRFDrafts.findIndex(d => d.id === formId);
-            const nextDraft = openEPRFDrafts[draftIndex - 1] || openEPRFDrafts[draftIndex + 1];
-            setActiveEPRFId(nextDraft.id!);
-            removeEPRFDraft(formId);
+            // Activate the previous tab, or the new first tab if the first was closed
+            const nextIndex = Math.max(0, draftIndex - 1);
+            setActiveEPRFId(openEPRFDrafts[nextIndex]?.id || null);
         }
     };
     
@@ -85,7 +89,22 @@ export const EPRF: React.FC = () => {
         );
     }
     
-    if (!activeEvent && openEPRFDrafts.length === 0) {
+    if (activeDraft) {
+        return <EPRFForm initialEPRFData={activeDraft} onComplete={() => handleCloseForm(activeDraft.id!)} />;
+    }
+    
+    if (openEPRFDrafts.length > 0 && !activeDraft) {
+        // Drafts exist but none is active. Set the first one.
+        setActiveEPRFId(openEPRFDrafts[0].id!);
+        return (
+            <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+                <SpinnerIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading draft...</p>
+            </div>
+        );
+    }
+    
+    if (openEPRFDrafts.length === 0 && !activeEvent) {
          return (
             <div className="flex flex-col items-center justify-center h-full py-20 text-center bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <EprfIcon className="w-16 h-16 text-gray-300 dark:text-gray-600"/>
@@ -101,14 +120,11 @@ export const EPRF: React.FC = () => {
         );
     }
 
-    if (activeDraft) {
-        return <EPRFForm initialEPRFData={activeDraft} onComplete={() => handleCloseForm(activeDraft.id!)} />;
-    }
-    
+    // Default case: Loading drafts or creating a new one.
     return (
          <div className="flex flex-col items-center justify-center h-full py-20 text-center">
             <SpinnerIcon className="w-12 h-12 text-ams-blue dark:text-ams-light-blue" />
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Preparing new ePRF...</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Preparing ePRF...</p>
         </div>
     );
 };

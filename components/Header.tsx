@@ -7,8 +7,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useTheme } from '../hooks/useTheme';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon } from './icons';
+import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon, BellIcon } from './icons';
 import EPRFTabs from './EPRFTabs';
+import type { Notification } from '../types';
+import { listenToNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
+import NotificationPanel from './NotificationPanel';
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -22,8 +25,22 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const { isOnline } = useOnlineStatus();
   const navigate = ReactRouterDOM.useNavigate();
   const location = ReactRouterDOM.useLocation();
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (user?.uid) {
+      const unsubscribe = listenToNotificationsForUser(user.uid, (newNotifications) => {
+        setNotifications(newNotifications);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
 
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const isSubPage = pathSegments.length > 1 && pathSegments[0] !== 'dashboard';
@@ -63,10 +80,20 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     }
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    setNotificationsOpen(false);
+    navigate(notification.link || '/dashboard');
+    await markNotificationAsRead(notification.id!);
+    // Listener will update state automatically
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -111,6 +138,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
             <button onClick={toggleTheme} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
                 {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
             </button>
+             <div className="relative">
+                <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Notifications">
+                    <BellIcon className="w-6 h-6" />
+                    {notifications.length > 0 && (
+                        <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">{notifications.length}</span>
+                    )}
+                </button>
+                 {notificationsOpen && (
+                    <div ref={notificationsRef} className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-700 rounded-md overflow-hidden shadow-xl z-20">
+                        <NotificationPanel notifications={notifications} onNotificationClick={handleNotificationClick} />
+                    </div>
+                )}
+            </div>
             <div className="relative">
             <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
