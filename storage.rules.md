@@ -28,9 +28,10 @@ service firebase.storage {
       allow read, write: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
     }
     
-    // User-specific CPD attachments. Only the user can access.
+    // User-specific CPD attachments. User can write, user and managers can read.
     match /cpd_attachments/{userId}/{fileName} {
-      allow read, write: if request.auth.uid == userId;
+      allow read: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
+      allow write: if request.auth.uid == userId;
     }
     
     // ePRF signatures and attachments.
@@ -40,6 +41,11 @@ service firebase.storage {
     }
     match /signatures/{eprfId}/{fileName} {
         // Only the creator of the ePRF or a manager can upload/read signatures for it.
+        allow read, write: if getEprfData(eprfId).createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
+    }
+
+    match /attachments/{eprfId}/{fileName} {
+        // Only the creator of the ePRF or a manager can upload/read attachments for it.
         allow read, write: if getEprfData(eprfId).createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
     }
     
