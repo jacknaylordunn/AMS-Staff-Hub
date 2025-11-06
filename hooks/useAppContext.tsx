@@ -12,7 +12,6 @@ interface AppContextType {
   setActiveEvent: (event: EventLog) => void;
   setActiveShift: (shift: Shift) => Promise<void>;
   clearActiveSession: () => void;
-  // FIX: Add state and handlers for multi-draft EPRF management
   openEPRFDrafts: EPRFForm[];
   activeEPRFId: string | null;
   addEPRFDraft: (draft: EPRFForm) => void;
@@ -52,29 +51,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   });
   
-  // FIX: Add state for multi-draft management
   const [openEPRFDrafts, setOpenEPRFDrafts] = useState<EPRFForm[]>([]);
-  const [activeEPRFId, setActiveEPRFId] = useState<string | null>(null);
+  const [activeEPRFId, setActiveEPRFIdState] = useState<string | null>(null);
 
   const setActiveShift = async (shift: Shift) => {
     sessionStorage.setItem('activeShift', JSON.stringify(shift));
     setActiveShiftState(shift);
     
-    // Also set the corresponding event for components that rely on it
     try {
         const eventDetails = await getEventById(shift.eventId);
         const eventLog: EventLog = {
           id: shift.eventId,
           name: shift.eventName,
           date: shift.start.toDate().toISOString().split('T')[0],
-          location: eventDetails?.location || '', // Use fetched location
+          location: eventDetails?.location || '', 
           status: 'Active'
         };
         sessionStorage.setItem('activeEvent', JSON.stringify(eventLog));
         setActiveEventState(eventLog);
     } catch(e) {
         console.error("Could not fetch event details for active shift", e);
-        // Fallback with what we have
         const eventLog: EventLog = {
           id: shift.eventId,
           name: shift.eventName,
@@ -87,11 +83,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Auto-logon to event if user has an active shift
   useEffect(() => {
     const checkActiveShift = async (uid: string) => {
       const now = new Date();
-      // Check today's shifts
       const shifts = await getShiftsForUser(uid, now.getFullYear(), now.getMonth());
       const currentShift = shifts.find(s => {
           const start = s.start.toDate();
@@ -104,7 +98,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     };
     
-    // Only run if user is logged in and no session is manually set
     if (user && !activeEvent && !activeShift) {
       checkActiveShift(user.uid);
     }
@@ -118,7 +111,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setActiveEvent = (event: EventLog) => {
-    // When manually setting an event, ensure any active shift is cleared first
     if(activeShift) {
         sessionStorage.removeItem('activeShift');
         setActiveShiftState(null);
@@ -128,7 +120,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveEventState(event);
   };
   
-  // FIX: Add handlers for multi-draft management
   const addEPRFDraft = (draft: EPRFForm) => {
     setOpenEPRFDrafts(prev => {
         if (prev.some(d => d.id === draft.id)) {
@@ -141,6 +132,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const removeEPRFDraft = (draftId: string) => {
     setOpenEPRFDrafts(prev => prev.filter(d => d.id !== draftId));
   };
+
+  const setActiveEPRFId = (draftId: string | null) => {
+    setActiveEPRFIdState(draftId);
+  }
 
 
   return (

@@ -84,7 +84,7 @@ const EPRFTabs: React.FC = () => {
                                 {draft.patientName || `Patient ${index + 1}`}
                             </button>
                              <button 
-                                onClick={() => setDraftToDelete(draft.id!)}
+                                onClick={(e) => { e.stopPropagation(); setDraftToDelete(draft.id!); }}
                                 className="absolute top-1 right-0 p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 opacity-0 group-hover:opacity-100"
                                 title="Close this draft"
                             >

@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 // FIX: The error indicates signOut is not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
@@ -12,6 +8,7 @@ import { useAppContext } from '../hooks/useAppContext';
 import { useTheme } from '../hooks/useTheme';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon } from './icons';
+import EPRFTabs from './EPRFTabs';
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -30,6 +27,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
 
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const isSubPage = pathSegments.length > 1 && pathSegments[0] !== 'dashboard';
+  const isEPRFPage = pathSegments[0] === 'eprf';
 
 
   const getPageTitle = () => {
@@ -148,6 +146,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
             </div>
         </div>
         </header>
+        {isEPRFPage && <EPRFTabs />}
     </div>
   );
 };
