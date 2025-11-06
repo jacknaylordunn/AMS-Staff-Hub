@@ -1,6 +1,3 @@
-
-
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 // FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
@@ -15,14 +12,12 @@ interface AppContextType {
   setActiveEvent: (event: EventLog) => void;
   setActiveShift: (shift: Shift) => Promise<void>;
   clearActiveSession: () => void;
-  // New properties for multi-ePRF
+  // FIX: Add state and handlers for multi-draft EPRF management
   openEPRFDrafts: EPRFForm[];
   activeEPRFId: string | null;
-  setOpenEPRFDrafts: (drafts: EPRFForm[]) => void;
-  setActiveEPRFId: (id: string | null) => void;
-  updateOpenEPRFDraft: (updatedDraft: EPRFForm) => void;
   addEPRFDraft: (draft: EPRFForm) => void;
-  removeEPRFDraft: (id: string) => void;
+  removeEPRFDraft: (draftId: string) => void;
+  setActiveEPRFId: (draftId: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -56,31 +51,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return null;
     }
   });
-
-   // New state for multi-ePRF
+  
+  // FIX: Add state for multi-draft management
   const [openEPRFDrafts, setOpenEPRFDrafts] = useState<EPRFForm[]>([]);
   const [activeEPRFId, setActiveEPRFId] = useState<string | null>(null);
-
-  const updateOpenEPRFDraft = (updatedDraft: EPRFForm) => {
-      setOpenEPRFDrafts(prev => prev.map(d => d.id === updatedDraft.id ? updatedDraft : d));
-  };
-
-  const addEPRFDraft = (draft: EPRFForm) => {
-      setOpenEPRFDrafts(prev => [...prev, draft]);
-  };
-
-  const removeEPRFDraft = (id: string) => {
-      setOpenEPRFDrafts(prev => prev.filter(d => d.id !== id));
-  };
-
 
   const setActiveShift = async (shift: Shift) => {
     sessionStorage.setItem('activeShift', JSON.stringify(shift));
     setActiveShiftState(shift);
-    
-    // When a new shift is set, clear any previous EPRF drafts
-    setOpenEPRFDrafts([]);
-    setActiveEPRFId(null);
     
     // Also set the corresponding event for components that rely on it
     try {
@@ -137,9 +115,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setActiveShiftState(null);
       sessionStorage.removeItem('activeEvent');
       setActiveEventState(null);
-      // Also clear any open ePRFs when logging off
-      setOpenEPRFDrafts([]);
-      setActiveEPRFId(null);
   };
 
   const setActiveEvent = (event: EventLog) => {
@@ -148,12 +123,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sessionStorage.removeItem('activeShift');
         setActiveShiftState(null);
     }
-    // Always clear ePRF state when the event context changes to prevent glitches
-    setOpenEPRFDrafts([]);
-    setActiveEPRFId(null);
-
+    
     sessionStorage.setItem('activeEvent', JSON.stringify(event));
     setActiveEventState(event);
+  };
+  
+  // FIX: Add handlers for multi-draft management
+  const addEPRFDraft = (draft: EPRFForm) => {
+    setOpenEPRFDrafts(prev => {
+        if (prev.some(d => d.id === draft.id)) {
+            return prev;
+        }
+        return [...prev, draft];
+    });
+  };
+
+  const removeEPRFDraft = (draftId: string) => {
+    setOpenEPRFDrafts(prev => prev.filter(d => d.id !== draftId));
   };
 
 
@@ -164,14 +150,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveEvent, 
         setActiveShift, 
         clearActiveSession,
-        // New values
         openEPRFDrafts,
         activeEPRFId,
-        setOpenEPRFDrafts,
         setActiveEPRFId,
-        updateOpenEPRFDraft,
         addEPRFDraft,
-        removeEPRFDraft
+        removeEPRFDraft,
     }}>
       {children}
     </AppContext.Provider>

@@ -32,6 +32,7 @@ import app from '../services/firebase';
 
 interface EPRFFormProps {
     initialEPRFData: EPRFForm;
+    onComplete: () => void;
 }
 
 const RESTRICTED_MEDICATIONS = ['Morphine Sulphate', 'Ketamine', 'Midazolam', 'Ondansetron', 'Adrenaline 1:1000'];
@@ -228,9 +229,8 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
 };
 
 // FIX: Added the missing return statement and JSX for the form. The component was not rendering anything.
-const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
+const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     const { user } = useAuth();
-    const { activeEvent, updateOpenEPRFDraft, removeEPRFDraft, setActiveEPRFId, openEPRFDrafts, activeEPRFId } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = ReactRouterDOM.useNavigate();
     
@@ -253,6 +253,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
+    const [availableEvents, setAvailableEvents] = useState<EventLog[]>([]);
     const [selectedCrewMember, setSelectedCrewMember] = useState<string>('');
     const [currentStep, setCurrentStep] = useState(1);
     const [showSafeguardingPrompt, setShowSafeguardingPrompt] = useState(false);
@@ -268,12 +269,14 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
 
     useEffect(() => {
         getUsers().then(setAllStaff);
-    }, []);
-
-     // Sync local reducer state back to global context
-    useEffect(() => {
-        updateOpenEPRFDraft(state);
-    }, [state, updateOpenEPRFDraft]);
+        // Fetch events if the form is created without one
+        if (!state.eventId) {
+            getEvents().then(events => {
+                const activeOrUpcoming = events.filter(e => e.status !== 'Completed');
+                setAvailableEvents(activeOrUpcoming);
+            });
+        }
+    }, [state.eventId]);
 
     // Auto-save form
     useEffect(() => {
@@ -346,11 +349,26 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+
+        if (name === 'eventId') {
+            const selectedEvent = availableEvents.find(event => event.id === value);
+            if (selectedEvent) {
+                dispatch({ type: 'UPDATE_FIELD', field: 'eventId', payload: value });
+                dispatch({ type: 'UPDATE_FIELD', field: 'eventName', payload: selectedEvent.name });
+                dispatch({ type: 'UPDATE_FIELD', field: 'incidentLocation', payload: selectedEvent.location });
+            } else {
+                dispatch({ type: 'UPDATE_FIELD', field: 'eventId', payload: '' });
+                dispatch({ type: 'UPDATE_FIELD', field: 'eventName', payload: '' });
+            }
+            return; 
+        }
+
         if (name === 'presentationType') {
             setCurrentStep(1);
         }
         dispatch({ type: 'UPDATE_FIELD', field: name, payload: value });
     };
+
     const handleGCSChange = (e: React.ChangeEvent<HTMLSelectElement>) => dispatch({ type: 'UPDATE_GCS', field: e.target.name, payload: parseInt(e.target.value, 10)});
     const handleNestedChange = (field: string, subField: string, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const target = e.target as HTMLInputElement;
@@ -462,6 +480,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
 
     const validateForm = (): boolean => {
         const errors: string[] = [];
+        if (!state.eventId) errors.push("An event must be selected for this report.");
         if (!state.patientName.trim()) errors.push("Patient name is required.");
         if (!state.incidentNumber.trim()) errors.push("Incident Number must be generated.");
         if (!state.incidentDate || !state.incidentTime) errors.push("Incident date and time are required.");
@@ -477,6 +496,19 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
         return true;
     };
 
+    const handleDeleteConfirm = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteEPRF(state.id!);
+            showToast("Draft deleted.", "success");
+            onComplete(); 
+        } catch (error) {
+            showToast("Failed to delete draft.", "error");
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteModalOpen(false);
+        }
+    };
 
     const handleFinalize = async () => {
         if (!validateForm()) return;
@@ -504,18 +536,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
 
             await finalizeEPRF(state.id!, finalState);
             showToast("ePRF submitted for review.", "success");
-            
-            // Remove from open drafts and navigate
-            if (activeEPRFId === state.id) {
-                const draftIndex = openEPRFDrafts.findIndex(d => d.id === state.id);
-                const nextDraft = openEPRFDrafts[draftIndex - 1] || openEPRFDrafts[draftIndex + 1];
-                setActiveEPRFId(nextDraft?.id || null);
-            }
-            removeEPRFDraft(state.id!);
-
-            if(openEPRFDrafts.length <= 1) { // if it was the last one
-                navigate('/dashboard');
-            }
+            onComplete();
         } catch (error) {
             console.error("Failed to finalize ePRF:", error);
             showToast("Failed to finalize ePRF.", "error");
@@ -566,7 +587,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
         <form onSubmit={e => e.preventDefault()} className="pb-20">
             <SaveStatusIndicator status={saveStatus} />
             <PatientModal isOpen={isPatientModalOpen} onClose={() => setPatientModalOpen(false)} onSave={handleSaveNewPatient} />
-            <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => {}} title="Delete ePRF" message="Are you sure you want to permanently delete this ePRF draft?" />
+            <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Delete ePRF Draft" message="Are you sure you want to permanently delete this ePRF draft?" confirmText="Delete" isLoading={isDeleting} />
             <ValidationModal isOpen={isValidationModalOpen} onClose={() => setValidationModalOpen(false)} errors={validationErrors} />
             <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
             <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
@@ -586,12 +607,20 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
             {steps[currentStep - 1] === 'Incident' && (
                 <>
                 <Section title="Incident & Triage">
+                    {!state.eventId ? (
+                        <SelectField label="* Select Event" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2">
+                            <option value="">-- Please select an event --</option>
+                            {availableEvents.map(event => <option key={event.id} value={event.id}>{event.name} ({event.date})</option>)}
+                        </SelectField>
+                    ) : (
+                        <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" />
+                    )}
                     <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange}>
                         <option>Medical/Trauma</option>
                         <option>Minor Injury</option>
                         <option>Welfare/Intox</option>
                     </SelectField>
-                    <div className="relative md:col-span-2">
+                    <div className="relative">
                         <label className={labelBaseClasses}>Incident Number</label>
                         <input type="text" value={state.incidentNumber} readOnly className={`${inputBaseClasses} pr-24 bg-gray-100 dark:bg-gray-700/50`} placeholder="Click to generate..."/>
                         <button onClick={handleGenerateIncidentNumber} disabled={!!state.incidentNumber || isSaving} className="absolute right-1 top-7 px-3 py-1 text-xs bg-ams-light-blue text-white rounded-md disabled:bg-gray-400">
@@ -600,14 +629,13 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
                     </div>
                 </Section>
                  <Section title="Event & Timestamps">
-                    <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" />
+                    <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" />
                     <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" />
                     <div className="relative">
                          <label className={labelBaseClasses}>Incident Time</label>
                         <input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} className={inputBaseClasses} />
                         <button onClick={handleSetTimeToNow('incidentTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button>
                     </div>
-                    <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" />
                     
                     <div className="relative md:col-span-1">
                          <label className={labelBaseClasses}>Time of Call</label>
@@ -626,11 +654,14 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData }) => {
             {/* Render other steps based on currentStep */}
 
              <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 flex justify-between items-center shadow-lg md:pl-64 z-10">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <button type="button" onClick={() => setIsDeleteModalOpen(true)} disabled={isDeleting} className="p-2 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-full hover:bg-red-200">
+                        {isDeleting ? <SpinnerIcon className="w-5 h-5" /> : <TrashIcon className="w-5 h-5" />}
+                    </button>
                     <button onClick={() => setCurrentStep(s => s > 1 ? s - 1 : 1)} disabled={currentStep === 1} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md disabled:opacity-50 flex items-center"><ChevronLeftIcon className="w-5 h-5 mr-1"/> Prev</button>
                     <button onClick={() => setCurrentStep(s => s < steps.length ? s + 1 : s)} disabled={currentStep === steps.length} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md disabled:opacity-50 flex items-center">Next <ChevronRightIcon className="w-5 h-5 ml-1"/></button>
                 </div>
-                <div className="text-sm text-gray-500">Step {currentStep} of {steps.length}: {steps[currentStep-1]}</div>
+                <div className="text-sm text-gray-500 hidden md:block">Step {currentStep} of {steps.length}: {steps[currentStep-1]}</div>
                 <div className="flex gap-2">
                      <button type="button" onClick={() => setGuidelineModalOpen(true)} className="hidden sm:flex items-center px-4 py-2 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-md"><SparklesIcon className="w-5 h-5 mr-2"/> Guidelines</button>
                      <button type="button" onClick={() => setQuickAddOpen(true)} className="flex items-center px-4 py-2 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-md"><PlusIcon className="w-5 h-5 mr-2"/> Quick Add</button>

@@ -1,8 +1,10 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as ...` to fix module resolution issues.
-// FIX: Switched to modular imports as `initializeApp` is not available on the namespace. This is the standard for Firebase v9+.
-// FIX: Corrected imports to use modular v9 syntax to resolve initializeApp error.
-import { initializeApp } from 'firebase/app';
-// import { getAnalytics } from 'firebase/analytics';
+// FIX: The error indicates `initializeApp` is not exported from 'firebase/app'. This can happen in projects with mixed or older Firebase dependencies.
+// Using the compat library for initialization is a robust way to create the app object while still allowing the modular API to be used elsewhere.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
+
 import { getAuth } from 'firebase/auth';
 import { enableIndexedDbPersistence, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -18,10 +20,10 @@ const firebaseConfig = {
   measurementId: "G-1M3EW6SJZL"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase using compat
+const app = firebase.initializeApp(firebaseConfig);
 
-// Initialize services
+// Initialize services using modular v9 functions
 // getAnalytics(app);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
