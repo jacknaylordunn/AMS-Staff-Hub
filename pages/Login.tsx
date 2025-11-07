@@ -152,7 +152,11 @@ const Login: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-center text-ams-blue dark:text-white">{isLogin ? 'Staff Hub Login' : 'Create Account'}</h2>
         
-        {error && <p className="text-red-500 text-sm text-center font-semibold whitespace-pre-line">{error}</p>}
+        {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-600 text-sm text-center font-semibold whitespace-pre-line">{error}</p>
+            </div>
+        )}
         {message && <p className="text-green-600 text-sm text-center font-semibold">{message}</p>}
         
         <form className="space-y-4" onSubmit={handleSubmit}>

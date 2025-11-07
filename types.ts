@@ -125,8 +125,30 @@ export interface EPRFForm {
         total: number;
     };
     pupils: string;
+    bloodGlucoseLevel?: string;
+    fastTest?: {
+        face: 'Normal' | 'Abnormal';
+        arms: 'Normal' | 'Abnormal';
+        speech: 'Normal' | 'Abnormal';
+    };
   };
   exposure: string;
+
+  // Structured Assessment Findings
+  airwayDetails?: {
+      status: 'Clear' | 'Partially Obstructed' | 'Obstructed';
+      adjuncts: ('OPA' | 'NPA' | 'i-gel' | 'LMA')[];
+  };
+  breathingDetails?: {
+      effort: 'Normal' | 'Shallow' | 'Labored' | 'Gasping';
+      sounds: ('Clear' | 'Wheeze' | 'Crackles' | 'Stridor' | 'Reduced/Absent')[];
+      sides: ('Bilaterally' | 'Left' | 'Right')[];
+  };
+  circulationDetails?: {
+      pulseQuality: 'Strong' | 'Weak' | 'Thready' | 'Bounding' | 'Absent';
+      skin: 'Normal' | 'Pale' | 'Cyanosed' | 'Flushed' | 'Clammy' | 'Jaundiced';
+  };
+
   
   // Vitals & Secondary Survey
   vitals: VitalSign[];
@@ -225,9 +247,15 @@ export interface Intervention {
 export interface Injury {
     id: string;
     view: 'anterior' | 'posterior';
-    coords: { x: number; y: number }; // Coordinates on the image
+    coords: { x: number; y: number };
+    type: 'IV Access' | 'IO Access' | 'Wound' | 'Fracture' | 'Burn' | 'Other';
     description: string;
-    // FIX: Added optional drawingDataUrl to store a snapshot of the injury on the body map.
+    details?: {
+        ivSize?: '14g' | '16g' | '18g' | '20g' | '22g' | '24g';
+        ivSuccess?: boolean;
+        woundType?: 'Laceration' | 'Abrasion' | 'Puncture' | 'Avulsion';
+        bleedingControlled?: boolean;
+    };
     drawingDataUrl?: string;
 }
 

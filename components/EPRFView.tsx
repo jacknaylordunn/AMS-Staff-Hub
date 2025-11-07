@@ -1,6 +1,7 @@
 import React from 'react';
 import type { EPRFForm } from '../types';
 import { getNews2RiskColor } from '../utils/news2Calculator';
+import { DocsIcon } from './icons';
 
 const ViewSection: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
     <div className={`mb-6 ${className}`}>
@@ -89,16 +90,21 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     {eprf.presentationType === 'Medical/Trauma' &&
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
                         <ViewSection title="Primary Survey (ABCDE)">
-                            <ViewField label="Airway" value={eprf.airway} />
-                            <ViewField label="Breathing" value={eprf.breathing} />
-                            <ViewField label="Circulation" value={eprf.circulation} />
+                            <ViewField label="Airway" value={`${eprf.airwayDetails?.status || ''}. Adjuncts: ${eprf.airwayDetails?.adjuncts.join(', ') || 'None'}`} />
+                            <ViewField label="Breathing" value={`Effort: ${eprf.breathingDetails?.effort || 'N/A'}. Sounds: ${eprf.breathingDetails?.sounds.join(', ') || 'N/A'} ${eprf.breathingDetails?.sides.join(', ') || ''}`} />
+                            <ViewField label="Circulation" value={`Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}`} />
                             <ViewField label="Exposure" value={eprf.exposure} />
+                             <ViewField label="Airway Notes" value={eprf.airway} className="mt-2 border-t pt-2" />
+                             <ViewField label="Breathing Notes" value={eprf.breathing} className="mt-2 border-t pt-2" />
+                             <ViewField label="Circulation Notes" value={eprf.circulation} className="mt-2 border-t pt-2" />
                         </ViewSection>
 
                         <ViewSection title="Disability">
                             <div className="grid grid-cols-2 gap-x-4">
                                 <ViewField label="AVPU" value={eprf.disability.avpu} />
                                 <ViewField label="GCS Total" value={eprf.disability.gcs.total} />
+                                <ViewField label="Blood Glucose" value={eprf.disability.bloodGlucoseLevel ? `${eprf.disability.bloodGlucoseLevel} mmol/L` : 'N/A'} />
+                                <ViewField label="FAST Test" value={`Face: ${eprf.disability.fastTest?.face}, Arms: ${eprf.disability.fastTest?.arms}, Speech: ${eprf.disability.fastTest?.speech}`} />
                             </div>
                             <ViewField label="GCS Breakdown" value={`E${eprf.disability.gcs.eyes} V${eprf.disability.gcs.verbal} M${eprf.disability.gcs.motor}`} />
                             <ViewField label="Pupils" value={eprf.disability.pupils} />
@@ -128,8 +134,8 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {eprf.injuries.map(injury => (
                                     <div key={injury.id} className="p-2 border rounded-md dark:border-gray-600 flex flex-col">
-                                        <img src={injury.drawingDataUrl} alt={injury.description} className="rounded-md bg-gray-200 dark:bg-gray-700 object-contain mb-2" />
-                                        <p className="font-semibold text-sm dark:text-gray-200 flex-grow">{injury.description}</p>
+                                        {injury.drawingDataUrl && <img src={injury.drawingDataUrl} alt={injury.description} className="rounded-md bg-gray-200 dark:bg-gray-700 object-contain mb-2" />}
+                                        <p className="font-semibold text-sm dark:text-gray-200 flex-grow">{injury.type}: <span className="font-normal">{injury.description}</span></p>
                                         <p className="text-xs text-gray-500 capitalize">{injury.view} view</p>
                                     </div>
                                 ))}
@@ -155,21 +161,26 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     </ViewSection>
                  </>
             )}
-
+            
             <ViewSection title="Attachments">
                 {eprf.attachments?.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {eprf.attachments.map(att => (
-                            <div key={att.id}>
-                                <a href={att.url} target="_blank" rel="noopener noreferrer">
-                                    <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-40 object-cover" />
-                                </a>
-                                <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">{att.description || 'No description'}</p>
-                            </div>
+                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="block group">
+                                {att.mimeType.startsWith('image/') ? (
+                                    <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-32 object-cover transition-transform group-hover:scale-105" />
+                                ) : (
+                                    <div className="rounded-lg w-full h-32 bg-gray-100 dark:bg-gray-700 flex flex-col items-center justify-center p-2">
+                                        <DocsIcon className="w-8 h-8 text-gray-400" />
+                                        <p className="text-xs text-center text-gray-500 dark:text-gray-300 mt-2 truncate">{att.fileName}</p>
+                                    </div>
+                                )}
+                                <p className="text-xs mt-1 text-gray-600 dark:text-gray-400 truncate">{att.description || att.fileName}</p>
+                            </a>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No photos attached.</p>
+                    <p className="text-gray-500 dark:text-gray-400">No files attached.</p>
                 )}
             </ViewSection>
             

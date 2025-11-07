@@ -35,8 +35,31 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     airway: '',
     breathing: '',
     circulation: '',
-    disability: { avpu: 'Alert', gcs: { eyes: 4, verbal: 5, motor: 6, total: 15 }, pupils: ''},
+    disability: { 
+      avpu: 'Alert', 
+      gcs: { eyes: 4, verbal: 5, motor: 6, total: 15 }, 
+      pupils: '',
+      bloodGlucoseLevel: '',
+      fastTest: {
+        face: 'Normal',
+        arms: 'Normal',
+        speech: 'Normal',
+      },
+    },
     exposure: '',
+    airwayDetails: {
+        status: 'Clear',
+        adjuncts: [],
+    },
+    breathingDetails: {
+        effort: 'Normal',
+        sounds: ['Clear'],
+        sides: ['Bilaterally'],
+    },
+    circulationDetails: {
+        pulseQuality: 'Strong',
+        skin: 'Normal',
+    },
     vitals: [{ time: timeString, hr: '', rr: '', bp: '', spo2: '', temp: '', bg: '', painScore: '0', avpu: 'Alert', onOxygen: false }],
     secondarySurvey: '',
     injuries: [],

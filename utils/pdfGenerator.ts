@@ -160,15 +160,22 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
 
       if (eprf.presentationType === 'Medical/Trauma') {
           addSectionTitle(doc, 'Primary Survey & Disability', yPos);
+          const disabilityBody = [
+                ['Airway', `${eprf.airwayDetails?.status || 'N/A'}. Adjuncts: ${eprf.airwayDetails?.adjuncts.join(', ') || 'None'}`],
+                ['Breathing', `Effort: ${eprf.breathingDetails?.effort || 'N/A'}. Sounds: ${eprf.breathingDetails?.sounds.join(', ')} ${eprf.breathingDetails?.sides.join(', ')}`],
+                ['Circulation', `Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}`],
+                ['Disability', `AVPU: ${eprf.disability.avpu}, GCS: ${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor}), Pupils: ${eprf.disability.pupils}`],
+                ['Exposure', eprf.exposure || 'N/A'],
+            ];
+
+            if (eprf.disability.bloodGlucoseLevel || eprf.disability.fastTest) {
+                disabilityBody.push(['Other Neuro', `BM: ${eprf.disability.bloodGlucoseLevel || 'N/A'} | FAST: Face-${eprf.disability.fastTest?.face}, Arms-${eprf.disability.fastTest?.arms}, Speech-${eprf.disability.fastTest?.speech}`]);
+            }
+
           doc.autoTable({
               startY: yPos.y,
-              body: [
-                  ['Airway', eprf.airway, 'AVPU', eprf.disability.avpu],
-                  ['Breathing', eprf.breathing, 'GCS', `${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor})`],
-                  ['Circulation', eprf.circulation, 'Pupils', eprf.disability.pupils],
-                  ['Exposure', eprf.exposure, '', ''],
-              ],
-              theme: 'striped', styles: { fontSize: 9, cellPadding: 1 },
+              body: disabilityBody,
+              theme: 'striped', styles: { fontSize: 9, cellPadding: 1.5 },
               didDrawPage: (data) => { yPos.y = data.cursor.y; }
           });
       }
@@ -177,16 +184,18 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
       addText(doc, eprf.secondarySurvey || 'No findings noted.', yPos);
 
       if (eprf.injuries?.length > 0) {
-          addSectionTitle(doc, 'Injuries', yPos);
+          addSectionTitle(doc, 'Injuries & Interventions on Body Map', yPos);
           for (const injury of eprf.injuries) {
               checkPageBreak(doc, yPos, 45);
-              addText(doc, `${injury.view.toUpperCase()}: ${injury.description}`, yPos);
-              try {
-                  doc.addImage(injury.drawingDataUrl, 'PNG', 14, yPos.y, 60, 40);
-                  yPos.y += 45;
-              } catch (e) {
-                  console.error("Failed to add injury image to PDF", e);
-                  addText(doc, '[Image could not be rendered]', yPos);
+              addText(doc, `${injury.type} (${injury.view}): ${injury.description}`, yPos);
+              if (injury.drawingDataUrl) {
+                try {
+                    doc.addImage(injury.drawingDataUrl, 'PNG', 14, yPos.y, 60, 40);
+                    yPos.y += 45;
+                } catch (e) {
+                    console.error("Failed to add injury image to PDF", e);
+                    addText(doc, '[Image could not be rendered]', yPos);
+                }
               }
           }
       }
@@ -230,6 +239,11 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
           });
       }
       yPos.y += 5;
+  }
+  
+   if (eprf.attachments?.length > 0) {
+      addSectionTitle(doc, 'Attachments', yPos);
+      addKeyValue(doc, 'Attached Files', eprf.attachments.map(a => a.fileName), yPos);
   }
 
   addSectionTitle(doc, 'Disposition & Handover', yPos);
