@@ -1,18 +1,18 @@
 import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
 import { GoogleGenAI } from "@google/genai";
 
-admin.initializeApp();
-
+// Initialize the Gemini client. It will automatically use the API_KEY secret.
+// Ensure the secret is set by running: firebase functions:secrets:set API_KEY
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
   console.error(
-    "Gemini API key not found. Set it in environment variables as API_KEY."
+    "Gemini API key not found. Set the secret by running 'firebase functions:secrets:set API_KEY'"
   );
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
+
 
 export const askClinicalAssistant = functions.https.onCall(
   async (data, context) => {
@@ -33,13 +33,13 @@ export const askClinicalAssistant = functions.https.onCall(
     }
 
     try {
-      const systemInstruction = `You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis or recommend specific drug dosages unless they are standard guideline advice. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.`;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: query,
-        config: { systemInstruction },
-      });
+        const result = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: query,
+            config: {
+                systemInstruction: `You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.`,
+            }
+        });
 
       return { response: result.text };
     } catch (error) {

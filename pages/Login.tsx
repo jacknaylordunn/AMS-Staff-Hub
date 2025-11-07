@@ -7,8 +7,6 @@ import { createUserProfile } from '../services/userService';
 import { SpinnerIcon } from '../components/icons';
 import type { User } from '../types';
 
-declare const grecaptcha: any;
-
 const validatePassword = (password: string): string[] => {
     const errors: string[] = [];
     if (password.length < 6) {

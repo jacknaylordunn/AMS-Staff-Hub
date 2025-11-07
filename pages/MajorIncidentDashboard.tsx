@@ -120,12 +120,15 @@ const MajorIncidentDashboard: React.FC = () => {
                 <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">Personnel Status</h2>
                     <div className="space-y-6 max-h-[60vh] overflow-y-auto">
-                        {Object.entries(groupedCheckins).map(([status, staff]) => (
+                        {Object.entries(groupedCheckins).map(([status, staff]) => {
+                            // FIX: Cast `staff` to StaffCheckin[] as Object.entries returns the value as `unknown`.
+                            const staffList = staff as StaffCheckin[];
+                            return (
                             <div key={status}>
-                                <h3 className={`text-lg font-semibold border-l-4 pl-2 mb-2 ${getStatusColor(status as StaffCheckin['status'])}`}>{status} ({staff.length})</h3>
-                                {staff.length > 0 ? (
+                                <h3 className={`text-lg font-semibold border-l-4 pl-2 mb-2 ${getStatusColor(status as StaffCheckin['status'])}`}>{status} ({staffList.length})</h3>
+                                {staffList.length > 0 ? (
                                     <div className="space-y-2 pl-3">
-                                        {staff.map(ci => (
+                                        {staffList.map(ci => (
                                             <div key={ci.userId} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                                                 <p className="font-semibold dark:text-gray-200">{ci.userName}</p>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400">{ci.userRole} - Updated at {ci.timestamp.toDate().toLocaleTimeString()}</p>
@@ -136,7 +139,7 @@ const MajorIncidentDashboard: React.FC = () => {
                                     <p className="pl-3 text-sm text-gray-400">No staff in this category.</p>
                                 )}
                             </div>
-                        ))}
+                        )})}
                     </div>
                 </div>
 

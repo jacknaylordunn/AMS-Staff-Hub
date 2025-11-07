@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../services/firebase';
-import { SpinnerIcon, SparklesIcon } from './icons';
+import { SpinnerIcon, SparklesIcon, QuestionMarkCircleIcon } from './icons';
 import { showToast } from './Toast';
 
 interface GuidelineAssistantModalProps {
@@ -14,6 +14,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showHelp, setShowHelp] = useState(false);
 
     const functions = getFunctions(app);
     const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
@@ -26,18 +27,32 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
         setLoading(true);
         setError('');
         setResponse('');
+        setShowHelp(false); // Hide help when a new query is made
 
         try {
             const result = await askClinicalAssistant({ query });
             setResponse(result.data.response);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Cloud function error:", err);
-            setError("Sorry, I couldn't fetch the information. Please check your connection or contact an administrator.");
+            let errorMessage = "Sorry, I couldn't fetch the information. Please check your connection or contact an administrator.";
+            if (err.message.includes('API key not valid')) {
+                errorMessage = "The AI assistant is not configured correctly. Please contact an administrator.";
+            }
+            setError(errorMessage);
             showToast("Error communicating with AI assistant.", "error");
         } finally {
             setLoading(false);
         }
     };
+    
+    const renderHelpContent = () => (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+            <h4>About the Guideline Assistant</h4>
+            <p>This is an AI-powered tool to help you quickly recall information from UK clinical guidelines like JRCALC.</p>
+            <p className="font-bold">IMPORTANT: This is a support tool, not a replacement for clinical judgment. All information must be verified before being applied to patient care.</p>
+            <p>Do not enter any Patient Identifiable Information (PII) into the assistant. This feature is powered by Google Gemini.</p>
+        </div>
+    );
 
     if (!isOpen) return null;
 
@@ -54,10 +69,16 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
                         <SparklesIcon className="w-6 h-6"/>
                         Clinical Guideline Assistant
                     </h2>
-                    <button onClick={onClose} className="text-2xl font-bold">&times;</button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setShowHelp(!showHelp)} className="text-gray-400 hover:text-ams-blue dark:hover:text-ams-light-blue">
+                            <QuestionMarkCircleIcon className="w-6 h-6" />
+                        </button>
+                        <button onClick={onClose} className="text-2xl font-bold">&times;</button>
+                    </div>
                 </header>
                 
                 <div className="p-6 flex-grow overflow-y-auto">
+                    {showHelp && renderHelpContent()}
                     {loading && (
                         <div className="flex flex-col items-center justify-center text-center">
                             <SpinnerIcon className="w-8 h-8 text-ams-blue dark:text-ams-light-blue" />
@@ -70,7 +91,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
                             <p>{response}</p>
                         </div>
                     )}
-                    {!loading && !response && !error && (
+                    {!loading && !response && !error && !showHelp && (
                         <div className="text-center text-gray-500 dark:text-gray-400">
                             <p>Ask a question about a clinical guideline, e.g., "JRCALC guidelines for anaphylaxis".</p>
                             <p className="text-xs mt-2">This is an AI assistant and may produce inaccurate information. All information must be clinically verified.</p>

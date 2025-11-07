@@ -4,12 +4,20 @@ import { db } from './firebase';
 import type { EPRFForm, AuditEntry } from '../types';
 import { createNotification } from './notificationService';
 
-// EPRF Functions
+// Removes 'id' and any 'undefined' values before saving to Firestore.
 const prepareEPRFForFirebase = (eprfData: EPRFForm): Omit<EPRFForm, 'id'> => {
     const { id, ...dataToSave } = eprfData;
-    return dataToSave;
+    const cleanedData: { [key: string]: any } = {};
+    for (const key in dataToSave) {
+        if ((dataToSave as any)[key] !== undefined) {
+            cleanedData[key] = (dataToSave as any)[key];
+        }
+    }
+    return cleanedData as Omit<EPRFForm, 'id'>;
 };
 
+
+// EPRF Functions
 export const getIncidentNumber = async (): Promise<string> => {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -89,12 +97,15 @@ export const getEPRFById = async (eprfId: string): Promise<EPRFForm | null> => {
 export const updateEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
     const docRef = firestore.doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
-    await firestore.updateDoc(docRef, { ...dataToSave });
+    await firestore.updateDoc(docRef, dataToSave);
 };
 
 export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
     const docRef = firestore.doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
+    // Remove audit log from main payload to avoid overwriting it when using arrayUnion
+    delete (dataToSave as any).auditLog;
+
     const auditEntry: AuditEntry = {
         timestamp: firestore.Timestamp.now(),
         user: eprfData.createdBy,
@@ -155,7 +166,7 @@ export const approveEPRF = async (eprfId: string, reviewer: {uid: string, name: 
     await firestore.updateDoc(docRef, {
         status: 'Reviewed' as const,
         reviewedBy: { ...reviewer, date: firestore.Timestamp.now() },
-        reviewNotes: null, // Clear any previous "return to draft" notes
+        reviewNotes: firestore.deleteField(), // Clear any previous "return to draft" notes
         auditLog: firestore.arrayUnion(auditEntry)
     });
 };

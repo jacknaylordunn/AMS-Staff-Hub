@@ -1,6 +1,6 @@
 # Aegis Hub Firestore Security Rules
 
-This document outlines the recommended security rules for the Firestore database to ensure data integrity and security based on user roles. These rules should be deployed to your Firebase project.
+This document outlines the recommended security rules for the Firestore database to ensure data integrity and security based on user roles. These should be deployed to your Firebase project.
 
 ```
 rules_version = '2';
@@ -91,30 +91,30 @@ service cloud.firestore {
     }
     
     // Vehicle & Vehicle Checks
-    // - All authenticated users can read vehicle data and create checks.
-    // - Managers can create/update/delete vehicles.
-    // - Nobody can edit or delete a vehicle check once submitted.
     match /vehicles/{vehicleId} {
         allow read: if request.auth != null;
-        allow write: if isManagerOrAdmin(request.auth.uid);
+        allow create, delete: if isManagerOrAdmin(request.auth.uid);
+        // Managers can update everything. Any auth'd user can update only the status and lastCheck fields (for submitting checks).
+        allow update: if isManagerOrAdmin(request.auth.uid) || 
+                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastCheck', 'status']));
         
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
-            allow update, delete: if false;
+            allow update, delete: if false; // Checks are immutable
         }
     }
     
     // Kits & Kit Checks
-    // - All authenticated users can read kit data and create checks.
-    // - Managers can create/update/delete kits.
-    // - Nobody can edit or delete a kit check once submitted.
     match /kits/{kitId} {
         allow read: if request.auth != null;
-        allow write: if isManagerOrAdmin(request.auth.uid);
-        
+        allow create, delete: if isManagerOrAdmin(request.auth.uid);
+        // Managers can update everything. Any auth'd user can update fields related to checks/assignments.
+        allow update: if isManagerOrAdmin(request.auth.uid) ||
+                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastCheck', 'status', 'assignedTo', 'trackedItems']));
+
         match /checks/{checkId} {
             allow read, create: if request.auth != null;
-            allow update, delete: if false;
+            allow update, delete: if false; // Checks are immutable
         }
     }
     

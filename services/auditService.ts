@@ -110,4 +110,4 @@ export const getAuditResults = async (): Promise<AiAuditResult[]> => {
     const q = firestore.query(auditsCol, firestore.orderBy('auditedAt', 'desc'));
     const snapshot = await firestore.getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AiAuditResult));
-}
+};

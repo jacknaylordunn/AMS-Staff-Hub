@@ -62,20 +62,20 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
     const batch = firestore.writeBatch(db);
 
     // Add the check document
-    batch.set(firestore.doc(checksCol), {
+    const newCheckRef = firestore.doc(checksCol);
+    batch.set(newCheckRef, {
         ...checkData,
         date: now,
     });
     
-    // Determine new kit status based on check type
+    // Determine new kit status and assignment
     let newStatus: Kit['status'] = 'In Service';
     let assignedTo: Kit['assignedTo'] | null = null;
-    if(checkData.type === 'Sign Out') {
+    if (checkData.type === 'Sign Out') {
         newStatus = 'With Crew';
         assignedTo = checkData.user;
     } else if (checkData.type === 'Sign In') {
-        newStatus = (checkData.itemsUsed && checkData.itemsUsed.length > 0) ? 'Needs Restocking' : 'In Service';
-        assignedTo = null; // Unassign
+        newStatus = (checkData.itemsUsed && checkData.itemsUsed.length > 0) || checkData.overallStatus === 'Issues Found' ? 'Needs Restocking' : 'In Service';
     }
     
     // Extract new expiry/batch data to update on the main kit document
@@ -86,18 +86,15 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
 
     // Update the parent kit's status and lastCheck info
     const updatePayload: any = {
-        'lastCheck.date': now,
-        'lastCheck.user': checkData.user,
-        'lastCheck.status': checkData.overallStatus,
+        lastCheck: {
+            date: now,
+            user: checkData.user,
+            status: checkData.overallStatus,
+        },
         status: newStatus,
         trackedItems: newTrackedItems,
+        assignedTo: assignedTo, // This will be null on Sign In, correctly un-assigning it
     };
-    
-    if (checkData.type === 'Sign Out') {
-         updatePayload.assignedTo = assignedTo;
-    } else if (checkData.type === 'Sign In') {
-        updatePayload.assignedTo = null;
-    }
 
     batch.update(kitRef, updatePayload);
     await batch.commit();

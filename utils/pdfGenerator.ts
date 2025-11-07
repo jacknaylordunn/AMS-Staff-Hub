@@ -4,12 +4,8 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
 
-// Augment jsPDF interface for autoTable plugin
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+// The 'jspdf-autotable' import augments the jsPDF interface automatically.
+// No manual declaration is needed.
 
 // Function to fetch an image and convert it to Base64
 const getLogoBase64 = async (url: string): Promise<string> => {

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import type { Kit, KitCheck, User, KitChecklistItem } from '../types';
 import { DEFAULT_KIT_CHECKLISTS } from '../types';
-import { SpinnerIcon, PlusIcon, TrashIcon } from './icons';
+import { SpinnerIcon, PlusIcon, TrashIcon, ChevronRightIcon } from './icons';
 import { showToast } from './Toast';
 
 interface KitCheckModalProps {
@@ -15,8 +15,9 @@ interface KitCheckModalProps {
 
 type CheckedItemState = {
     status: 'Pass' | 'Fail' | 'N/A';
-    expiryDate?: string;
-    batchNumber?: string;
+    note: string;
+    expiryDate: string;
+    batchNumber: string;
 };
 type ItemsUsedState = { itemName: string, quantity: number }[];
 
@@ -42,6 +43,7 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
             const existingTrackedData = kit.trackedItems?.find(t => t.itemName === item.name);
             initialState[item.name] = {
                 status: 'Pass',
+                note: '',
                 expiryDate: existingTrackedData?.expiryDate || '',
                 batchNumber: existingTrackedData?.batchNumber || ''
             };
@@ -57,6 +59,15 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
             [itemName]: { ...prev[itemName], [field]: value }
         }));
     };
+    
+    const handlePassAll = (category: string) => {
+        const itemsInCategory = itemsByCategory[category];
+        const newChecklist = { ...checkedItems };
+        itemsInCategory.forEach(item => {
+            newChecklist[item.name] = { ...newChecklist[item.name], status: 'Pass' };
+        });
+        setCheckedItems(newChecklist);
+    };
 
     const handleItemUsedChange = (index: number, field: 'itemName' | 'quantity', value: string) => {
         const newItems = [...itemsUsed];
@@ -70,13 +81,26 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         e.preventDefault();
         setLoading(true);
 
-        const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]: [string, CheckedItemState]) => ({
-            itemName,
-            status: data.status || 'N/A',
-            expiryDate: data.expiryDate,
-            batchNumber: data.batchNumber,
-        }));
-        const overallStatus = checkedItemsArray.some(item => item.status === 'Fail') ? 'Issues Found' : 'Pass';
+        let aggregatedNotes = notes ? `Overall Notes: ${notes}\n\n` : '';
+        let hasFailures = false;
+
+        const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]) => {
+            if (data.status === 'Fail') {
+                hasFailures = true;
+                if (data.note) {
+                    aggregatedNotes += `FAIL - ${itemName}: ${data.note}\n`;
+                }
+            }
+            return {
+                itemName,
+                status: data.status,
+                note: data.note,
+                expiryDate: data.expiryDate,
+                batchNumber: data.batchNumber,
+            };
+        });
+
+        const overallStatus = hasFailures ? 'Issues Found' : 'Pass';
         const userFullName = `${user.firstName} ${user.lastName}`.trim();
         
         const checkData: Omit<KitCheck, 'id' | 'date'> = {
@@ -86,7 +110,7 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
             type,
             checkedItems: checkedItemsArray,
             itemsUsed: type === 'Sign In' ? itemsUsed.filter(i => i.itemName) : undefined,
-            notes,
+            notes: aggregatedNotes.trim(),
             overallStatus,
         };
         await onSave(checkData);
@@ -107,49 +131,56 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         >
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-4xl max-h-[90vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6 flex-shrink-0">{type} Check for {kit.name}</h2>
-                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2">
-                     <div className="space-y-6">
+                <form id="kit-check-form" onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2 -mr-2">
+                     <div className="space-y-4">
                         {Object.entries(itemsByCategory).map(([category, items]) => (
-                            <div key={category}>
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300 border-b dark:border-gray-600 pb-1 mb-3">{category}</h3>
-                                <div className="space-y-3">
+                             <details key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 group" open>
+                                <summary className="flex justify-between items-center cursor-pointer">
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300">{category}</h3>
+                                     <div className="flex items-center gap-4">
+                                        <button type="button" onClick={(e) => { e.preventDefault(); handlePassAll(category); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200">Pass All</button>
+                                        <ChevronRightIcon className="w-5 h-5 transition-transform group-open:rotate-90" />
+                                    </div>
+                                </summary>
+                                <div className="mt-4 space-y-3">
                                     {/* FIX: Cast `items` to KitChecklistItem[] as Object.entries loses type information. */}
                                     {(items as KitChecklistItem[]).map(item => (
-                                        <div key={item.name} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
-                                            <label className="text-gray-700 dark:text-gray-300 font-medium">{item.name}</label>
-                                            
-                                            <div className="flex justify-start gap-2">
-                                                {['Pass', 'Fail', 'N/A'].map(status => (
-                                                    <button type="button" key={status} onClick={() => handleItemChange(item.name, 'status', status)}
-                                                    className={`px-3 py-1 text-xs rounded-full ${checkedItems[item.name]?.status === status 
-                                                        ? (status === 'Pass' ? 'bg-green-500 text-white' : status === 'Fail' ? 'bg-red-500 text-white' : 'bg-gray-500 text-white')
-                                                        : 'bg-gray-200 dark:bg-gray-600'}`}>{status}</button>
-                                                ))}
+                                        <div key={item.name} className="border-t dark:border-gray-600 pt-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                                <label className="text-gray-700 dark:text-gray-300 font-medium">{item.name}</label>
+                                                <div className="flex justify-start gap-1 p-1 bg-gray-200 dark:bg-gray-900 rounded-lg">
+                                                    {['Pass', 'Fail', 'N/A'].map(status => (
+                                                        <button type="button" key={status} onClick={() => handleItemChange(item.name, 'status', status)}
+                                                        className={`w-full text-center px-3 py-1 text-xs rounded-md transition-colors ${checkedItems[item.name]?.status === status 
+                                                            ? (status === 'Pass' ? 'bg-green-500 text-white' : status === 'Fail' ? 'bg-red-500 text-white' : 'bg-gray-500 text-white')
+                                                            : 'hover:bg-gray-300 dark:hover:bg-gray-600'}`}>{status}</button>
+                                                    ))}
+                                                </div>
                                             </div>
-
-                                            {item.trackable && (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label className="text-xs text-gray-500">Expiry</label>
-                                                        <input type="date" value={checkedItems[item.name]?.expiryDate || ''} onChange={e => handleItemChange(item.name, 'expiryDate', e.target.value)} className={inputClasses} />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-xs text-gray-500">Batch #</label>
-                                                        <input type="text" value={checkedItems[item.name]?.batchNumber || ''} onChange={e => handleItemChange(item.name, 'batchNumber', e.target.value)} className={inputClasses} />
-                                                    </div>
+                                            {(checkedItems[item.name]?.status === 'Fail' || item.trackable) && (
+                                                <div className="mt-2 pl-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                    {checkedItems[item.name].status === 'Fail' && (
+                                                         <input type="text" placeholder="Add note for this fault..." value={checkedItems[item.name].note} onChange={(e) => handleItemChange(item.name, 'note', e.target.value)} className={`${inputClasses} text-sm md:col-span-1`} />
+                                                    )}
+                                                    {item.trackable && (
+                                                        <>
+                                                        <input type="date" value={checkedItems[item.name]?.expiryDate || ''} onChange={e => handleItemChange(item.name, 'expiryDate', e.target.value)} className={`${inputClasses} text-sm`} />
+                                                        <input type="text" placeholder="Batch #" value={checkedItems[item.name]?.batchNumber || ''} onChange={e => handleItemChange(item.name, 'batchNumber', e.target.value)} className={`${inputClasses} text-sm`} />
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </details>
                         ))}
                      </div>
 
                     {type === 'Sign In' && (
                         <div className="mt-6 pt-4 border-t dark:border-gray-600">
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className={labelClasses}>Items Used</h3>
+                                <h3 className={labelClasses}>Items Used/Restocked</h3>
                                 <button type="button" onClick={addItemUsed} className="flex items-center text-sm text-ams-blue dark:text-ams-light-blue"><PlusIcon className="w-4 h-4 mr-1"/>Add Item</button>
                             </div>
                             <div className="space-y-2">
@@ -165,13 +196,13 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
                     )}
 
                      <div className="mt-6">
-                        <label className={labelClasses}>Notes (document any faults or issues)</label>
+                        <label className={labelClasses}>Overall Notes</label>
                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClasses}/>
                      </div>
                 </form>
                 <div className="flex justify-end gap-4 mt-8 flex-shrink-0">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
-                    <button type="submit" form="kit-check-form" onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
+                    <button type="submit" form="kit-check-form" disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
                         {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
                         Submit Check
                     </button>

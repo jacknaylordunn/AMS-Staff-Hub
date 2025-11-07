@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import type { Vehicle, VehicleCheck, User } from '../types';
 import { VEHICLE_CHECKLIST_ITEMS } from '../types';
-import { SpinnerIcon } from './icons';
+import { SpinnerIcon, ChevronRightIcon } from './icons';
 import { showToast } from './Toast';
 
 interface VehicleCheckModalProps {
@@ -12,7 +12,7 @@ interface VehicleCheckModalProps {
     user: User;
 }
 
-type ChecklistState = { [key: string]: 'Pass' | 'Fail' | 'N/A' };
+type ChecklistState = { [key: string]: { status: 'Pass' | 'Fail' | 'N/A'; note: string } };
 
 const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, onSave, vehicle, user }) => {
     const [mileage, setMileage] = useState('');
@@ -21,14 +21,23 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
     const [checklist, setChecklist] = useState<ChecklistState>(() => {
         const initialState: ChecklistState = {};
         Object.values(VEHICLE_CHECKLIST_ITEMS).flat().forEach(item => {
-            initialState[item] = 'Pass';
+            initialState[item] = { status: 'Pass', note: '' };
         });
         return initialState;
     });
     const [loading, setLoading] = useState(false);
     
-    const handleChecklistChange = (item: string, status: 'Pass' | 'Fail' | 'N/A') => {
-        setChecklist(prev => ({ ...prev, [item]: status }));
+    const handleChecklistChange = (item: string, field: 'status' | 'note', value: string) => {
+        setChecklist(prev => ({ ...prev, [item]: { ...prev[item], [field]: value } }));
+    };
+
+    const handlePassAll = (category: string) => {
+        const itemsInCategory = VEHICLE_CHECKLIST_ITEMS[category as keyof typeof VEHICLE_CHECKLIST_ITEMS];
+        const newChecklist = { ...checklist };
+        itemsInCategory.forEach(item => {
+            newChecklist[item] = { ...newChecklist[item], status: 'Pass' };
+        });
+        setChecklist(newChecklist);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +48,22 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
         }
 
         setLoading(true);
-        const overallStatus = Object.values(checklist).some(status => status === 'Fail') ? 'Issues Found' : 'Pass';
+
+        const checklistForSave: VehicleCheck['checklist'] = {};
+        let aggregatedNotes = notes ? `Overall Notes: ${notes}\n\n` : '';
+        let hasFailures = false;
+
+        Object.entries(checklist).forEach(([item, data]) => {
+            checklistForSave[item] = { status: data.status, note: data.note };
+            if (data.status === 'Fail') {
+                hasFailures = true;
+                if (data.note) {
+                    aggregatedNotes += `FAIL - ${item}: ${data.note}\n`;
+                }
+            }
+        });
+
+        const overallStatus = hasFailures ? 'Issues Found' : 'Pass';
         const userFullName = `${user.firstName} ${user.lastName}`.trim();
         
         const checkData: Omit<VehicleCheck, 'id' | 'date'> = {
@@ -48,8 +72,8 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
             user: { uid: user.uid, name: userFullName },
             mileage: Number(mileage),
             fuelLevel,
-            checklist,
-            notes,
+            checklist: checklistForSave,
+            notes: aggregatedNotes.trim(),
             overallStatus,
         };
         await onSave(checkData);
@@ -69,9 +93,9 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
             aria-modal="true"
             aria-labelledby="vehicle-check-modal-title"
         >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-3xl max-h-[90vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-4xl max-h-[90vh] flex flex-col modal-content" onClick={e => e.stopPropagation()}>
                 <h2 id="vehicle-check-modal-title" className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue mb-6 flex-shrink-0">Daily Check for {vehicle.name}</h2>
-                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2">
+                <form id="vehicle-check-form" onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2 -mr-2">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label className={labelClasses}>Current Mileage</label>
@@ -85,37 +109,50 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
                         </div>
                      </div>
                      
-                     <div className="space-y-6">
+                     <div className="space-y-4">
                         {Object.entries(VEHICLE_CHECKLIST_ITEMS).map(([category, items]) => (
-                            <div key={category}>
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300 border-b dark:border-gray-600 pb-1 mb-3">{category}</h3>
-                                <div className="space-y-2">
+                            <details key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 group" open>
+                                <summary className="flex justify-between items-center cursor-pointer">
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300">{category}</h3>
+                                    <div className="flex items-center gap-4">
+                                        <button type="button" onClick={(e) => { e.preventDefault(); handlePassAll(category); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200">Pass All</button>
+                                        <ChevronRightIcon className="w-5 h-5 transition-transform group-open:rotate-90" />
+                                    </div>
+                                </summary>
+                                <div className="mt-4 space-y-3">
                                     {items.map(item => (
-                                        <div key={item} className="grid grid-cols-3 gap-2 items-center">
-                                            <label className="text-gray-700 dark:text-gray-300">{item}</label>
-                                            <div className="col-span-2 flex justify-start gap-2">
-                                                {['Pass', 'Fail', 'N/A'].map(status => (
-                                                    <button type="button" key={status} onClick={() => handleChecklistChange(item, status as any)}
-                                                    className={`px-3 py-1 text-sm rounded-full ${checklist[item] === status 
-                                                        ? (status === 'Pass' ? 'bg-green-500 text-white' : status === 'Fail' ? 'bg-red-500 text-white' : 'bg-gray-500 text-white')
-                                                        : 'bg-gray-200 dark:bg-gray-600'}`}>{status}</button>
-                                                ))}
+                                        <div key={item} className="border-t dark:border-gray-600 pt-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                                <label className="text-gray-700 dark:text-gray-300 font-medium">{item}</label>
+                                                <div className="flex justify-start gap-1 p-1 bg-gray-200 dark:bg-gray-900 rounded-lg">
+                                                    {['Pass', 'Fail', 'N/A'].map(status => (
+                                                        <button type="button" key={status} onClick={() => handleChecklistChange(item, 'status', status)}
+                                                        className={`w-full text-center px-3 py-1 text-sm rounded-md transition-colors ${checklist[item].status === status 
+                                                            ? (status === 'Pass' ? 'bg-green-500 text-white' : status === 'Fail' ? 'bg-red-500 text-white' : 'bg-gray-500 text-white')
+                                                            : 'hover:bg-gray-300 dark:hover:bg-gray-600'}`}>{status}</button>
+                                                    ))}
+                                                </div>
                                             </div>
+                                            {checklist[item].status === 'Fail' && (
+                                                <div className="mt-2 pl-4">
+                                                    <input type="text" placeholder="Add a note for this fault..." value={checklist[item].note} onChange={(e) => handleChecklistChange(item, 'note', e.target.value)} className={`${inputClasses} text-sm`} />
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </details>
                         ))}
                      </div>
 
                      <div className="mt-6">
-                        <label className={labelClasses}>Notes (document any faults or issues)</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className={inputClasses}/>
+                        <label className={labelClasses}>Overall Notes</label>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClasses}/>
                      </div>
                 </form>
                 <div className="flex justify-end gap-4 mt-8 flex-shrink-0">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
-                    <button type="submit" onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
+                    <button type="submit" form="vehicle-check-form" disabled={loading} className="px-6 py-2 bg-ams-blue text-white font-semibold rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
                         {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
                         Submit Check
                     </button>

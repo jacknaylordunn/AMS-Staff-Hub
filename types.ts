@@ -225,8 +225,10 @@ export interface Intervention {
 export interface Injury {
     id: string;
     view: 'anterior' | 'posterior';
-    drawingDataUrl: string; // base64 data URL of the canvas drawing
+    coords: { x: number; y: number }; // Coordinates on the image
     description: string;
+    // FIX: Added optional drawingDataUrl to store a snapshot of the injury on the body map.
+    drawingDataUrl?: string;
 }
 
 export interface CompanyDocument {
@@ -303,7 +305,7 @@ export interface VehicleCheck {
     user: { uid: string; name: string; };
     mileage: number;
     fuelLevel: 'Full' | '3/4' | '1/2' | '1/4' | 'Empty';
-    checklist: { [key: string]: 'Pass' | 'Fail' | 'N/A' };
+    checklist: { [key: string]: { status: 'Pass' | 'Fail' | 'N/A'; note?: string } };
     notes: string;
     overallStatus: 'Pass' | 'Issues Found';
 }
@@ -429,7 +431,7 @@ export interface KitCheck {
     date: firestore.Timestamp;
     user: { uid: string; name: string; };
     type: 'Sign Out' | 'Sign In';
-    checkedItems: { itemName: string; status: 'Pass' | 'Fail' | 'N/A'; expiryDate?: string; batchNumber?: string; }[];
+    checkedItems: { itemName: string; status: 'Pass' | 'Fail' | 'N/A'; note?: string; expiryDate?: string; batchNumber?: string; }[];
     itemsUsed?: { itemName: string, quantity: number }[];
     notes: string;
     overallStatus: 'Pass' | 'Issues Found';

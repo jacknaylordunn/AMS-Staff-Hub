@@ -59,17 +59,21 @@ export const addVehicleCheck = async (vehicleId: string, checkData: Omit<Vehicle
     const batch = firestore.writeBatch(db);
 
     // Add the check document
-    batch.set(firestore.doc(checksCol), {
+    const newCheckRef = firestore.doc(checksCol);
+    batch.set(newCheckRef, {
         ...checkData,
         date: now,
     });
 
-    // Update the parent vehicle's lastCheck status
+    // Update the parent vehicle's lastCheck status and overall status
+    const newStatus = checkData.overallStatus === 'Issues Found' ? 'Maintenance Required' : 'In Service';
     batch.update(vehicleRef, {
-        'lastCheck.date': now,
-        'lastCheck.user': checkData.user,
-        'lastCheck.status': checkData.overallStatus,
-        status: checkData.overallStatus === 'Issues Found' ? 'Maintenance Required' : 'In Service'
+        lastCheck: {
+            date: now,
+            user: checkData.user,
+            status: checkData.overallStatus,
+        },
+        status: newStatus
     });
 
     await batch.commit();
