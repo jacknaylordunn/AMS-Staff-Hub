@@ -104,7 +104,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                                 <ViewField label="AVPU" value={eprf.disability.avpu} />
                                 <ViewField label="GCS Total" value={eprf.disability.gcs.total} />
                                 <ViewField label="Blood Glucose" value={eprf.disability.bloodGlucoseLevel ? `${eprf.disability.bloodGlucoseLevel} mmol/L` : 'N/A'} />
-                                <ViewField label="FAST Test" value={`Face: ${eprf.disability.fastTest?.face}, Arms: ${eprf.disability.fastTest?.arms}, Speech: ${eprf.disability.fastTest?.speech}`} />
+                                <ViewField label="FAST Test" value={eprf.disability.fastTest ? `Face: ${eprf.disability.fastTest.face}, Arms: ${eprf.disability.fastTest.arms}, Speech: ${eprf.disability.fastTest.speech}` : 'N/A'} />
                             </div>
                             <ViewField label="GCS Breakdown" value={`E${eprf.disability.gcs.eyes} V${eprf.disability.gcs.verbal} M${eprf.disability.gcs.motor}`} />
                             <ViewField label="Pupils" value={eprf.disability.pupils} />
@@ -146,43 +146,23 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     <ViewSection title="Treatment">
                         <ViewField label="Working Impressions" value={eprf.impressions} />
                         <ViewField label="Kit Items Used" value={eprf.itemsUsed} />
-                        {eprf.medicationsAdministered?.length > 0 && 
+                        {eprf.medicationsAdministered?.length > 0 ?
                             <table className="w-full text-sm mt-4">
                                 <thead><tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th className="p-2">Time</th><th className="p-2">Medication</th><th className="p-2">Dose</th><th className="p-2">Route</th></tr></thead>
                                 <tbody className="dark:text-gray-300">{eprf.medicationsAdministered.map((m, i) => <tr key={i} className="border-t dark:border-gray-700"><td className="p-2">{m.time}</td><td className="p-2">{m.medication}</td><td className="p-2">{m.dose}</td><td className="p-2">{m.route}</td></tr>)}</tbody>
                             </table>
+                            : <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">No medications administered.</p>
                         }
-                        {eprf.interventions?.length > 0 &&
+                        {eprf.interventions?.length > 0 ?
                             <table className="w-full text-sm mt-4">
                                 <thead><tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th className="p-2">Time</th><th className="p-2">Intervention</th><th className="p-2">Details</th></tr></thead>
                                 <tbody className="dark:text-gray-300">{eprf.interventions.map((item, i) => <tr key={i} className="border-t dark:border-gray-700"><td className="p-2">{item.time}</td><td className="p-2">{item.intervention}</td><td className="p-2">{item.details}</td></tr>)}</tbody>
                             </table>
+                            : <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">No interventions performed.</p>
                         }
                     </ViewSection>
                  </>
             )}
-            
-            <ViewSection title="Attachments">
-                {eprf.attachments?.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {eprf.attachments.map(att => (
-                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="block group">
-                                {att.mimeType.startsWith('image/') ? (
-                                    <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-32 object-cover transition-transform group-hover:scale-105" />
-                                ) : (
-                                    <div className="rounded-lg w-full h-32 bg-gray-100 dark:bg-gray-700 flex flex-col items-center justify-center p-2">
-                                        <DocsIcon className="w-8 h-8 text-gray-400" />
-                                        <p className="text-xs text-center text-gray-500 dark:text-gray-300 mt-2 truncate">{att.fileName}</p>
-                                    </div>
-                                )}
-                                <p className="text-xs mt-1 text-gray-600 dark:text-gray-400 truncate">{att.description || att.fileName}</p>
-                            </a>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-gray-500 dark:text-gray-400">No files attached.</p>
-                )}
-            </ViewSection>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
                 <ViewSection title="Safeguarding">
@@ -207,6 +187,29 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                 </ViewSection>
             }
 
+            <ViewSection title="Attachments">
+                {eprf.attachments?.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {eprf.attachments.map(att => (
+                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="block group">
+                                {att.mimeType.startsWith('image/') ? (
+                                    <img src={att.url} alt={att.description || 'Attachment'} className="rounded-lg w-full h-32 object-cover transition-transform group-hover:scale-105" />
+                                ) : (
+                                    <div className="rounded-lg w-full h-32 bg-gray-100 dark:bg-gray-700 flex flex-col items-center justify-center p-2">
+                                        <DocsIcon className="w-8 h-8 text-gray-400" />
+                                        <p className="text-xs text-center text-gray-500 dark:text-gray-300 mt-2 truncate">{att.fileName}</p>
+                                    </div>
+                                )}
+                                <p className="text-xs mt-1 text-gray-600 dark:text-gray-400 truncate">{att.description || att.fileName}</p>
+                            </a>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No files attached.</p>
+                )}
+            </ViewSection>
+            
+
              <ViewSection title="Disposition & Handover" className="pt-4 border-t-2 dark:border-gray-700">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                     <ViewField label="Final Disposition" value={eprf.disposition} />
@@ -224,7 +227,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                         <ViewField label="Report Author" value={eprf.createdBy.name} />
                          {eprf.reviewedBy && <ViewField label="Reviewed By" value={`${eprf.reviewedBy.name} on ${eprf.reviewedBy.date.toDate().toLocaleDateString()}`} />}
                     </div>
-                    {(eprf.patientSignatureUrl || eprf.clinicianSignatureUrl) && (
+                    {(eprf.clinicianSignatureUrl || eprf.patientSignatureUrl) && (
                         <div className="grid grid-cols-2 gap-4">
                             {eprf.clinicianSignatureUrl && (
                                 <div>
@@ -234,7 +237,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                             )}
                             {eprf.patientSignatureUrl && (
                                 <div>
-                                    <span className="block font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Patient</span>
+                                    <span className="block font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Patient/Guardian</span>
                                     <img src={eprf.patientSignatureUrl} alt="Patient Signature" className="border rounded-md bg-gray-50 dark:border-gray-600" />
                                 </div>
                             )}

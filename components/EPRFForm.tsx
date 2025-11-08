@@ -13,7 +13,7 @@ import { updateEPRF, finalizeEPRF, deleteEPRF, getIncidentNumber } from '../serv
 import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
-import { showToast } from '../components/Toast';
+import { showToast } from './Toast';
 import PatientModal from './PatientModal';
 import { calculateNews2Score, getNews2RiskColor } from '../utils/news2Calculator';
 import { InteractiveBodyMap } from './InteractiveBodyMap';
@@ -683,7 +683,6 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
 
             <div className={steps[currentStep-1] === 'Patient' ? 'block' : 'hidden'}>
                 <Section title="Patient Information">
-                    {/* FIX: The error indicates a Section component is missing children. This section was empty. Filling it with patient search and details fields. */}
                     <div className="md:col-span-4 lg:col-span-4 relative">
                         <label htmlFor="patientSearch" className={labelBaseClasses}>Search for Existing Patient</label>
                         <input
