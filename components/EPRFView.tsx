@@ -56,7 +56,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                     <ViewField label="Presenting Situation" value={eprf.presentingComplaint} />
                     {eprf.welfareLog?.length > 0 ? (
                         <table className="min-w-full text-sm mt-2">
-                            <thead><tr className="text-left text-xs font-medium text-gray-600 dark:text-gray-400"><th className="p-2">Time</th><th className="p-2">Observation / Action</th></tr></thead>
+                            <thead className="text-left text-xs font-medium text-gray-600 dark:text-gray-400"><tr className="border-b dark:border-gray-700"><th className="p-2">Time</th><th className="p-2">Observation / Action</th></tr></thead>
                             <tbody className="dark:text-gray-300">{eprf.welfareLog.map((item, i) => <tr key={i} className="border-t dark:border-gray-700"><td className="p-2">{item.time}</td><td className="p-2">{item.observation}</td></tr>)}</tbody>
                         </table>
                     ) : <p className="text-gray-500 dark:text-gray-400">No welfare entries logged.</p>}
@@ -72,6 +72,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                             <ViewField label="Medications" value={eprf.medications} />
                         </div>
                         <ViewField label="Past Medical History" value={eprf.pastMedicalHistory} />
+                        <ViewField label="Last Oral Intake" value={eprf.lastOralIntake} />
                     </ViewSection>
                     
                     {eprf.painAssessment && eprf.painAssessment.severity > 0 &&
@@ -94,9 +95,9 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                             <ViewField label="Breathing" value={`Effort: ${eprf.breathingDetails?.effort || 'N/A'}. Sounds: ${eprf.breathingDetails?.sounds.join(', ') || 'N/A'} ${eprf.breathingDetails?.sides.join(', ') || ''}`} />
                             <ViewField label="Circulation" value={`Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}`} />
                             <ViewField label="Exposure" value={eprf.exposure} />
-                             <ViewField label="Airway Notes" value={eprf.airway} className="mt-2 border-t pt-2" />
-                             <ViewField label="Breathing Notes" value={eprf.breathing} className="mt-2 border-t pt-2" />
-                             <ViewField label="Circulation Notes" value={eprf.circulation} className="mt-2 border-t pt-2" />
+                             <ViewField label="Airway Notes" value={eprf.airway} className="mt-2 border-t dark:border-gray-600 pt-2" />
+                             <ViewField label="Breathing Notes" value={eprf.breathing} className="mt-2 border-t dark:border-gray-600 pt-2" />
+                             <ViewField label="Circulation Notes" value={eprf.circulation} className="mt-2 border-t dark:border-gray-600 pt-2" />
                         </ViewSection>
 
                         <ViewSection title="Disability">
@@ -148,14 +149,14 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                         <ViewField label="Kit Items Used" value={eprf.itemsUsed} />
                         {eprf.medicationsAdministered?.length > 0 ?
                             <table className="w-full text-sm mt-4">
-                                <thead><tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th className="p-2">Time</th><th className="p-2">Medication</th><th className="p-2">Dose</th><th className="p-2">Route</th></tr></thead>
+                                <thead className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><tr className="border-b dark:border-gray-700"><th className="p-2">Time</th><th className="p-2">Medication</th><th className="p-2">Dose</th><th className="p-2">Route</th></tr></thead>
                                 <tbody className="dark:text-gray-300">{eprf.medicationsAdministered.map((m, i) => <tr key={i} className="border-t dark:border-gray-700"><td className="p-2">{m.time}</td><td className="p-2">{m.medication}</td><td className="p-2">{m.dose}</td><td className="p-2">{m.route}</td></tr>)}</tbody>
                             </table>
                             : <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">No medications administered.</p>
                         }
                         {eprf.interventions?.length > 0 ?
                             <table className="w-full text-sm mt-4">
-                                <thead><tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><th className="p-2">Time</th><th className="p-2">Intervention</th><th className="p-2">Details</th></tr></thead>
+                                <thead className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"><tr className="border-b dark:border-gray-700"><th className="p-2">Time</th><th className="p-2">Intervention</th><th className="p-2">Details</th></tr></thead>
                                 <tbody className="dark:text-gray-300">{eprf.interventions.map((item, i) => <tr key={i} className="border-t dark:border-gray-700"><td className="p-2">{item.time}</td><td className="p-2">{item.intervention}</td><td className="p-2">{item.details}</td></tr>)}</tbody>
                             </table>
                             : <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">No interventions performed.</p>
@@ -177,7 +178,7 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
             </div>
 
 
-            {eprf.disposition === 'Left at Home (Against Advice)' && eprf.refusalOfCare &&
+            {eprf.refusalOfCare && (eprf.refusalOfCare.refusedTreatment || eprf.refusalOfCare.refusedTransport) &&
                 <ViewSection title="Refusal of Care">
                     <ViewField label="Refused Treatment" value={eprf.refusalOfCare.refusedTreatment ? 'Yes' : 'No'} />
                     <ViewField label="Refused Transport" value={eprf.refusalOfCare.refusedTransport ? 'Yes' : 'No'} />

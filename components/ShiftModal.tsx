@@ -4,7 +4,7 @@ import * as firestore from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
-import { showToast } from '../components/Toast';
+import { showToast } from './Toast';
 import { bidOnShift, cancelBidOnShift } from '../services/rotaService';
 
 interface ShiftModalProps {
@@ -205,98 +205,81 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                                     <option>Nurse</option>
                                     <option>Doctor</option>
                                     <option>Welfare</option>
-                                    <option>Admin</option>
-                                    <option>Manager</option>
                                 </select>
                             </div>
                             <div>
                                 <label className={labelClasses}>Start Time</label>
-                                <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses} disabled={!isManager}/>
+                                <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses} disabled={!isManager} />
                             </div>
                             <div>
                                 <label className={labelClasses}>End Time</label>
-                                <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses} disabled={!isManager}/>
+                                <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses} disabled={!isManager} />
                             </div>
-                            {isManager && (
-                                <>
-                                <div className="md:col-span-2">
-                                    <label className={labelClasses}>Assign Staff</label>
-                                    <select multiple name="assignedStaffUids" value={formData.assignedStaffUids} onChange={handleStaffSelect} className={`${inputClasses} h-32`}>
-                                        {staff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName} ({s.role})</option>)}
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className={labelClasses}>Notes</label>
-                                    <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputClasses}/>
-                                </div>
-                                </>
-                            )}
                         </div>
-                        
-                        {isManager && shift && shift.bids && shift.bids.length > 0 && formData.assignedStaffUids.length === 0 && (
-                            <div className="mt-4 pt-4 border-t dark:border-gray-600">
-                                <h3 className="text-md font-bold text-gray-700 dark:text-gray-300 mb-2">Bids Received ({shift.bids.length})</h3>
-                                <ul className="space-y-2 max-h-32 overflow-y-auto">
-                                    {shift.bids.map(bid => (
-                                        <li key={bid.uid} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                            <span className="dark:text-gray-200">{bid.name}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData(prev => ({ ...prev, assignedStaffUids: [bid.uid] }))}
-                                                className="px-3 py-1 text-sm bg-ams-blue text-white rounded-md hover:bg-opacity-80"
-                                            >
-                                                Assign
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        {!isManager && shift && !shift.isUnavailability && shift.assignedStaff.length === 0 && (
-                            <div className="mt-6">
-                                <button
-                                    type="button"
-                                    onClick={handleBid}
-                                    disabled={loading}
-                                    className={`w-full px-4 py-2 font-semibold text-white rounded-md flex items-center justify-center transition-colors ${isMyBid ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'}`}
-                                >
-                                    {loading ? <SpinnerIcon className="w-5 h-5 mr-2"/> : (isMyBid ? 'Withdraw Bid' : 'Bid for this Shift')}
-                                </button>
-                            </div>
-                        )}
+                        <div className="mt-4">
+                            <label className={labelClasses}>Assigned Staff</label>
+                            <select multiple name="assignedStaffUids" value={formData.assignedStaffUids} onChange={handleStaffSelect} className={`${inputClasses} h-32`} disabled={!isManager}>
+                                {staff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
+                            </select>
+                        </div>
+                        <div className="mt-4">
+                            <label className={labelClasses}>Notes</label>
+                            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputClasses} disabled={!isManager} />
+                        </div>
                     </>
-                    ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelClasses}>Start Date</label>
-                            <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses}/>
+                    ) : ( // type === 'unavailability'
+                    <>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                                <label className={labelClasses}>Start Time</label>
+                                <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>End Time</label>
+                                <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses} />
+                            </div>
                         </div>
-                         <div>
-                            <label className={labelClasses}>End Date</label>
-                            <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses}/>
+                         <div className="mt-4">
+                            <label className={labelClasses}>Reason (optional)</label>
+                            <input type="text" name="unavailabilityReason" value={formData.unavailabilityReason} onChange={handleChange} className={inputClasses} />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Reason (Optional)</label>
-                             <input type="text" name="unavailabilityReason" value={formData.unavailabilityReason} onChange={handleChange} className={inputClasses}/>
-                        </div>
-                    </div>
+                    </>
                     )}
-                    <div className="flex justify-between items-center gap-4 mt-6">
-                         <div>
-                            {shift?.id && (isManager || (shift.isUnavailability && shift.assignedStaffUids.includes(currentUser.uid))) && (
-                                <button type="button" onClick={() => setDeleteModalOpen(true)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center">
-                                    <TrashIcon className="w-5 h-5 mr-2" /> Delete
+
+                    {/* Bidding and Bids display */}
+                    {shift && !isManager && shift.assignedStaff.length === 0 && !shift.isUnavailability && (
+                        <div className="mt-4 pt-4 border-t dark:border-gray-600">
+                             <button type="button" onClick={handleBid} disabled={loading} className={`w-full px-4 py-2 font-semibold text-white rounded-md flex items-center justify-center ${isMyBid ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'}`}>
+                                {loading && <SpinnerIcon className="w-5 h-5 mr-2"/>}
+                                {isMyBid ? 'Withdraw Bid' : 'Bid for this Shift'}
+                            </button>
+                        </div>
+                    )}
+                     {shift && isManager && shift.bids && shift.bids.length > 0 && (
+                        <div className="mt-4 pt-4 border-t dark:border-gray-600">
+                            <h3 className="font-semibold mb-2">Bids ({shift.bids.length})</h3>
+                            <ul className="space-y-1 text-sm">
+                                {shift.bids.map(bid => <li key={bid.uid}>{bid.name}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                    
+                    <div className="flex justify-between items-center mt-6">
+                        <div>
+                            {shift && (isManager || (shift.isUnavailability && shift.assignedStaffUids.includes(currentUser.uid))) && (
+                                <button type="button" onClick={() => setDeleteModalOpen(true)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center">
+                                    <TrashIcon className="w-5 h-5 mr-2"/> Delete
                                 </button>
                             )}
                         </div>
                         <div className="flex gap-4">
                             <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
-                            { (isManager || type === 'unavailability') && (
-                            <button type="submit" disabled={loading} className="px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
-                                {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
-                                Save
-                            </button>
-                            )}
+                             { (isManager || type === 'unavailability') &&
+                                <button type="submit" disabled={loading} className="px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">
+                                    {loading && <SpinnerIcon className="w-5 h-5 mr-2" />}
+                                    Save
+                                </button>
+                            }
                         </div>
                     </div>
                 </form>
