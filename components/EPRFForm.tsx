@@ -117,45 +117,32 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
 };
 
 const Stepper: React.FC<{ steps: string[], currentStep: number, onStepClick: (step: number) => void }> = ({ steps, currentStep, onStepClick }) => (
-    <nav aria-label="Progress">
-        <ol role="list" className="flex items-center">
-            {steps.map((step, stepIdx) => (
-                <li key={step} className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''}`}>
-                    {stepIdx < currentStep - 1 ? (
-                        <>
-                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                <div className="h-0.5 w-full bg-ams-light-blue" />
-                            </div>
-                            <button onClick={() => onStepClick(stepIdx + 1)} className="relative flex h-8 w-8 items-center justify-center rounded-full bg-ams-light-blue hover:bg-ams-blue">
-                                <CheckIcon className="h-5 w-5 text-white" aria-hidden="true" />
-                                <span className="sr-only">{step}</span>
-                            </button>
-                        </>
-                    ) : stepIdx === currentStep - 1 ? (
-                        <>
-                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-700" />
-                            </div>
-                            <button onClick={() => onStepClick(stepIdx + 1)} className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-ams-light-blue bg-white dark:bg-gray-800" aria-current="step">
-                                <span className="h-2.5 w-2.5 rounded-full bg-ams-light-blue" aria-hidden="true" />
-                                <span className="sr-only">{step}</span>
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-700" />
-                            </div>
-                            <button onClick={() => onStepClick(stepIdx + 1)} className="group relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-400">
-                                <span className="h-2.5 w-2.5 rounded-full bg-transparent group-hover:bg-gray-300" aria-hidden="true" />
-                                <span className="sr-only">{step}</span>
-                            </button>
-                        </>
-                    )}
-                     <span className="absolute top-10 -left-2 w-20 text-center text-xs text-gray-500 dark:text-gray-400">{step}</span>
-                </li>
-            ))}
-        </ol>
+    <nav aria-label="Progress" className="flex border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        {steps.map((step, stepIdx) => {
+            const stepNumber = stepIdx + 1;
+            const isCompleted = stepNumber < currentStep;
+            const isCurrent = stepNumber === currentStep;
+            
+            let statusClasses = 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700';
+            if (isCurrent) {
+                statusClasses = 'bg-ams-light-blue/10 dark:bg-ams-light-blue/20 text-ams-blue dark:text-ams-light-blue border-b-4 border-ams-light-blue';
+            } else if (isCompleted) {
+                statusClasses = 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30';
+            }
+
+            return (
+                <button
+                    key={step}
+                    onClick={() => onStepClick(stepNumber)}
+                    className={`flex-1 group p-3 text-center text-xs sm:text-sm font-medium transition-colors duration-200 border-r border-gray-200 dark:border-gray-700 last:border-r-0 ${statusClasses}`}
+                >
+                    <span className="flex items-center justify-center">
+                        {isCompleted && <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2 hidden sm:inline-block" />}
+                        {step}
+                    </span>
+                </button>
+            );
+        })}
     </nav>
 );
 
@@ -606,7 +593,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
 
     return (
         <form onSubmit={e => e.preventDefault()} className="pb-20">
-            <div className="p-4 bg-white dark:bg-gray-800 shadow-md mb-6 sticky top-[128px] md:top-[80px] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6">
+            <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 mb-6 sticky top-[128px] md:top-[80px] z-20 p-2">
                  <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
             </div>
 

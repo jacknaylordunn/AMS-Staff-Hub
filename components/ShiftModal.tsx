@@ -49,8 +49,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             setFormData({
                 eventId: shift.eventId,
                 eventName: shift.eventName,
-                start: `${yyyyMMdd}T${shift.start.toDate().toTimeString().substring(0,5)}`,
-                end: `${yyyyMMdd}T${shift.end.toDate().toTimeString().substring(0,5)}`,
+                start: shift.start.toDate().toISOString().slice(0, 16),
+                end: shift.end.toDate().toISOString().slice(0, 16),
                 roleRequired: shift.roleRequired,
                 notes: shift.notes || '',
                 assignedStaffUids: shift.assignedStaff.map(s => s.uid),
@@ -72,16 +72,43 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 unavailabilityReason: '',
             });
         }
-    }, [shift, date, events, type, currentUser]);
+    }, [shift, date, events, type, currentUser, isOpen]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        
+        // Create a mutable copy of the form data to update
+        let newFormData = { ...formData, [name]: value };
+
+        // Handle multi-day shift logic
+        if ((name === "start" || name === "end") && newFormData.start && newFormData.end) {
+            const startDate = new Date(newFormData.start);
+            const endDate = new Date(newFormData.end);
+
+            if (endDate < startDate) {
+                const nextDayEndDate = new Date(startDate);
+                // Get time parts from the intended end date
+                const endHours = endDate.getHours();
+                const endMinutes = endDate.getMinutes();
+                // Set the date to the start date, then add a day
+                nextDayEndDate.setDate(nextDayEndDate.getDate() + 1);
+                nextDayEndDate.setHours(endHours, endMinutes);
+
+                // Format back to YYYY-MM-DDTHH:mm
+                const formattedNextDay = nextDayEndDate.toISOString().slice(0, 16);
+                newFormData.end = formattedNextDay;
+            }
+        }
+        
+        // Handle event name update when eventId changes
         if (name === "eventId") {
              const selectedEvent = events.find(ev => ev.id === value);
-             setFormData(prev => ({ ...prev, eventId: value, eventName: selectedEvent?.name || '' }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+             if(selectedEvent) {
+                newFormData = { ...newFormData, eventId: value, eventName: selectedEvent.name };
+             }
         }
+        
+        setFormData(newFormData);
     };
     
     const handleStaffSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
