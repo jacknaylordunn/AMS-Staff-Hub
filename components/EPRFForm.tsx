@@ -156,21 +156,21 @@ const Section: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 const FieldWrapper: React.FC<{ children: React.ReactNode, className?: string}> = ({children, className}) => <div className={className}>{children}</div>;
-const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
+const inputBaseClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 disabled:bg-gray-100 dark:disabled:bg-gray-700/50";
 const labelBaseClasses = "block text-sm font-medium text-gray-700 dark:text-gray-400";
 
-const InputField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; className?: string; list?: string }> = 
-({ label, name, value, onChange, type = 'text', required = false, className, list }) => (
+const InputField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; required?: boolean; className?: string; list?: string; disabled?: boolean }> = 
+({ label, name, value, onChange, type = 'text', required = false, className, list, disabled = false }) => (
   <FieldWrapper className={className}>
-    <label htmlFor={name} className={labelBaseClasses}>{label}</label>
-    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} className={inputBaseClasses} list={list} />
+    <label htmlFor={name} className={labelBaseClasses}>{label}{required && <span className="text-red-500">*</span>}</label>
+    <input type={type} id={name} name={name} value={value} onChange={onChange} required={required} className={inputBaseClasses} list={list} disabled={disabled} />
   </FieldWrapper>
 );
-const SelectField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode, className?: string }> = 
-({ label, name, value, onChange, children, className }) => (
+const SelectField: React.FC<{ label: string; name: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode, className?: string; required?: boolean; disabled?: boolean }> = 
+({ label, name, value, onChange, children, className, required = false, disabled = false }) => (
     <FieldWrapper className={className}>
-        <label htmlFor={name} className={labelBaseClasses}>{label}</label>
-        <select id={name} name={name} value={value} onChange={onChange} className={inputBaseClasses}>
+        <label htmlFor={name} className={labelBaseClasses}>{label}{required && <span className="text-red-500">*</span>}</label>
+        <select id={name} name={name} value={value} onChange={onChange} className={inputBaseClasses} required={required} disabled={disabled}>
             {children}
         </select>
     </FieldWrapper>
@@ -231,6 +231,7 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 
 const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA', 'Drug Overdose', 'Ethanol Intoxication', 'Fall', 'Fracture', 'GI Bleed', 'Head Injury', 'Hypoglycaemia', 'Mental Health Crisis', 'Minor Injury', 'Post-ictal', 'Seizure', 'Sepsis', 'Shortness of Breath', 'Syncope', 'Trauma' ];
 const commonItemsUsed = ['Large Dressing', 'Gauze', 'Triangular Bandage', 'Wound Closure Strips', 'Saline Pod', 'Catastrophic Tourniquet', 'Air-sickness Bag', 'Ice Pack'];
+const commonAgencies = ['Police', 'Fire & Rescue', 'HART', 'Security'];
 
 const dataURLtoBlob = (dataUrl: string): Blob => {
     const arr = dataUrl.split(',');
@@ -638,7 +639,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             <div className={steps[currentStep-1] === 'Incident' ? 'block' : 'hidden'}>
                 <Section title="Incident & Triage">
                     {!state.eventId ? (
-                        <SelectField label="* Select Event" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2">
+                        <SelectField label="Select Event" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2" required>
                             <option value="">-- Please select an event --</option>
                             {availableEvents.map(event => <option key={event.id} value={event.id}>{event.name} ({event.date})</option>)}
                         </SelectField>
@@ -651,17 +652,20 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         <option>Welfare/Intox</option>
                     </SelectField>
                     <div className="relative">
-                        <label className={labelBaseClasses}>Incident Number</label>
+                        <label className={labelBaseClasses}>Incident Number*</label>
                         <input type="text" value={state.incidentNumber} readOnly className={`${inputBaseClasses} pr-24 bg-gray-100 dark:bg-gray-700/50`} placeholder="Click to generate..."/>
                         <button onClick={handleGenerateIncidentNumber} disabled={!!state.incidentNumber || isSaving} className="absolute right-1 top-7 px-3 py-1 text-xs bg-ams-light-blue text-white rounded-md disabled:bg-gray-400">
                            {isSaving ? <SpinnerIcon className="w-4 h-4" /> : 'Generate'}
                         </button>
                     </div>
+                     <div className="md:col-span-4 lg:col-span-4">
+                        <TaggableInput label="Other Agencies on Scene" value={state.itemsUsed} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'itemsUsed', payload: v})} suggestions={commonAgencies} placeholder="e.g., Police, Fire..." />
+                    </div>
                 </Section>
                  <Section title="Event & Timestamps">
                     <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" />
-                    <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" />
-                    <div className="relative"><label className={labelBaseClasses}>Incident Time</label><input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} className={inputBaseClasses} /><button onClick={handleSetTimeToNow('incidentTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
+                    <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" required/>
+                    <div className="relative"><label className={labelBaseClasses}>Incident Time*</label><input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} className={inputBaseClasses} required /><button onClick={handleSetTimeToNow('incidentTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
                     <div className="relative md:col-span-1"><label className={labelBaseClasses}>Time of Call</label><input type="time" name="timeOfCall" value={state.timeOfCall || ''} onChange={handleChange} className={inputBaseClasses} /><button onClick={handleSetTimeToNow('timeOfCall')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
                     <div className="relative md:col-span-1"><label className={labelBaseClasses}>On Scene Time</label><input type="time" name="onSceneTime" value={state.onSceneTime || ''} onChange={handleChange} className={inputBaseClasses} /><button onClick={handleSetTimeToNow('onSceneTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
                 </Section>
@@ -704,9 +708,9 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         )}
                     </div>
 
-                    <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required className="md:col-span-2" />
-                    <InputField label="Patient Age" name="patientAge" value={state.patientAge} onChange={handleChange} required />
-                    <SelectField label="Patient Gender" name="patientGender" value={state.patientGender} onChange={handleChange}>
+                    <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required className="md:col-span-2" disabled={!!state.patientId} />
+                    <InputField label="Patient Age" name="patientAge" value={state.patientAge} onChange={handleChange} required disabled={!!state.patientId}/>
+                    <SelectField label="Patient Gender" name="patientGender" value={state.patientGender} onChange={handleChange} disabled={!!state.patientId}>
                         <option>Unknown</option>
                         <option>Male</option>
                         <option>Female</option>
@@ -715,11 +719,12 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                 </Section>
 
                  <Section title="Clinical History (SAMPLE)">
-                    <SpeechEnabledTextArea label="Presenting Complaint" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
+                    <SpeechEnabledTextArea label="Presenting Complaint" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} className={state.presentationType !== 'Welfare/Intox' ? 'md:col-span-2 lg:col-span-4' : 'hidden'}/>
                     <SpeechEnabledTextArea label="History of Presenting Complaint" name="history" value={state.history} onChange={handleChange} />
                     <TaggableInput label="Allergies" value={state.allergies} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'allergies', payload: v})} suggestions={['NKDA']} placeholder="Type and press Enter..." className="md:col-span-2"/>
                     <TaggableInput label="Medications" value={state.medications} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'medications', payload: v})} suggestions={['None']} placeholder="Type and press Enter..." className="md:col-span-2"/>
                     <SpeechEnabledTextArea label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} />
+                    <SpeechEnabledTextArea label="Social History" name="socialHistory" value={(state as any).socialHistory || ''} onChange={handleChange} className="md:col-span-2" />
                     <InputField label="Last Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} className="md:col-span-2" />
                 </Section>
             </div>
@@ -807,7 +812,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             
              <div className={(steps[currentStep-1] === 'Assessment' && state.presentationType === 'Minor Injury') ? 'block' : 'hidden'}>
                 <Section title="Injury Assessment">
-                    <SpeechEnabledTextArea label="Presenting Complaint" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
+                    <SpeechEnabledTextArea label="Presenting Complaint*" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} />
                     <SpeechEnabledTextArea label="History of Event" name="history" value={state.history} onChange={handleChange} />
                     <SpeechEnabledTextArea label="Assessment Findings" name="secondarySurvey" value={state.secondarySurvey} onChange={handleChange} />
                 </Section>
@@ -949,7 +954,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
 
             <div className={steps[currentStep-1] === 'Disposition & Handover' ? 'block' : 'hidden'}>
                 <Section title="Final Disposition">
-                     <SelectField label="* Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2">
+                     <SelectField label="Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2" required>
                         <option value="Not Set">-- Select --</option>
                         <option>Conveyed to ED</option>
                         <option>Left at Home (Own Consent)</option>
@@ -959,7 +964,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                     </SelectField>
                      {state.disposition === 'Conveyed to ED' && (
                         <>
-                             <InputField label="Destination" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} className="md:col-span-2" />
+                             <InputField label="Destination*" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} className="md:col-span-2" />
                              <InputField label="Receiving Clinician" name="receivingClinician" value={state.dispositionDetails.receivingClinician} onChange={e => handleNestedChange('dispositionDetails', 'receivingClinician', e)} />
                         </>
                     )}
