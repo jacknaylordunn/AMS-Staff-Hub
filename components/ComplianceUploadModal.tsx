@@ -4,7 +4,6 @@ import { addComplianceDocumentToUser } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { SpinnerIcon } from './icons';
 import { showToast } from './Toast';
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 
 interface ComplianceUploadModalProps {

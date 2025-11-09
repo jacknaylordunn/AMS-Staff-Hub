@@ -5,7 +5,6 @@ import type { User, ComplianceDocument } from '../types';
 import { SpinnerIcon, TrashIcon, PlusIcon, DocsIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import ComplianceUploadModal from '../components/ComplianceUploadModal';
 
@@ -116,49 +115,12 @@ const StaffDetail: React.FC = () => {
                     <DetailCard title="Contact Information">
                         <p><strong>Email:</strong> {user.email}</p>
                         <p><strong>Phone:</strong> {user.phone || 'Not provided'}</p>
-                        <p><strong>Address:</strong> {user.address || 'Not provided'}</p>
                     </DetailCard>
-                    <DetailCard title="Professional Details">
-                        <p><strong>Role:</strong> {user.role}</p>
-                        {user.pendingRole && <p className="text-orange-500"><strong>Pending Role Change:</strong> {user.pendingRole}</p>}
-                        <p><strong>Registration:</strong> {user.registrationNumber || 'N/A'}</p>
-                        <p><strong>Joined:</strong> {user.createdAt?.toDate().toLocaleDateString() || 'Unknown'}</p>
-                    </DetailCard>
-                </div>
-                <div className="lg:col-span-2">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-ams-blue dark:text-ams-light-blue">Compliance Documents</h3>
-                            <button onClick={() => setUploadModalOpen(true)} className="flex items-center text-sm px-3 py-1 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
-                                <PlusIcon className="w-4 h-4 mr-1"/> Add Document
-                            </button>
-                        </div>
-                        {user.complianceDocuments && user.complianceDocuments.length > 0 ? (
-                            <ul className="space-y-3">
-                                {user.complianceDocuments.map(doc => (
-                                    <li key={doc.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-center">
-                                        <div>
-                                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-800 dark:text-gray-200 hover:underline">{doc.name}</a>
-                                            <p className={`text-sm ${getExpiryColor(doc.expiryDate)}`}>
-                                                Expires: {doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString() : 'N/A'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <button onClick={() => handleDeleteClick(doc)} className="p-2 text-gray-400 hover:text-red-600">
-                                                <TrashIcon className="w-5 h-5"/>
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500 dark:text-gray-400">No compliance documents uploaded.</p>
-                        )}
-                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
+// FIX: Add default export to the component.
 export default StaffDetail;

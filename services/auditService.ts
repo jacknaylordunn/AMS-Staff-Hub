@@ -1,10 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from "firebase/firestore";
 import { db } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
-// FIX: Removed import from deprecated geminiService and added imports for Firebase Functions
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from './firebase';
 

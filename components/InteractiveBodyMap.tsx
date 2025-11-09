@@ -7,8 +7,8 @@ interface InteractiveBodyMapProps {
     onChange: (injuries: Injury[]) => void;
 }
 
-const BODY_IMAGE_ANTERIOR = 'https://i.imgur.com/L4q5T4D.png';
-const BODY_IMAGE_POSTERIOR = 'https://i.imgur.com/xPOiA5d.png';
+const BODY_IMAGE_ANTERIOR = 'https://i.ibb.co/C5T0D2S/anterior.png';
+const BODY_IMAGE_POSTERIOR = 'https://i.ibb.co/zXqG9z8/posterior.png';
 
 const InterventionModal: React.FC<{
     isOpen: boolean;

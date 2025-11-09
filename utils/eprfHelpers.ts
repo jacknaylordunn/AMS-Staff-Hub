@@ -1,4 +1,3 @@
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import type { EPRFForm, EventLog, User as AppUser } from '../types';
 

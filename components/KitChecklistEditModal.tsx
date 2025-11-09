@@ -65,7 +65,7 @@ const KitChecklistEditModal: React.FC<KitChecklistEditModalProps> = ({ isOpen, o
                             <div key={category}>
                                 <h3 className="font-semibold text-lg dark:text-gray-200">{category}</h3>
                                 <ul className="space-y-2 mt-2">
-                                    {catItems.map((item, index) => (
+                                    {(catItems as KitChecklistItem[]).map((item, index) => (
                                         <li key={`${item.name}-${index}`} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
                                             <span className="dark:text-gray-300">{item.name} {item.trackable && <span className="text-xs text-blue-400">(Tracked)</span>}</span>
                                             <button type="button" onClick={() => handleRemoveItem(item)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4" /></button>
