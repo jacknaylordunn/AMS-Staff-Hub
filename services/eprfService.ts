@@ -1,7 +1,8 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
-import type { EPRFForm, AuditEntry } from '../types';
+import type { EPRFForm, AuditEntry, MedicationAdministered } from '../types';
 import { createNotification } from './notificationService';
+import { addLedgerEntry } from './drugLedgerService';
 
 // Removes 'id' and any 'undefined' values before saving to Firestore.
 const prepareEPRFForFirebase = (eprfData: EPRFForm): Omit<EPRFForm, 'id'> => {
@@ -100,6 +101,38 @@ export const updateEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<vo
 };
 
 export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
+    // 1. Create controlled drug ledger entries if needed
+    for (const med of eprfData.medicationsAdministered) {
+        if (med.isControlledDrug && med.witness && med.batchNumber) {
+            await addLedgerEntry({
+                drugName: med.medication as any, // Assuming medication name matches ledger drug names
+                batchNumber: med.batchNumber,
+                expiryDate: 'N/A', // Not captured in ePRF, might need adjustment
+                type: 'Administered',
+                patientId: eprfData.patientId!,
+                patientName: eprfData.patientName,
+                doseAdministered: med.dose,
+                user1: eprfData.createdBy,
+                user2: med.witness,
+                notes: `Administered during ePRF #${eprfData.incidentNumber}`,
+            });
+
+            if (med.amountWasted) {
+                await addLedgerEntry({
+                    drugName: med.medication as any,
+                    batchNumber: med.batchNumber,
+                    expiryDate: 'N/A',
+                    type: 'Wasted',
+                    wastedAmount: med.amountWasted,
+                    user1: eprfData.createdBy,
+                    user2: med.witness,
+                    notes: `Wastage from administration in ePRF #${eprfData.incidentNumber}`,
+                });
+            }
+        }
+    }
+
+    // 2. Finalize the ePRF document
     const docRef = firestore.doc(db, 'eprfs', eprfId);
     const dataToSave = prepareEPRFForFirebase(eprfData);
     // Remove audit log from main payload to avoid overwriting it when using arrayUnion
@@ -116,6 +149,7 @@ export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<
         auditLog: firestore.arrayUnion(auditEntry)
     });
 };
+
 
 export const deleteEPRF = async (eprfId: string): Promise<void> => {
     await firestore.deleteDoc(firestore.doc(db, 'eprfs', eprfId));

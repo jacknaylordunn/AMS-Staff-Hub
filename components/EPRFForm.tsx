@@ -27,6 +27,7 @@ import GuidelineAssistantModal from './GuidelineAssistantModal';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../services/firebase';
 import CameraModal from './CameraModal';
+import ControlledDrugWitnessModal from './ControlledDrugWitnessModal';
 
 interface EPRFFormProps {
     initialEPRFData: EPRFForm;
@@ -248,6 +249,8 @@ const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA
 const commonItemsUsed = ['Large Dressing', 'Gauze', 'Triangular Bandage', 'Wound Closure Strips', 'Saline Pod', 'Catastrophic Tourniquet', 'Air-sickness Bag', 'Ice Pack'];
 const commonAgencies = ['Police', 'Fire & Rescue', 'HART', 'Security'];
 const commonInterventions: CommonIntervention[] = ['Wound Care', 'Splinting', 'Airway Management', 'IV Cannulation', 'Medication Administered', 'CPR', 'Defibrillation', 'Patient Positioning', 'C-Spine Immobilisation', 'Other'];
+const CONTROLLED_DRUGS = ['morphine', 'diazepam', 'midazolam', 'ketamine', 'fentanyl'];
+
 
 const dataURLtoBlob = (dataUrl: string): Blob => {
     const arr = dataUrl.split(',');
@@ -287,10 +290,13 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [isCameraModalOpen, setCameraModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isWitnessModalOpen, setWitnessModalOpen] = useState(false);
+    const [medicationToWitnessIndex, setMedicationToWitnessIndex] = useState<number | null>(null);
 
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
+    const [seniorClinicians, setSeniorClinicians] = useState<AppUser[]>([]);
     const [availableEvents, setAvailableEvents] = useState<EventLog[]>([]);
     const [selectedCrewMember, setSelectedCrewMember] = useState<string>('');
     const [currentStep, setCurrentStep] = useState(1);
@@ -308,11 +314,16 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     const steps = formSteps[state.presentationType] || formSteps['Medical/Trauma'];
 
     useEffect(() => {
-        getUsers().then(setAllStaff);
+        getUsers().then(users => {
+            setAllStaff(users);
+            const seniors = users.filter(u => u.uid !== user?.uid && ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'].includes(u.role || ''));
+            setSeniorClinicians(seniors);
+        });
         if (!state.eventId) {
             getEvents().then(events => setAvailableEvents(events.filter(e => e.status !== 'Completed')));
         }
-    }, [state.eventId]);
+    }, [state.eventId, user]);
+
 
     useEffect(() => {
         if (state.status !== 'Draft') return;
@@ -405,6 +416,14 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
         const newList = [...state[listName]];
         (newList[index] as any) = { ...newList[index], [e.target.name]: e.target.value };
         dispatch({type: 'UPDATE_DYNAMIC_LIST', listName, payload: newList});
+
+        if (listName === 'medicationsAdministered' && e.target.name === 'medication') {
+            const isCd = CONTROLLED_DRUGS.some(cd => e.target.value.toLowerCase().includes(cd));
+            if (isCd) {
+                setMedicationToWitnessIndex(index);
+                setWitnessModalOpen(true);
+            }
+        }
     }
     const addDynamicListItem = (listName: 'medicationsAdministered' | 'interventions' | 'welfareLog') => {
         let newItem;
@@ -417,6 +436,20 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
         dispatch({type: 'UPDATE_DYNAMIC_LIST', listName, payload: state[listName].filter((_, i) => i !== index)});
     }
     
+    const handleSaveWitness = (witnessData: { witness: { uid: string, name: string }, batchNumber: string, amountWasted: string }) => {
+        if (medicationToWitnessIndex === null) return;
+        
+        const newList = [...state.medicationsAdministered];
+        newList[medicationToWitnessIndex] = {
+            ...newList[medicationToWitnessIndex],
+            ...witnessData,
+            isControlledDrug: true,
+        };
+        dispatch({type: 'UPDATE_DYNAMIC_LIST', listName: 'medicationsAdministered', payload: newList});
+        dispatch({ type: 'UPDATE_FIELD', field: 'containsRestrictedDrugs', payload: true });
+        setMedicationToWitnessIndex(null);
+    };
+
      const handleQuickAdd = (type: 'vital' | 'med' | 'int', data: any) => {
         if (type === 'vital') {
             const newVitals = [...state.vitals, data].sort((a, b) => a.time.localeCompare(b.time));
@@ -622,6 +655,12 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} onSave={handleQuickAdd} />
             <GuidelineAssistantModal isOpen={isGuidelineModalOpen} onClose={() => setGuidelineModalOpen(false)} />
             <CameraModal isOpen={isCameraModalOpen} onClose={() => setCameraModalOpen(false)} onCapture={handlePhotoCaptured} />
+            <ControlledDrugWitnessModal
+                isOpen={isWitnessModalOpen}
+                onClose={() => setWitnessModalOpen(false)}
+                onSave={handleSaveWitness}
+                witnesses={seniorClinicians}
+            />
             
             <ConfirmationModal
                 isOpen={isSafeguardingModalOpen}
@@ -730,8 +769,8 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         )}
                     </div>
 
-                    <InputField label="Patient Name" name="patientName" value={state.patientName} onChange={handleChange} required className="md:col-span-2" disabled={!!state.patientId} />
-                    <InputField label="Patient Age" name="patientAge" value={state.patientAge} onChange={handleChange} required disabled={!!state.patientId}/>
+                    <InputField label="Patient Name*" name="patientName" value={state.patientName} onChange={handleChange} required className="md:col-span-2" disabled={!!state.patientId} />
+                    <InputField label="Patient Age*" name="patientAge" value={state.patientAge} onChange={handleChange} required disabled={!!state.patientId}/>
                     <SelectField label="Patient Gender" name="patientGender" value={state.patientGender} onChange={handleChange} disabled={!!state.patientId}>
                         <option>Unknown</option>
                         <option>Male</option>
@@ -920,16 +959,23 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                     </datalist>
                      <div className="md:col-span-4 space-y-2">
                         {state.medicationsAdministered.map((med, index) => (
-                             <div key={med.id} className="grid grid-cols-2 md:grid-cols-5 gap-2 items-center">
-                                <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={inputBaseClasses} />
-                                <input list="drug-db-list" type="text" name="medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} placeholder="Medication" className={`${inputBaseClasses} md:col-span-2`} />
-                                <input type="text" name="dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} placeholder="Dose" className={inputBaseClasses} />
-                                <div className="flex gap-2 items-center">
-                                    <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={inputBaseClasses}>
-                                         <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
-                                    </select>
-                                    <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} className="p-2 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                             <div key={med.id}>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-center">
+                                    <input type="time" name="time" value={med.time} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={inputBaseClasses} />
+                                    <input list="drug-db-list" type="text" name="medication" value={med.medication} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} placeholder="Medication" className={`${inputBaseClasses} md:col-span-2`} />
+                                    <input type="text" name="dose" value={med.dose} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} placeholder="Dose" className={inputBaseClasses} />
+                                    <div className="flex gap-2 items-center">
+                                        <select name="route" value={med.route} onChange={e => handleDynamicListChange('medicationsAdministered', index, e)} className={inputBaseClasses}>
+                                             <option>PO</option><option>IV</option><option>IM</option><option>SC</option><option>SL</option><option>PR</option><option>Nebulised</option><option>Other</option>
+                                        </select>
+                                        <button type="button" onClick={() => removeDynamicListItem('medicationsAdministered', index)} className="p-2 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
                                 </div>
+                                {med.isControlledDrug && med.witness && (
+                                    <div className="text-xs p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-md mt-1">
+                                        Witnessed by: <strong>{med.witness.name}</strong> | Batch: {med.batchNumber} | Wasted: {med.amountWasted || 'None'}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         <button type="button" onClick={() => addDynamicListItem('medicationsAdministered')} className="flex items-center text-sm px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300"><PlusIcon className="w-4 h-4 mr-1"/> Add Medication</button>

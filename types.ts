@@ -254,6 +254,12 @@ export interface MedicationAdministered {
     dose: string;
     route: 'PO' | 'IV' | 'IM' | 'SC' | 'SL' | 'PR' | 'Nebulised' | 'Other';
     authorisedBy?: { uid: string; name: string; };
+    
+    // For Controlled Drugs
+    isControlledDrug?: boolean;
+    batchNumber?: string;
+    witness?: { uid: string; name: string; };
+    amountWasted?: string; // e.g. "5mg / 0.5ml"
 }
 
 export interface Intervention {
