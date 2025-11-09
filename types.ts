@@ -63,6 +63,7 @@ export interface Attachment {
   description: string;
 }
 
+export type CommonIntervention = 'Wound Care' | 'Splinting' | 'Airway Management' | 'IV Cannulation' | 'Medication Administered' | 'CPR' | 'Defibrillation' | 'Patient Positioning' | 'C-Spine Immobilisation' | 'Other';
 
 export interface EPRFForm {
   id?: string;
@@ -75,6 +76,7 @@ export interface EPRFForm {
   presentationType: 'Medical/Trauma' | 'Minor Injury' | 'Welfare/Intox';
   
   // Incident
+  natureOfCall: 'Emergency' | 'Urgent' | 'Routine' | 'Standby';
   incidentNumber: string;
   incidentDate: string;
   incidentTime: string;
@@ -94,6 +96,7 @@ export interface EPRFForm {
   // Clinical
   presentingComplaint: string;
   history: string;
+  socialHistory?: string;
   mechanismOfInjury?: string;
   
   // SAMPLE history
@@ -123,7 +126,12 @@ export interface EPRFForm {
         motor: number;
         total: number;
     };
-    pupils: string;
+    pupils: {
+        leftSize: string;
+        leftResponse: 'Normal' | 'Sluggish' | 'Fixed';
+        rightSize: string;
+        rightResponse: 'Normal' | 'Sluggish' | 'Fixed';
+    };
     bloodGlucoseLevel?: string;
     fastTest?: {
         face: 'Normal' | 'Abnormal';
@@ -146,6 +154,18 @@ export interface EPRFForm {
   circulationDetails: {
       pulseQuality: 'Strong' | 'Weak' | 'Thready' | 'Bounding' | 'Absent';
       skin: 'Normal' | 'Pale' | 'Cyanosed' | 'Flushed' | 'Clammy' | 'Jaundiced';
+      capillaryRefillTime: string;
+      heartSounds: string;
+  };
+  limbAssessment: {
+      luPower: '0' | '1' | '2' | '3' | '4' | '5';
+      luSensation: 'Normal' | 'Reduced' | 'Absent';
+      llPower: '0' | '1' | '2' | '3' | '4' | '5';
+      llSensation: 'Normal' | 'Reduced' | 'Absent';
+      ruPower: '0' | '1' | '2' | '3' | '4' | '5';
+      ruSensation: 'Normal' | 'Reduced' | 'Absent';
+      rlPower: '0' | '1' | '2' | '3' | '4' | '5';
+      rlSensation: 'Normal' | 'Reduced' | 'Absent';
   };
 
   
@@ -159,11 +179,11 @@ export interface EPRFForm {
   medicationsAdministered: MedicationAdministered[];
   interventions: Intervention[];
   itemsUsed: string[];
-  disposal?: string; // Legacy field, replaced by disposition
+  otherAgencies?: string[];
   disposition: 'Not Set' | 'Conveyed to ED' | 'Left at Home (Own Consent)' | 'Left at Home (Against Advice)' | 'Referred to Other Service' | 'Deceased on Scene';
   dispositionDetails: {
     destination: string;
-    receivingClinician: string;
+    handoverTo: string;
     referralDetails: string;
   };
   handoverDetails: string;
@@ -239,7 +259,7 @@ export interface MedicationAdministered {
 export interface Intervention {
     id: string; // for key prop
     time: string;
-    intervention: string;
+    intervention: CommonIntervention;
     details: string;
 }
 

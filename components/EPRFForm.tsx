@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import * as firestore from 'firebase/firestore';
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../types';
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog, CommonIntervention } from '../types';
 import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ClockIcon, ChevronLeftIcon, ChevronRightIcon, EventsIcon, SparklesIcon, QuestionMarkCircleIcon, ShieldExclamationIcon, DocsIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
@@ -43,6 +43,21 @@ const eprfReducer = (state: EPRFForm, action: any): EPRFForm => {
       return { ...state, reviewNotes: undefined };
     case 'UPDATE_NESTED_FIELD': {
         const { field, subField, payload } = action;
+        const [mainField, nestedField] = field.split('.');
+
+        if (nestedField) { // Handles deep nesting like disability.pupils
+             return {
+                ...state,
+                [mainField]: {
+                    ...(state[mainField as keyof EPRFForm] as object),
+                    [nestedField]: {
+                        ...((state[mainField as keyof EPRFForm] as any)[nestedField]),
+                        [subField]: payload
+                    }
+                }
+            }
+        }
+
         return {
             ...state,
             [field]: {
@@ -232,6 +247,7 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 const commonImpressions = [ 'ACS', 'Anaphylaxis', 'Asthma', 'CVA / Stroke', 'DKA', 'Drug Overdose', 'Ethanol Intoxication', 'Fall', 'Fracture', 'GI Bleed', 'Head Injury', 'Hypoglycaemia', 'Mental Health Crisis', 'Minor Injury', 'Post-ictal', 'Seizure', 'Sepsis', 'Shortness of Breath', 'Syncope', 'Trauma' ];
 const commonItemsUsed = ['Large Dressing', 'Gauze', 'Triangular Bandage', 'Wound Closure Strips', 'Saline Pod', 'Catastrophic Tourniquet', 'Air-sickness Bag', 'Ice Pack'];
 const commonAgencies = ['Police', 'Fire & Rescue', 'HART', 'Security'];
+const commonInterventions: CommonIntervention[] = ['Wound Care', 'Splinting', 'Airway Management', 'IV Cannulation', 'Medication Administered', 'CPR', 'Defibrillation', 'Patient Positioning', 'C-Spine Immobilisation', 'Other'];
 
 const dataURLtoBlob = (dataUrl: string): Blob => {
     const arr = dataUrl.split(',');
@@ -393,7 +409,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     const addDynamicListItem = (listName: 'medicationsAdministered' | 'interventions' | 'welfareLog') => {
         let newItem;
         if (listName === 'medicationsAdministered') newItem = { id: Date.now().toString(), time: new Date().toTimeString().split(' ')[0].substring(0, 5), medication: '', dose: '', route: 'PO' as const };
-        else if (listName === 'interventions') newItem = { id: Date.now().toString(), time: new Date().toTimeString().split(' ')[0].substring(0, 5), intervention: '', details: '' };
+        else if (listName === 'interventions') newItem = { id: Date.now().toString(), time: new Date().toTimeString().split(' ')[0].substring(0, 5), intervention: 'Wound Care' as CommonIntervention, details: '' };
         else newItem = { id: Date.now().toString(), time: new Date().toTimeString().split(' ')[0].substring(0, 5), observation: '' };
         dispatch({type: 'UPDATE_DYNAMIC_LIST', listName, payload: [...state[listName], newItem]});
     }
@@ -639,13 +655,19 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             <div className={steps[currentStep-1] === 'Incident' ? 'block' : 'hidden'}>
                 <Section title="Incident & Triage">
                     {!state.eventId ? (
-                        <SelectField label="Select Event" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2" required>
+                        <SelectField label="Select Event*" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2" required>
                             <option value="">-- Please select an event --</option>
                             {availableEvents.map(event => <option key={event.id} value={event.id}>{event.name} ({event.date})</option>)}
                         </SelectField>
                     ) : (
                         <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" />
                     )}
+                     <SelectField label="Nature of Call" name="natureOfCall" value={state.natureOfCall} onChange={handleChange}>
+                        <option>Emergency</option>
+                        <option>Urgent</option>
+                        <option>Routine</option>
+                        <option>Standby</option>
+                    </SelectField>
                     <SelectField label="Presentation Type" name="presentationType" value={state.presentationType} onChange={handleChange}>
                         <option>Medical/Trauma</option>
                         <option>Minor Injury</option>
@@ -659,7 +681,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         </button>
                     </div>
                      <div className="md:col-span-4 lg:col-span-4">
-                        <TaggableInput label="Other Agencies on Scene" value={state.itemsUsed} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'itemsUsed', payload: v})} suggestions={commonAgencies} placeholder="e.g., Police, Fire..." />
+                        <TaggableInput label="Other Agencies on Scene" value={state.otherAgencies || []} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'otherAgencies', payload: v})} suggestions={commonAgencies} placeholder="e.g., Police, Fire..." />
                     </div>
                 </Section>
                  <Section title="Event & Timestamps">
@@ -719,12 +741,12 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                 </Section>
 
                  <Section title="Clinical History (SAMPLE)">
-                    <SpeechEnabledTextArea label="Presenting Complaint" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} className={state.presentationType !== 'Welfare/Intox' ? 'md:col-span-2 lg:col-span-4' : 'hidden'}/>
+                    <SpeechEnabledTextArea label="Presenting Complaint*" name="presentingComplaint" value={state.presentingComplaint} onChange={handleChange} className={state.presentationType !== 'Welfare/Intox' ? 'md:col-span-2 lg:col-span-4' : 'hidden'}/>
                     <SpeechEnabledTextArea label="History of Presenting Complaint" name="history" value={state.history} onChange={handleChange} />
                     <TaggableInput label="Allergies" value={state.allergies} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'allergies', payload: v})} suggestions={['NKDA']} placeholder="Type and press Enter..." className="md:col-span-2"/>
                     <TaggableInput label="Medications" value={state.medications} onChange={(v) => dispatch({type: 'UPDATE_FIELD', field: 'medications', payload: v})} suggestions={['None']} placeholder="Type and press Enter..." className="md:col-span-2"/>
                     <SpeechEnabledTextArea label="Past Medical History" name="pastMedicalHistory" value={state.pastMedicalHistory} onChange={handleChange} />
-                    <SpeechEnabledTextArea label="Social History" name="socialHistory" value={(state as any).socialHistory || ''} onChange={handleChange} className="md:col-span-2" />
+                    <SpeechEnabledTextArea label="Social History" name="socialHistory" value={state.socialHistory || ''} onChange={e => dispatch({type: 'UPDATE_FIELD', field: 'socialHistory', payload: e.target.value})} className="md:col-span-2" />
                     <InputField label="Last Oral Intake" name="lastOralIntake" value={state.lastOralIntake} onChange={handleChange} className="md:col-span-2" />
                 </Section>
             </div>
@@ -757,6 +779,8 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                             <SelectField label="Skin" name="skin" value={state.circulationDetails.skin} onChange={(e) => handleNestedChange('circulationDetails', 'skin', e)}>
                                 <option>Normal</option><option>Pale</option><option>Cyanosed</option><option>Flushed</option><option>Clammy</option><option>Jaundiced</option>
                             </SelectField>
+                             <InputField label="Cap Refill (secs)" name="capillaryRefillTime" value={state.circulationDetails.capillaryRefillTime} onChange={e => handleNestedChange('circulationDetails', 'capillaryRefillTime', e)} />
+                             <InputField label="Heart Sounds" name="heartSounds" value={state.circulationDetails.heartSounds} onChange={e => handleNestedChange('circulationDetails', 'heartSounds', e)} />
                             <SpeechEnabledTextArea label="Circulation Notes" name="circulation" value={state.circulation} onChange={handleChange} rows={2} className="mt-2"/>
                         </div>
                         <div>
@@ -764,7 +788,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         </div>
                     </FieldWrapper>
                 </Section>
-                <Section title="Disability">
+                <Section title="Neurological Assessment">
                     <SelectField label="AVPU" name="avpu" value={state.disability.avpu} onChange={(e) => handleNestedChange('disability', 'avpu', e)}>
                         <option>Alert</option><option>Voice</option><option>Pain</option><option>Unresponsive</option>
                     </SelectField>
@@ -783,9 +807,16 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                             <span className="font-bold text-lg text-ams-blue dark:text-ams-light-blue">{state.disability.gcs.total}</span>
                          </div>
                     </div>
-                    <InputField label="Pupils" name="pupils" value={state.disability.pupils} onChange={(e) => handleNestedChange('disability', 'pupils', e)} />
+                    <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                        <InputField label="Left Pupil Size (mm)" name="leftSize" value={state.disability.pupils.leftSize} onChange={e => handleNestedChange('disability.pupils', 'leftSize', e)} />
+                        <SelectField label="Left Pupil Response" name="leftResponse" value={state.disability.pupils.leftResponse} onChange={e => handleNestedChange('disability.pupils', 'leftResponse', e)}><option>Normal</option><option>Sluggish</option><option>Fixed</option></SelectField>
+                    </div>
+                    <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                        <InputField label="Right Pupil Size (mm)" name="rightSize" value={state.disability.pupils.rightSize} onChange={e => handleNestedChange('disability.pupils', 'rightSize', e)} />
+                        <SelectField label="Right Pupil Response" name="rightResponse" value={state.disability.pupils.rightResponse} onChange={e => handleNestedChange('disability.pupils', 'rightResponse', e)}><option>Normal</option><option>Sluggish</option><option>Fixed</option></SelectField>
+                    </div>
                     <InputField label="Blood Glucose (mmol/L)" name="bloodGlucoseLevel" value={state.disability.bloodGlucoseLevel || ''} onChange={(e) => handleNestedChange('disability', 'bloodGlucoseLevel', e)} />
-                    <div className="md:col-span-2 grid grid-cols-3 gap-4">
+                    <div className="md:col-span-3 grid grid-cols-3 gap-4">
                         <SelectField label="FAST - Face" name="face" value={state.disability.fastTest?.face || 'Normal'} onChange={(e) => handleNestedChange('disability.fastTest', 'face', e)}>
                             <option>Normal</option><option>Abnormal</option>
                         </SelectField>
@@ -796,6 +827,17 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                              <option>Normal</option><option>Abnormal</option>
                         </SelectField>
                     </div>
+                    <div className="md:col-span-4 lg:col-span-4 grid grid-cols-2 lg:grid-cols-4 gap-4 items-end border-t pt-4 mt-4">
+                         <SelectField label="L Arm Power" name="luPower" value={state.limbAssessment.luPower} onChange={e => handleNestedChange('limbAssessment', 'luPower', e)}>{[5,4,3,2,1,0].map(v=><option key={v} value={v}>{v}</option>)}</SelectField>
+                         <SelectField label="L Arm Sensation" name="luSensation" value={state.limbAssessment.luSensation} onChange={e => handleNestedChange('limbAssessment', 'luSensation', e)}><option>Normal</option><option>Reduced</option><option>Absent</option></SelectField>
+                         <SelectField label="R Arm Power" name="ruPower" value={state.limbAssessment.ruPower} onChange={e => handleNestedChange('limbAssessment', 'ruPower', e)}>{[5,4,3,2,1,0].map(v=><option key={v} value={v}>{v}</option>)}</SelectField>
+                         <SelectField label="R Arm Sensation" name="ruSensation" value={state.limbAssessment.ruSensation} onChange={e => handleNestedChange('limbAssessment', 'ruSensation', e)}><option>Normal</option><option>Reduced</option><option>Absent</option></SelectField>
+                         <SelectField label="L Leg Power" name="llPower" value={state.limbAssessment.llPower} onChange={e => handleNestedChange('limbAssessment', 'llPower', e)}>{[5,4,3,2,1,0].map(v=><option key={v} value={v}>{v}</option>)}</SelectField>
+                         <SelectField label="L Leg Sensation" name="llSensation" value={state.limbAssessment.llSensation} onChange={e => handleNestedChange('limbAssessment', 'llSensation', e)}><option>Normal</option><option>Reduced</option><option>Absent</option></SelectField>
+                         <SelectField label="R Leg Power" name="rlPower" value={state.limbAssessment.rlPower} onChange={e => handleNestedChange('limbAssessment', 'rlPower', e)}>{[5,4,3,2,1,0].map(v=><option key={v} value={v}>{v}</option>)}</SelectField>
+                         <SelectField label="R Leg Sensation" name="rlSensation" value={state.limbAssessment.rlSensation} onChange={e => handleNestedChange('limbAssessment', 'rlSensation', e)}><option>Normal</option><option>Reduced</option><option>Absent</option></SelectField>
+                    </div>
+
                 </Section>
                 <Section title="Pain Assessment (OPQRST)">
                     <InputField label="Onset" name="onset" value={state.painAssessment.onset} onChange={e => handleNestedChange('painAssessment', 'onset', e)} />
@@ -898,7 +940,9 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                         {state.interventions.map((item, index) => (
                             <div key={item.id} className="flex gap-2 items-start">
                                 <input type="time" name="time" value={item.time} onChange={(e) => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} w-28`} />
-                                <input type="text" name="intervention" value={item.intervention} onChange={(e) => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} flex-grow`} placeholder="Intervention name..." />
+                                <select name="intervention" value={item.intervention} onChange={e => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} flex-grow`}>
+                                    {commonInterventions.map(i => <option key={i}>{i}</option>)}
+                                </select>
                                 <input type="text" name="details" value={item.details} onChange={(e) => handleDynamicListChange('interventions', index, e)} className={`${inputBaseClasses} flex-grow`} placeholder="Details..."/>
                                 <button type="button" onClick={() => removeDynamicListItem('interventions', index)} className="p-2 text-red-500 hover:text-red-700 mt-1"><TrashIcon className="w-5 h-5"/></button>
                             </div>
@@ -954,7 +998,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
 
             <div className={steps[currentStep-1] === 'Disposition & Handover' ? 'block' : 'hidden'}>
                 <Section title="Final Disposition">
-                     <SelectField label="Disposition" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2" required>
+                     <SelectField label="Disposition*" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2" required>
                         <option value="Not Set">-- Select --</option>
                         <option>Conveyed to ED</option>
                         <option>Left at Home (Own Consent)</option>
@@ -965,7 +1009,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
                      {state.disposition === 'Conveyed to ED' && (
                         <>
                              <InputField label="Destination*" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} className="md:col-span-2" />
-                             <InputField label="Receiving Clinician" name="receivingClinician" value={state.dispositionDetails.receivingClinician} onChange={e => handleNestedChange('dispositionDetails', 'receivingClinician', e)} />
+                             <InputField label="Handover To" name="handoverTo" value={state.dispositionDetails.handoverTo} onChange={e => handleNestedChange('dispositionDetails', 'handoverTo', e)} />
                         </>
                     )}
                     {state.disposition === 'Referred to Other Service' && (

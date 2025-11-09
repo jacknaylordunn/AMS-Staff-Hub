@@ -98,6 +98,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
           ['DOB / Age', `${patient.dob} (${eprf.patientAge})`, 'Incident Time', eprf.incidentTime],
           ['Gender', eprf.patientGender, 'Location', eprf.incidentLocation],
           ['Event', eprf.eventName || 'N/A', 'Incident #', eprf.incidentNumber],
+          ['Nature of Call', eprf.natureOfCall, '', ''],
       ],
       theme: 'plain',
       styles: { fontSize: 9, cellPadding: 1 },
@@ -136,6 +137,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               ['Medications', eprf.medications.join(', ') || 'None'],
               ['Past Medical History', eprf.pastMedicalHistory || 'N/A'],
               ['Last Oral Intake', eprf.lastOralIntake || 'N/A'],
+              ['Social History', eprf.socialHistory || 'N/A'],
           ],
           theme: 'plain', styles: { fontSize: 9, cellPadding: 1 },
           didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
@@ -157,11 +159,13 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
 
       if (eprf.presentationType === 'Medical/Trauma') {
           addSectionTitle(doc, 'Primary Survey & Disability', yPos);
+          const pupils = eprf.disability.pupils;
+          const pupilString = `L: ${pupils.leftSize}mm (${pupils.leftResponse}), R: ${pupils.rightSize}mm (${pupils.rightResponse})`;
           const disabilityBody = [
                 ['Airway', `${eprf.airwayDetails?.status || 'N/A'}. Adjuncts: ${eprf.airwayDetails?.adjuncts.join(', ') || 'None'}`],
                 ['Breathing', `Effort: ${eprf.breathingDetails?.effort || 'N/A'}. Sounds: ${eprf.breathingDetails?.sounds.join(', ')} ${eprf.breathingDetails?.sides.join(', ')}`],
-                ['Circulation', `Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}`],
-                ['Disability', `AVPU: ${eprf.disability.avpu}, GCS: ${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor}), Pupils: ${eprf.disability.pupils}`],
+                ['Circulation', `Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}. CRT: ${eprf.circulationDetails.capillaryRefillTime || 'N/A'}s. Heart Sounds: ${eprf.circulationDetails.heartSounds || 'N/A'}`],
+                ['Disability', `AVPU: ${eprf.disability.avpu}, GCS: ${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor}), Pupils: ${pupilString}`],
                 ['Exposure', eprf.exposure || 'N/A'],
             ];
 
@@ -173,6 +177,20 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               startY: yPos.y,
               body: disabilityBody,
               theme: 'striped', styles: { fontSize: 9, cellPadding: 1.5 },
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
+          });
+
+          addSectionTitle(doc, 'Limb Assessment', yPos);
+          doc.autoTable({
+              startY: yPos.y,
+              head: [['Limb', 'Power', 'Sensation']],
+              body: [
+                  ['Left Arm', eprf.limbAssessment.luPower, eprf.limbAssessment.luSensation],
+                  ['Right Arm', eprf.limbAssessment.ruPower, eprf.limbAssessment.ruSensation],
+                  ['Left Leg', eprf.limbAssessment.llPower, eprf.limbAssessment.llSensation],
+                  ['Right Leg', eprf.limbAssessment.rlPower, eprf.limbAssessment.rlSensation],
+              ],
+              theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
               didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       }
@@ -247,7 +265,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
   addKeyValue(doc, 'Final Disposition', eprf.disposition, yPos);
   if (eprf.disposition === 'Conveyed to ED') {
       addKeyValue(doc, 'Destination', eprf.dispositionDetails.destination, yPos);
-      addKeyValue(doc, 'Receiving Clinician', eprf.dispositionDetails.receivingClinician, yPos);
+      addKeyValue(doc, 'Handover To', eprf.dispositionDetails.handoverTo, yPos);
   } else if (eprf.disposition === 'Referred to Other Service') {
       addKeyValue(doc, 'Referral Details', eprf.dispositionDetails.referralDetails, yPos);
   }
