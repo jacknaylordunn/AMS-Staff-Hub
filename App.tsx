@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -36,6 +35,8 @@ import Staff from './pages/Staff';
 import StaffDetail from './pages/StaffDetail';
 import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
+import EventBrief from './pages/EventBrief';
+import LiveAssetDashboard from './pages/LiveAssetDashboard';
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from './services/firebase';
 import { showToast } from './components/Toast';
@@ -129,6 +130,7 @@ const AppRoutes: React.FC = () => {
                 <ReactRouterDOM.Route path="patients" element={<Patients />} />
                 <ReactRouterDOM.Route path="patients/:patientId" element={<PatientDetail />} />
                 <ReactRouterDOM.Route path="events" element={<Events />} />
+                <ReactRouterDOM.Route path="brief/:shiftId" element={<EventBrief />} />
                  <ReactRouterDOM.Route 
                     path="reviews" 
                     element={
@@ -178,6 +180,14 @@ const AppRoutes: React.FC = () => {
                     element={
                         <ProtectedRoute>
                             <KitDetail />
+                        </ProtectedRoute>
+                    } 
+                />
+                 <ReactRouterDOM.Route 
+                    path="live-assets" 
+                    element={
+                        <ProtectedRoute roles={['Manager', 'Admin']}>
+                            <LiveAssetDashboard />
                         </ProtectedRoute>
                     } 
                 />

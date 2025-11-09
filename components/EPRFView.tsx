@@ -10,10 +10,17 @@ const ViewSection: React.FC<{ title: string; children: React.ReactNode; classNam
     </div>
 );
 
-const ViewField: React.FC<{ label: string; value?: string | number | null | string[]; className?: string }> = ({ label, value, className }) => (
+const ViewField: React.FC<{ label: string; value?: string | number | null | string[] | object; className?: string }> = ({ label, value, className }) => (
     <div className={`mb-3 ${className}`}>
         <span className="block font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">{label}</span>
-        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap text-base">{Array.isArray(value) ? (value.length > 0 ? value.join(', ') : 'None specified') : (value || 'N/A')}</p>
+        {/* FIX: Replaced complex ternary with a more explicit series of checks to satisfy TypeScript's type inference for ReactNode, correctly handle rendering the number 0, and pretty-print objects. */}
+        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap text-base">{
+            value == null ? 'N/A' :
+            Array.isArray(value) ? (value.length > 0 ? value.join(', ') : 'None specified') :
+            typeof value === 'object' ? JSON.stringify(value, null, 2) :
+            value === '' ? 'N/A' :
+            String(value)
+        }</p>
     </div>
 );
 
@@ -215,7 +222,6 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                     <ViewField label="Final Disposition" value={eprf.disposition} />
                     {eprf.disposition === 'Conveyed to ED' && <ViewField label="Destination" value={eprf.dispositionDetails.destination} />}
-                    {/* FIX: Corrected receivingClinician to handoverTo to match the type definition. */}
                     {eprf.disposition === 'Conveyed to ED' && <ViewField label="Handover To" value={eprf.dispositionDetails.handoverTo} />}
                 </div>
                 {eprf.disposition === 'Referred to Other Service' && <ViewField label="Referral Details" value={eprf.dispositionDetails.referralDetails} />}

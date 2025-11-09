@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import type { Kit, KitCheck, User, KitChecklistItem } from '../types';
 import { DEFAULT_KIT_CHECKLISTS } from '../types';
@@ -84,7 +85,6 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         let aggregatedNotes = notes ? `Overall Notes: ${notes}\n\n` : '';
         let hasFailures = false;
 
-        // FIX: Replaced Object.entries with Object.keys to fix type inference issue where `data` was `unknown`.
         const checkedItemsArray = Object.keys(checkedItems).map((itemName) => {
             const data = checkedItems[itemName];
             if (data.status === 'Fail') {

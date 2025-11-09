@@ -16,7 +16,6 @@ import RepeatEventModal from '../components/RepeatEventModal';
 const getCurrentLocation = (): Promise<GeolocationCoordinates | null> => {
     return new Promise((resolve) => {
         if (!navigator.geolocation) {
-// FIX: Changed "warning" to "info" as "warning" is not a valid ToastType.
             showToast("Geolocation is not supported by your browser.", "info");
             resolve(null);
             return;

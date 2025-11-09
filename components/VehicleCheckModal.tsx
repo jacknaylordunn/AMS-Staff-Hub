@@ -53,7 +53,6 @@ const VehicleCheckModal: React.FC<VehicleCheckModalProps> = ({ isOpen, onClose, 
         let aggregatedNotes = notes ? `Overall Notes: ${notes}\n\n` : '';
         let hasFailures = false;
 
-        // FIX: Replaced Object.entries with Object.keys to fix type inference issue where `data` was `unknown`.
         Object.keys(checklist).forEach((item) => {
             const data = checklist[item];
             checklistForSave[item] = { status: data.status, note: data.note };

@@ -25,18 +25,26 @@ export const getIncidentNumber = async (): Promise<string> => {
     const dd = String(now.getDate()).padStart(2, '0');
     const datePrefix = `AMS${yyyy}${mm}${dd}`;
 
-    const startOfDay = new Date(yyyy, now.getMonth(), now.getDate());
-    const startTimestamp = firestore.Timestamp.fromDate(startOfDay);
+    const counterRef = firestore.doc(db, 'counters', datePrefix);
 
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, firestore.where('createdAt', '>=', startTimestamp));
-    
-    const snapshot = await firestore.getCountFromServer(q);
-    const count = snapshot.data().count;
+    try {
+        const newCount = await firestore.runTransaction(db, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            
+            const currentCount = counterDoc.exists() ? counterDoc.data().count : 0;
+            const newCount = currentCount + 1;
 
-    const nextId = String(count + 1).padStart(4, '0');
+            transaction.set(counterRef, { count: newCount }, { merge: true });
+            
+            return newCount;
+        });
 
-    return `${datePrefix}${nextId}`;
+        const nextId = String(newCount).padStart(4, '0');
+        return `${datePrefix}${nextId}`;
+    } catch (e) {
+        console.error("Incident number transaction failed: ", e);
+        throw new Error("Could not generate a unique incident number.");
+    }
 };
 
 

@@ -1,9 +1,11 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Shift, EventLog, User as AppUser } from '../types';
+import { useNavigate } from 'react-router-dom';
+import type { Shift, EventLog, User as AppUser, Vehicle, Kit } from '../types';
 import { listenToShiftsForMonth, createShift, updateShift, deleteShift, bidOnShift, cancelBidOnShift } from '../services/rotaService';
 import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
+import { listenToVehicles } from '../services/assetService';
+import { listenToKits } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { SpinnerIcon, PlusIcon, RefreshIcon } from '../components/icons';
@@ -14,6 +16,7 @@ import { showToast } from '../components/Toast';
 const Rota: React.FC = () => {
     const { user, isManager } = useAuth();
     const { isOnline } = useOnlineStatus();
+    const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [shifts, setShifts] = useState<Shift[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,26 +29,40 @@ const Rota: React.FC = () => {
     // For manager modals
     const [events, setEvents] = useState<EventLog[]>([]);
     const [staff, setStaff] = useState<AppUser[]>([]);
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [kits, setKits] = useState<Kit[]>([]);
 
-    const fetchSupportingData = async () => {
+    useEffect(() => {
         if (!isManager) return;
-        try {
-            const [eventsData, staffData] = await Promise.all([getEvents(), getUsers()]);
-            setEvents(eventsData);
-            setStaff(staffData);
-        } catch (error) {
-            if (isOnline) {
-                console.error("Failed to fetch rota support data:", error);
-                showToast("Failed to fetch events or staff.", "error");
+
+        const unsubVehicles = listenToVehicles(setVehicles);
+        const unsubKits = listenToKits(setKits);
+
+        const fetchSupportData = async () => {
+            try {
+                const [eventsData, staffData] = await Promise.all([getEvents(), getUsers()]);
+                setEvents(eventsData);
+                setStaff(staffData);
+            } catch (error) {
+                 if (isOnline) {
+                    console.error("Failed to fetch rota support data:", error);
+                    showToast("Failed to fetch events or staff.", "error");
+                }
             }
-        }
-    };
+        };
+
+        fetchSupportData();
+        
+        return () => {
+            unsubVehicles();
+            unsubKits();
+        };
+
+    }, [isManager, isOnline]);
     
     useEffect(() => {
         if (!user) return;
         
-        fetchSupportingData(); // Fetch non-realtime data
-
         setLoading(true);
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -57,7 +74,7 @@ const Rota: React.FC = () => {
         });
         
         return () => unsubscribe();
-    }, [currentDate, user, isManager, manualRefresh]);
+    }, [currentDate, user, manualRefresh]);
 
 
     const calendarGrid = useMemo(() => {
@@ -132,10 +149,11 @@ const Rota: React.FC = () => {
                     date={modalDate}
                     events={events}
                     staff={staff}
+                    vehicles={vehicles}
+                    kits={kits}
                     type={modalType}
                     currentUser={user!}
-                    // FIX: The refreshShifts prop expects a function returning a Promise. Making the function async satisfies this.
-                    refreshShifts={async () => setManualRefresh(c => c + 1)} // Pass refresh function to modal
+                    refreshShifts={async () => setManualRefresh(c => c + 1)}
                 />
             )}
             <div className="flex justify-between items-center mb-4">
@@ -173,8 +191,16 @@ const Rota: React.FC = () => {
                  <div className="md:hidden space-y-4">
                     {sortedShiftsForMonth.length > 0 ? sortedShiftsForMonth.map(shift => {
                         const colleagues = shift.assignedStaff.filter(s => s.uid !== user!.uid).map(s => s.name).join(', ');
+                        const handleClick = () => {
+                            if (!isOnline) return;
+                            if (isManager) {
+                                handleOpenModal(shift);
+                            } else {
+                                navigate(`/brief/${shift.id}`);
+                            }
+                        };
                         return (
-                         <div key={shift.id} onClick={() => isOnline && handleOpenModal(shift)} className={`p-4 rounded-lg shadow text-white ${isOnline ? 'cursor-pointer' : ''} bg-ams-blue`}>
+                         <div key={shift.id} onClick={handleClick} className={`p-4 rounded-lg shadow text-white ${isOnline ? 'cursor-pointer' : ''} bg-ams-blue`}>
                              <div className="font-bold text-lg">{shift.eventName}</div>
                              <div className="text-gray-200">{shift.start.toDate().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
                              <div className="mt-2">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
@@ -225,11 +251,29 @@ const Rota: React.FC = () => {
                                         else if (isBiddable) bgColor = 'bg-green-500';
                                         else if (isManager && isUnassigned) bgColor = 'bg-yellow-500';
                                         
-                                        const canOpenModal = isOnline && (isManager || isMyShift || isBiddable || (shift.isUnavailability && isMyShift));
+                                        const handleClick = () => {
+                                            if (!isOnline) {
+                                                showToast("Functionality disabled in offline mode.", "info");
+                                                return;
+                                            }
+                                        
+                                            if (isManager) {
+                                                handleOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift');
+                                                return;
+                                            }
+                        
+                                            if (isMyShift && !shift.isUnavailability) {
+                                                navigate(`/brief/${shift.id}`);
+                                            } else if ((isMyShift && shift.isUnavailability) || isBiddable) {
+                                                handleOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift');
+                                            }
+                                        };
+                                        const isClickable = isOnline && (isManager || (isMyShift && !shift.isUnavailability) || ((isMyShift && shift.isUnavailability) || isBiddable));
+
 
                                         return (
-                                        <div key={shift.id} onClick={() => canOpenModal && handleOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift')} 
-                                            className={`p-1.5 rounded text-white text-xs ${canOpenModal ? 'cursor-pointer' : 'cursor-default'} ${bgColor}`}>
+                                        <div key={shift.id} onClick={handleClick} 
+                                            className={`p-1.5 rounded text-white text-xs ${isClickable ? 'cursor-pointer' : 'cursor-default'} ${bgColor}`}>
                                             
                                             {shift.isUnavailability ? (
                                                 <p className="font-semibold truncate">{isManager || isMyShift ? 'Unavailable' : 'Booked Off'}</p>

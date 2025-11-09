@@ -306,6 +306,10 @@ export interface Shift {
   notes?: string;
   isUnavailability?: boolean;
   unavailabilityReason?: string;
+  assignedVehicleId?: string;
+  assignedVehicleName?: string;
+  assignedKitIds?: string[];
+  assignedKitNames?: string[];
 }
 
 export interface TimeClockEntry {

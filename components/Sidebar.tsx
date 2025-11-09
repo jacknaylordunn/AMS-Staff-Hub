@@ -102,6 +102,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                   <BoxIcon className="w-6 h-6 mr-3" />
                   Inventory
                 </ReactRouterDOM.NavLink>
+                <ReactRouterDOM.NavLink to="/live-assets" className={navLinkClasses} onClick={handleLinkClick}>
+                  <ChartIcon className="w-6 h-6 mr-3" />
+                  Live Assets
+                </ReactRouterDOM.NavLink>
                 <ReactRouterDOM.NavLink to="/reports" className={navLinkClasses} onClick={handleLinkClick}>
                   <ChartIcon className="w-6 h-6 mr-3" />
                   Reporting

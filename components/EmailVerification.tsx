@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-// FIX: The errors indicate members are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { showToast } from './Toast';

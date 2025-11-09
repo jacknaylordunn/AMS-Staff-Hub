@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../hooks/useAppContext';
 import { useAuth } from '../hooks/useAuth';
@@ -7,7 +6,6 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import { PlusIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
-// FIX: The `activeEvent` property does not exist on `AppContextType`. Replaced with `activeClockIn` and created a synthetic `EventLog` object.
 import type { EventLog } from '../types';
 
 const EPRFTabs: React.FC = () => {
@@ -24,7 +22,7 @@ const EPRFTabs: React.FC = () => {
 
     const handleNewDraft = async () => {
         if (!user || !activeClockIn) {
-            showToast("You must be logged into an event to create an ePRF.", "error");
+            showToast("You must be clocked in to a shift to create an ePRF.", "error");
             return;
         }
         try {

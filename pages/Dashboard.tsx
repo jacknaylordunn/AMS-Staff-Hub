@@ -145,7 +145,7 @@ const Dashboard: React.FC = () => {
                 icon={<RotaIcon className="w-12 h-12 text-green-500" />}
                 title="Currently Clocked In"
                 text={activeClockIn.shiftName}
-                to="/events"
+                to={`/brief/${activeClockIn.shiftId}`}
                 color="border-green-500 bg-green-50 dark:bg-green-900/20"
             />;
         }
@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
                 icon={<ClockIcon className="w-12 h-12 text-blue-500" />}
                 title="Next Shift"
                 text={`${nextShift.start.toDate().toLocaleDateString()} @ ${nextShift.start.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                to="/rota"
+                to={`/brief/${nextShift.id}`}
                 color="border-blue-500 bg-blue-50 dark:bg-blue-900/20"
             />;
         }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getUserProfile, updateUserProfile } from '../services/userService';
@@ -147,5 +148,4 @@ const StaffDetail: React.FC = () => {
     );
 };
 
-// FIX: Add default export to the component.
 export default StaffDetail;

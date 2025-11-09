@@ -6,7 +6,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useTheme } from '../hooks/useTheme';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon, BellIcon } from './icons';
+import { useDataSync } from '../hooks/useDataSync';
+import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon, BellIcon, RefreshIcon, SpinnerIcon } from './icons';
 import EPRFTabs from './EPRFTabs';
 import type { Notification } from '../types';
 import { listenToNotificationsForUser, markNotificationAsRead, markAllNotificationsAsRead } from '../services/notificationService';
@@ -23,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const { activeClockIn, clearLocalSession } = useAppContext();
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useOnlineStatus();
+  const { isSyncing, syncNow } = useDataSync();
   const navigate = ReactRouterDOM.useNavigate();
   const location = ReactRouterDOM.useLocation();
 
@@ -152,6 +154,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
                     <WifiOfflineIcon className="w-6 h-6" />
                 </div>
             )}
+            <button onClick={syncNow} disabled={isSyncing} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" title="Manually sync data">
+                {isSyncing ? <SpinnerIcon className="w-6 h-6 text-ams-blue" /> : <RefreshIcon className="w-6 h-6" />}
+            </button>
             <button onClick={toggleTheme} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
                 {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
             </button>

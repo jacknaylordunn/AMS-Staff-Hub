@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import * as firestore from 'firebase/firestore';
-import type { Shift, EventLog, User as AppUser } from '../types';
+// FIX: Import Vehicle and Kit types
+import type { Shift, EventLog, User as AppUser, Vehicle, Kit } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
@@ -15,12 +17,15 @@ interface ShiftModalProps {
     date: Date | null;
     events: EventLog[];
     staff: AppUser[];
+    // FIX: Add missing props
+    vehicles: Vehicle[];
+    kits: Kit[];
     type: 'shift' | 'unavailability';
     currentUser: AppUser;
     refreshShifts: () => Promise<void>;
 }
 
-const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, events, staff, type, currentUser, refreshShifts }) => {
+const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, events, staff, vehicles, kits, type, currentUser, refreshShifts }) => {
     const [formData, setFormData] = useState({
         eventId: '',
         eventName: '',
@@ -31,6 +36,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         assignedStaffUids: [] as string[],
         isUnavailability: false,
         unavailabilityReason: '',
+        // FIX: Add vehicle and kit state
+        assignedVehicleId: '',
+        assignedKitIds: [] as string[],
     });
     const [loading, setLoading] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -55,6 +63,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 assignedStaffUids: shift.assignedStaff.map(s => s.uid),
                 isUnavailability: shift.isUnavailability || false,
                 unavailabilityReason: shift.unavailabilityReason || '',
+                // FIX: Populate vehicle and kit state from shift
+                assignedVehicleId: shift.assignedVehicleId || '',
+                assignedKitIds: shift.assignedKitIds || [],
             });
         } else {
              const defaultStart = type === 'unavailability' ? `${yyyyMMdd}T00:00` : `${yyyyMMdd}T09:00`;
@@ -69,6 +80,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 assignedStaffUids: type === 'unavailability' ? [currentUser.uid] : [],
                 isUnavailability: type === 'unavailability',
                 unavailabilityReason: '',
+                // FIX: Default vehicle and kit state
+                assignedVehicleId: '',
+                assignedKitIds: [],
             });
         }
     }, [shift, date, events, type, currentUser, isOpen]);
@@ -115,6 +129,12 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         setFormData(prev => ({...prev, assignedStaffUids: selectedUids}));
     };
 
+    // FIX: Add handler for multi-select kit dropdown
+    const handleKitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedIds = Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value);
+        setFormData(prev => ({...prev, assignedKitIds: selectedIds}));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -123,6 +143,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 const staffMember = staff.find(s => s.uid === uid) || (currentUser.uid === uid ? currentUser : null);
                 const userFullName = staffMember ? `${staffMember.firstName} ${staffMember.lastName}`.trim() : 'Unknown User';
                 return { uid, name: userFullName };
+            });
+
+            // FIX: Add vehicle and kit data to the shift payload
+            const assignedVehicle = vehicles.find(v => v.id === formData.assignedVehicleId);
+            const assignedKits = formData.assignedKitIds.map(kitId => {
+                const kit = kits.find(k => k.id === kitId);
+                return { id: kitId, name: kit ? kit.name : 'Unknown Kit' };
             });
             
             const shiftData = {
@@ -138,7 +165,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 unavailabilityReason: formData.unavailabilityReason,
                 bids: shift?.bids || [],
                 // FIX: Widened type of status to allow for conditional assignment.
-                status: 'Open' as Shift['status'] // Default status
+                status: 'Open' as Shift['status'], // Default status
+                assignedVehicleId: formData.assignedVehicleId || undefined,
+                assignedVehicleName: assignedVehicle ? assignedVehicle.name : undefined,
+                assignedKitIds: formData.assignedKitIds,
+                assignedKitNames: assignedKits.map(k => k.name),
             };
 
             if (formData.assignedStaffUids.length > 0 && !formData.isUnavailability) {
@@ -254,6 +285,20 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                             <label className={labelClasses}>Assigned Staff</label>
                             <select multiple name="assignedStaffUids" value={formData.assignedStaffUids} onChange={handleStaffSelect} className={`${inputClasses} h-32`} disabled={!isManager}>
                                 {staff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
+                            </select>
+                        </div>
+                        {/* FIX: Add vehicle and kit assignment fields */}
+                        <div className="mt-4">
+                            <label className={labelClasses}>Assigned Vehicle</label>
+                            <select name="assignedVehicleId" value={formData.assignedVehicleId} onChange={handleChange} className={inputClasses} disabled={!isManager}>
+                                <option value="">-- None --</option>
+                                {vehicles.map(v => <option key={v.id!} value={v.id!}>{v.name} ({v.registration})</option>)}
+                            </select>
+                        </div>
+                        <div className="mt-4">
+                            <label className={labelClasses}>Assigned Kits</label>
+                            <select multiple name="assignedKitIds" value={formData.assignedKitIds} onChange={handleKitSelect} className={`${inputClasses} h-32`} disabled={!isManager}>
+                                {kits.map(k => <option key={k.id!} value={k.id!}>{k.name}</option>)}
                             </select>
                         </div>
                         <div className="mt-4">

@@ -66,6 +66,12 @@ service cloud.firestore {
         allow delete: if resource.data.createdBy.uid == request.auth.uid && resource.data.status == 'Draft';
     }
 
+    // Counters for atomic operations (e.g., incident numbers)
+    // Any authenticated user can read/write to ensure they can get a number.
+    match /counters/{counterId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Events, Documents Collections
     // - All authenticated users can read.
     // - Only Managers/Admins can create, update, or delete.

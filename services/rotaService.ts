@@ -4,6 +4,15 @@ import type { Shift } from '../types';
 import { createNotification } from './notificationService';
 import { showToast } from '../components/Toast';
 
+export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
+    const docRef = firestore.doc(db, 'shifts', shiftId);
+    const docSnap = await firestore.getDoc(docRef);
+    if (!docSnap.exists()) {
+        return null;
+    }
+    return { id: docSnap.id, ...docSnap.data() } as Shift;
+};
+
 // Shift Functions
 export const getShiftsForMonth = async (year: number, month: number): Promise<Shift[]> => {
     const start = firestore.Timestamp.fromDate(new Date(year, month, 1));

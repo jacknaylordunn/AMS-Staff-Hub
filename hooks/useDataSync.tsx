@@ -1,6 +1,4 @@
-
-
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, ReactNode, useCallback, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
 import { getDocuments } from '../services/documentService';
@@ -11,8 +9,13 @@ import { getEPRFsToSyncSignatures, updateSyncedSignatures } from '../services/ep
 import { uploadFile } from '../services/storageService';
 import { showToast } from '../components/Toast';
 
-// This context and provider don't hold state, they're just for triggering side effects.
-const DataSyncContext = createContext<void>(undefined);
+interface DataSyncContextType {
+    isSyncing: boolean;
+    syncNow: () => Promise<void>;
+}
+
+const DataSyncContext = createContext<DataSyncContextType | undefined>(undefined);
+
 
 const dataURLtoBlob = (dataUrl: string): Blob => {
     const arr = dataUrl.split(',');
@@ -28,94 +31,95 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
     return new Blob([u8arr], { type: mime });
 };
 
-const useDataSync = () => {
+export const DataSyncProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user, isManager } = useAuth();
     const { isOnline } = useOnlineStatus();
+    const [isSyncing, setIsSyncing] = useState(false);
 
-    useEffect(() => {
-        // Only sync if online and logged in.
+    const syncNow = useCallback(async () => {
         if (!isOnline || !user) {
+            showToast("Cannot sync while offline.", "info");
             return;
         }
 
-        const syncOfflineData = async () => {
-            console.log("Data Sync Service: Checking for offline data to sync...");
+        setIsSyncing(true);
+        console.log("Data Sync Service: Manual sync triggered...");
 
-            // Sync Signatures
-            try {
-                const eprfsToSync = await getEPRFsToSyncSignatures(user.uid);
-                if (eprfsToSync.length > 0) {
-                    showToast(`Syncing ${eprfsToSync.length} offline signature(s)...`, 'info');
-                    for (const eprf of eprfsToSync) {
-                        const updates: { clinicianSignatureUrl?: string, patientSignatureUrl?: string } = {};
-                        
-                        if (eprf.clinicianSignatureUrl?.startsWith('data:image')) {
-                            const blob = dataURLtoBlob(eprf.clinicianSignatureUrl);
-                            const filePath = `signatures/${eprf.id}/clinician_${Date.now()}.png`;
-                            updates.clinicianSignatureUrl = await uploadFile(blob, filePath);
-                        }
-                        
-                        if (eprf.patientSignatureUrl?.startsWith('data:image')) {
-                            const blob = dataURLtoBlob(eprf.patientSignatureUrl);
-                            const filePath = `signatures/${eprf.id}/patient_${Date.now()}.png`;
-                            updates.patientSignatureUrl = await uploadFile(blob, filePath);
-                        }
-
-                        if (Object.keys(updates).length > 0) {
-                            await updateSyncedSignatures(eprf.id!, updates);
-                        } else {
-                             // If no data URLs found, just mark it as synced to prevent re-fetching
-                            await updateSyncedSignatures(eprf.id!, {});
-                        }
+        // Sync Signatures
+        try {
+            const eprfsToSync = await getEPRFsToSyncSignatures(user.uid);
+            if (eprfsToSync.length > 0) {
+                showToast(`Syncing ${eprfsToSync.length} offline signature(s)...`, 'info');
+                for (const eprf of eprfsToSync) {
+                    const updates: { clinicianSignatureUrl?: string, patientSignatureUrl?: string } = {};
+                    
+                    if (eprf.clinicianSignatureUrl?.startsWith('data:image')) {
+                        const blob = dataURLtoBlob(eprf.clinicianSignatureUrl);
+                        const filePath = `signatures/${eprf.id}/clinician_${Date.now()}.png`;
+                        updates.clinicianSignatureUrl = await uploadFile(blob, filePath);
                     }
-                    showToast('Offline signatures synced successfully!', 'success');
+                    
+                    if (eprf.patientSignatureUrl?.startsWith('data:image')) {
+                        const blob = dataURLtoBlob(eprf.patientSignatureUrl);
+                        const filePath = `signatures/${eprf.id}/patient_${Date.now()}.png`;
+                        updates.patientSignatureUrl = await uploadFile(blob, filePath);
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        await updateSyncedSignatures(eprf.id!, updates);
+                    } else {
+                         await updateSyncedSignatures(eprf.id!, {});
+                    }
                 }
-            } catch (error) {
-                console.error("Data Sync Service: Failed to sync signatures.", error);
-                showToast("Failed to sync some offline data.", "error");
+                showToast('Offline signatures synced successfully!', 'success');
             }
-            
-            // Pre-caching logic
-            console.log("Data Sync Service: Pre-caching data for offline use...");
-            try {
-                await getDocuments();
-                await getEvents();
-                
-                if (isManager) {
-                    await getUsers();
-                }
-
-                if (user) {
-                    const now = new Date();
-                    // Cache current and next month's shifts for the user.
-                    await getShiftsForUser(user.uid, now.getFullYear(), now.getMonth());
-                    await getShiftsForUser(user.uid, now.getFullYear(), now.getMonth() + 1);
-                }
-                console.log("Data Sync Service: Caching complete.");
-            } catch (error) {
-                console.error("Data Sync Service: Failed to pre-cache data.", error);
-            }
-        };
-
-        syncOfflineData();
-
+        } catch (error) {
+            console.error("Data Sync Service: Failed to sync signatures.", error);
+            showToast("Failed to sync some offline data.", "error");
+        }
+        
+        // Pre-caching logic
+        console.log("Data Sync Service: Pre-caching data for offline use...");
+        try {
+            await Promise.all([
+                getDocuments(),
+                getEvents(),
+                isManager ? getUsers() : Promise.resolve(),
+                (async () => {
+                    if (user) {
+                        const now = new Date();
+                        await getShiftsForUser(user.uid, now.getFullYear(), now.getMonth());
+                        await getShiftsForUser(user.uid, now.getFullYear(), now.getMonth() + 1);
+                    }
+                })()
+            ]);
+            console.log("Data Sync Service: Caching complete.");
+            showToast("Offline data refreshed.", "success");
+        } catch (error) {
+            console.error("Data Sync Service: Failed to pre-cache data.", error);
+            showToast("Failed to refresh some offline data.", "error");
+        } finally {
+            setIsSyncing(false);
+        }
     }, [user, isOnline, isManager]);
-};
 
+    useEffect(() => {
+        if (isOnline && user) {
+            syncNow();
+        }
+    }, [isOnline, user]); // Run once on initial load/reconnect
 
-export const DataSyncProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    useDataSync(); // The hook runs its effects within the provider.
     return (
-        <DataSyncContext.Provider value={undefined}>
+        <DataSyncContext.Provider value={{ isSyncing, syncNow }}>
             {children}
         </DataSyncContext.Provider>
     );
 };
 
-export const useDataSyncContext = (): void => {
+export const useDataSync = (): DataSyncContextType => {
   const context = useContext(DataSyncContext);
   if (context === undefined) {
-    throw new Error('useDataSyncContext must be used within a DataSyncProvider');
+    throw new Error('useDataSync must be used within a DataSyncProvider');
   }
   return context;
 };

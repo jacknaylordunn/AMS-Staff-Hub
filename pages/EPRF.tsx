@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -8,7 +7,6 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import EPRFFormComponent from '../components/EPRFForm';
 import { SpinnerIcon, EprfIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
-// FIX: The `activeEvent` property does not exist on `AppContextType`. Replaced with `activeClockIn` and created a synthetic `EventLog` object.
 import type { EPRFForm as EPRFFormType, EventLog } from '../types';
 
 export const EPRF: React.FC = () => {
@@ -87,7 +85,7 @@ export const EPRF: React.FC = () => {
         loadOrCreateDrafts();
         
         return () => { isMounted = false; };
-    }, [user, activeClockIn]);
+    }, [user, activeClockIn, addEPRFDraft, activeEPRFId, setActiveEPRFId, openEPRFDrafts.length, isLoading]);
 
     const handleCloseForm = (formId: string) => {
         const draftIndex = openEPRFDrafts.findIndex(d => d.id === formId);
@@ -132,13 +130,13 @@ export const EPRF: React.FC = () => {
          return (
             <div className="flex flex-col items-center justify-center h-full py-20 text-center bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <EprfIcon className="w-16 h-16 text-gray-300 dark:text-gray-600"/>
-                <h2 className="mt-4 text-2xl font-bold text-gray-800 dark:text-gray-200">Duty Logon Required</h2>
-                <p className="mt-2 text-gray-500 dark:text-gray-400">You must log on to a duty or event before you can create a new ePRF.</p>
+                <h2 className="mt-4 text-2xl font-bold text-gray-800 dark:text-gray-200">Clock In Required</h2>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">You must be clocked in to a shift before you can create a new ePRF.</p>
                 <button
                     onClick={() => navigate('/events')}
                     className="mt-6 px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
                 >
-                    Go to Duty Logon
+                    Go to Time Clock
                 </button>
             </div>
         );
