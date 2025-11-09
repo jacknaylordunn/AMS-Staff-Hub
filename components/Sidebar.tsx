@@ -1,4 +1,3 @@
-
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon, ShieldExclamationIcon, BoxIcon, PillIcon, HeartIcon, QualityIcon } from './icons';
@@ -78,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             )}
             <ReactRouterDOM.NavLink to="/events" className={navLinkClasses} onClick={handleLinkClick}>
               <EventsIcon className="w-6 h-6 mr-3" />
-              Duty Logon
+              Time Clock
             </ReactRouterDOM.NavLink>
             {isManager && (
               <>

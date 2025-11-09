@@ -8,12 +8,13 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import EPRFFormComponent from '../components/EPRFForm';
 import { SpinnerIcon, EprfIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
-import type { EPRFForm as EPRFFormType } from '../types';
+// FIX: The `activeEvent` property does not exist on `AppContextType`. Replaced with `activeClockIn` and created a synthetic `EventLog` object.
+import type { EPRFForm as EPRFFormType, EventLog } from '../types';
 
 export const EPRF: React.FC = () => {
     const { user } = useAuth();
     const { 
-        activeEvent,
+        activeClockIn,
         openEPRFDrafts,
         addEPRFDraft,
         activeEPRFId,
@@ -59,9 +60,15 @@ export const EPRF: React.FC = () => {
                     setActiveEPRFId(drafts[0].id!);
                 }
                 setIsLoading(false);
-            } else if (activeEvent) {
+            } else if (activeClockIn) {
                 try {
-                    const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
+                    const eventForForm: EventLog = {
+                        id: activeClockIn.eventId,
+                        name: activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event',
+                        location: '', // Location isn't available on TimeClockEntry
+                        date: activeClockIn.clockInTime.toDate().toISOString().split('T')[0],
+                    };
+                    const newDraft = await createDraftEPRF(getInitialFormState(eventForForm, user));
                     if (!isMounted) return;
                     addEPRFDraft(newDraft);
                     setActiveEPRFId(newDraft.id!);
@@ -80,7 +87,7 @@ export const EPRF: React.FC = () => {
         loadOrCreateDrafts();
         
         return () => { isMounted = false; };
-    }, [user, activeEvent]);
+    }, [user, activeClockIn]);
 
     const handleCloseForm = (formId: string) => {
         const draftIndex = openEPRFDrafts.findIndex(d => d.id === formId);
@@ -121,7 +128,7 @@ export const EPRF: React.FC = () => {
         );
     }
     
-    if (openEPRFDrafts.length === 0 && !activeEvent) {
+    if (openEPRFDrafts.length === 0 && !activeClockIn) {
          return (
             <div className="flex flex-col items-center justify-center h-full py-20 text-center bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <EprfIcon className="w-16 h-16 text-gray-300 dark:text-gray-600"/>

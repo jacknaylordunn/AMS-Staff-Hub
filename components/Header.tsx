@@ -20,7 +20,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const { user } = useAuth();
-  const { activeEvent, activeShift, clearActiveSession } = useAppContext();
+  const { activeClockIn, clearLocalSession } = useAppContext();
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useOnlineStatus();
   const navigate = ReactRouterDOM.useNavigate();
@@ -65,7 +65,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     if (path === 'eprf') return 'Patient Report Form';
     if (path === 'reviews') return 'ePRF Reviews';
     if (path === 'reports') return 'Reporting';
-    if (path === 'events') return 'Duty Logon';
+    if (path === 'events') return 'Time Clock';
     if (path === 'inventory') return 'Inventory';
     if (path === 'controlled-drugs') return 'Controlled Drugs';
     if (path === 'major-incidents') return 'Major Incidents';
@@ -79,7 +79,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const handleLogout = async () => {
     try {
       await firebaseAuth.signOut(auth);
-      clearActiveSession();
+      clearLocalSession();
       navigate('/login');
     } catch (error) {
       console.error('Error signing out: ', error);
@@ -139,15 +139,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
                     </button>
                 )}
                 <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200">{getPageTitle()}</h1>
-                {activeShift ? (
+                 {activeClockIn && (
                     <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm">
                         <EventsIcon className="w-4 h-4" />
-                        <span>On Duty: <strong>{activeShift.roleRequired}</strong> at <strong>{activeShift.eventName}</strong></span>
-                    </div>
-                ) : activeEvent && (
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm">
-                        <EventsIcon className="w-4 h-4" />
-                        <span>Logged On: <strong>{activeEvent.name}</strong></span>
+                        <span>Clocked In: <strong>{activeClockIn.shiftName}</strong></span>
                     </div>
                 )}
             </div>

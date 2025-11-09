@@ -3,6 +3,7 @@
   "description": "A comprehensive staff hub for Aegis Medical Solutions, featuring an electronic Patient Report Form (ePRF), document access, and shift rotas for clinical and administrative staff.",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }

@@ -7,6 +7,8 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import { PlusIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
+// FIX: The `activeEvent` property does not exist on `AppContextType`. Replaced with `activeClockIn` and created a synthetic `EventLog` object.
+import type { EventLog } from '../types';
 
 const EPRFTabs: React.FC = () => {
     const { 
@@ -15,18 +17,24 @@ const EPRFTabs: React.FC = () => {
         setActiveEPRFId, 
         addEPRFDraft, 
         removeEPRFDraft,
-        activeEvent
+        activeClockIn
     } = useAppContext();
     const { user } = useAuth();
     const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
     const handleNewDraft = async () => {
-        if (!user || !activeEvent) {
+        if (!user || !activeClockIn) {
             showToast("You must be logged into an event to create an ePRF.", "error");
             return;
         }
         try {
-            const newDraft = await createDraftEPRF(getInitialFormState(activeEvent, user));
+            const eventForForm: EventLog = {
+                id: activeClockIn.eventId,
+                name: activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event',
+                location: '',
+                date: activeClockIn.clockInTime.toDate().toISOString().split('T')[0],
+            };
+            const newDraft = await createDraftEPRF(getInitialFormState(eventForForm, user));
             addEPRFDraft(newDraft);
             setActiveEPRFId(newDraft.id!);
         } catch (error) {

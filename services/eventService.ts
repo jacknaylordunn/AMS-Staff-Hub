@@ -45,3 +45,24 @@ export const updateEvent = async (eventId: string, eventData: Partial<Omit<Event
 export const deleteEvent = async (eventId: string): Promise<void> => {
     await firestore.deleteDoc(firestore.doc(db, 'events', eventId));
 }
+
+export const createMultipleEvents = async (eventsData: Omit<EventLog, 'id' | 'status'>[]): Promise<void> => {
+    // Firestore allows up to 500 operations in a single batch.
+    // We'll chunk the events array to handle more than 500.
+    const chunks = [];
+    for (let i = 0; i < eventsData.length; i += 500) {
+        chunks.push(eventsData.slice(i, i + 500));
+    }
+
+    for (const chunk of chunks) {
+        const batch = firestore.writeBatch(db);
+        const eventsCol = firestore.collection(db, 'events');
+        
+        chunk.forEach(eventData => {
+            const docRef = firestore.doc(eventsCol);
+            batch.set(docRef, eventData);
+        });
+        
+        await batch.commit();
+    }
+}

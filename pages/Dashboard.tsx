@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -55,7 +54,7 @@ const ActionCard: React.FC<{ to?: string, onClick?: () => void, icon: React.Reac
 
 const Dashboard: React.FC = () => {
     const { user, isManager } = useAuth();
-    const { activeShift } = useAppContext();
+    const { activeClockIn } = useAppContext();
     const navigate = ReactRouterDOM.useNavigate();
     
     // Data State
@@ -141,11 +140,11 @@ const Dashboard: React.FC = () => {
                 color="border-red-500 bg-red-50 dark:bg-red-900/20"
             />;
         }
-        if (activeShift) {
+        if (activeClockIn) {
              return <AtAGlanceCard 
                 icon={<RotaIcon className="w-12 h-12 text-green-500" />}
-                title="Currently On Duty"
-                text={`${activeShift.roleRequired} at ${activeShift.eventName}`}
+                title="Currently Clocked In"
+                text={activeClockIn.shiftName}
                 to="/events"
                 color="border-green-500 bg-green-50 dark:bg-green-900/20"
             />;

@@ -1,4 +1,3 @@
-
 import * as firestore from 'firebase/firestore';
 
 export interface ComplianceDocument {
@@ -307,6 +306,21 @@ export interface Shift {
   notes?: string;
   isUnavailability?: boolean;
   unavailabilityReason?: string;
+}
+
+export interface TimeClockEntry {
+  id?: string;
+  userId: string;
+  userName: string;
+  shiftId: string;
+  shiftName: string;
+  eventId: string;
+  clockInTime: firestore.Timestamp;
+  clockOutTime?: firestore.Timestamp;
+  clockInLocation?: firestore.GeoPoint;
+  clockOutLocation?: firestore.GeoPoint;
+  durationHours?: number;
+  status: 'Clocked In' | 'Clocked Out';
 }
 
 export interface Notification {
