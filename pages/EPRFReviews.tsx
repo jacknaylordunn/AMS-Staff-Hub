@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import type { EPRFForm } from '../types';
@@ -64,7 +62,7 @@ const EPRFReviews: React.FC = () => {
                                             <div className="text-sm text-gray-900 dark:text-gray-300">{eprf.createdBy.name}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button onClick={() => navigate(`/patients/${eprf.patientId}`)} className="text-ams-light-blue hover:text-ams-blue">
+                                            <button onClick={() => navigate(`/patients/${eprf.patientId}?eprfId=${eprf.id}`)} className="text-ams-light-blue hover:text-ams-blue">
                                                 View & Approve
                                             </button>
                                         </td>

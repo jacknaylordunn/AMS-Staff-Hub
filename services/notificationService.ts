@@ -40,3 +40,23 @@ export const getNotificationsForUser = async (userId: string): Promise<Notificat
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
     await firestore.updateDoc(firestore.doc(db, 'notifications', notificationId), { read: true });
 };
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+    const notificationsCol = firestore.collection(db, 'notifications');
+    const q = firestore.query(notificationsCol,
+        firestore.where('userId', '==', userId),
+        firestore.where('read', '==', false));
+    
+    const snapshot = await firestore.getDocs(q);
+    
+    if (snapshot.empty) {
+        return;
+    }
+    
+    const batch = firestore.writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { read: true });
+    });
+    
+    await batch.commit();
+};

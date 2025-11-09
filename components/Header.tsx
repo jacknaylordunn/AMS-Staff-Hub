@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import * as firebaseAuth from 'firebase/auth';
@@ -10,8 +9,9 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { ProfileIcon, LogoutIcon, EventsIcon, SunIcon, MoonIcon, MenuIcon, BackIcon, WifiOfflineIcon, BellIcon } from './icons';
 import EPRFTabs from './EPRFTabs';
 import type { Notification } from '../types';
-import { listenToNotificationsForUser, markNotificationAsRead } from '../services/notificationService';
+import { listenToNotificationsForUser, markNotificationAsRead, markAllNotificationsAsRead } from '../services/notificationService';
 import NotificationPanel from './NotificationPanel';
+import { showToast } from './Toast';
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -96,6 +96,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    if (user?.uid && unreadCount > 0) {
+        try {
+            await markAllNotificationsAsRead(user.uid);
+            // The listener will automatically update the UI
+            showToast("All notifications marked as read.", "success");
+        } catch (error) {
+            showToast("Failed to mark notifications as read.", "error");
+        }
+    }
+};
+
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -156,7 +169,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
                 </button>
                  {notificationsOpen && (
                     <div ref={notificationsRef} className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-700 rounded-md overflow-hidden shadow-xl z-20">
-                        <NotificationPanel notifications={notifications} onNotificationClick={handleNotificationClick} />
+                        <NotificationPanel 
+                            notifications={notifications} 
+                            onNotificationClick={handleNotificationClick}
+                            onMarkAllAsRead={handleMarkAllAsRead}
+                            unreadCount={unreadCount}
+                        />
                     </div>
                 )}
             </div>

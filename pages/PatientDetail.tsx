@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
@@ -150,6 +149,7 @@ const ReturnToDraftModal: React.FC<{ isOpen: boolean, onClose: () => void, onCon
 
 const PatientDetail: React.FC = () => {
     const { patientId } = ReactRouterDOM.useParams<{ patientId: string }>();
+    const location = ReactRouterDOM.useLocation();
     const { user, isManager } = useAuth();
     const [patient, setPatient] = useState<Patient | null>(null);
     const [eprfs, setEprfs] = useState<EPRFForm[]>([]);
@@ -177,7 +177,13 @@ const PatientDetail: React.FC = () => {
                 setPatient(patientData);
                 setEprfs(eprfsData);
                 if (eprfsData.length > 0) {
-                    setSelectedEPRF(eprfsData[0]);
+                    const params = new URLSearchParams(location.search);
+                    const eprfIdFromQuery = params.get('eprfId');
+                    const eprfToSelect = eprfIdFromQuery
+                        ? eprfsData.find(e => e.id === eprfIdFromQuery)
+                        : null;
+
+                    setSelectedEPRF(eprfToSelect || eprfsData[0]);
                 }
             } catch (error) {
                 console.error("Failed to load patient details:", error);
@@ -188,7 +194,7 @@ const PatientDetail: React.FC = () => {
         };
 
         fetchData();
-    }, [patientId]);
+    }, [patientId, location.search]);
     
     const treatmentSummary = useMemo(() => {
         const allMeds: (MedicationAdministered & { encounterDate: string })[] = [];

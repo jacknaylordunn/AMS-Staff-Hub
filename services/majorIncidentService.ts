@@ -52,6 +52,15 @@ export const standDownIncident = async (incidentId: string): Promise<void> => {
     });
 };
 
+export const deleteIncident = async (incidentId: string): Promise<void> => {
+    // This function deletes the main incident document.
+    // NOTE: In a production environment, subcollections (methaneReports, checkins)
+    // are NOT automatically deleted. A Firebase Cloud Function triggered on document
+    // deletion would be required to clean up subcollections.
+    await firestore.deleteDoc(firestore.doc(db, 'majorIncidents', incidentId));
+};
+
+
 // --- METHANE Reports ---
 
 export const submitMethaneReport = async (reportData: Omit<METHANEreport, 'id' | 'submittedAt'>): Promise<void> => {
