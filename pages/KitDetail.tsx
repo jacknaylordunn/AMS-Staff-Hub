@@ -277,7 +277,6 @@ const KitDetail: React.FC = () => {
                                     <div key={category}>
                                         <h4 className="font-bold text-md text-gray-700 dark:text-gray-300">{category}</h4>
                                         <ul className="list-disc list-inside ml-4 text-sm text-gray-600 dark:text-gray-400">
-                                            {/* FIX: Cast `items` to KitChecklistItem[] as Object.entries loses type information. */}
                                             {(items as KitChecklistItem[]).map(item => <li key={item.name}>{item.name} {item.trackable && <span className="text-xs text-blue-500">(Tracked)</span>}</li>)}
                                         </ul>
                                     </div>

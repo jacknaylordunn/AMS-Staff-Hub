@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Notification } from '../types';
@@ -18,7 +17,6 @@ export const listenToNotificationsForUser = (userId: string, callback: (notifica
     const notificationsCol = firestore.collection(db, 'notifications');
     const q = firestore.query(notificationsCol,
         firestore.where('userId', '==', userId),
-        firestore.where('read', '==', false),
         firestore.orderBy('createdAt', 'desc'),
         firestore.limit(10));
     

@@ -1,4 +1,3 @@
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 
 export interface ComplianceDocument {
@@ -135,16 +134,16 @@ export interface EPRFForm {
   exposure: string;
 
   // Structured Assessment Findings
-  airwayDetails?: {
+  airwayDetails: {
       status: 'Clear' | 'Partially Obstructed' | 'Obstructed';
       adjuncts: ('OPA' | 'NPA' | 'i-gel' | 'LMA')[];
   };
-  breathingDetails?: {
+  breathingDetails: {
       effort: 'Normal' | 'Shallow' | 'Labored' | 'Gasping';
       sounds: ('Clear' | 'Wheeze' | 'Crackles' | 'Stridor' | 'Reduced/Absent')[];
       sides: ('Bilaterally' | 'Left' | 'Right')[];
   };
-  circulationDetails?: {
+  circulationDetails: {
       pulseQuality: 'Strong' | 'Weak' | 'Thready' | 'Bounding' | 'Absent';
       skin: 'Normal' | 'Pale' | 'Cyanosed' | 'Flushed' | 'Clammy' | 'Jaundiced';
   };
@@ -514,7 +513,7 @@ export interface AiAuditResult {
     id?: string; // Will be the same as eprfId
     eprfId: string;
     patientId: string;
-    eventName: string;
+    eventName: string | null;
     incidentDate: string;
     auditedAt: firestore.Timestamp;
     auditedBy: { uid: string; name: string; };

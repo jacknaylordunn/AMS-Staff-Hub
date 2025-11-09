@@ -1,11 +1,8 @@
-// FIX: Changed to a default import for jsPDF, which is the correct syntax for the library.
-// This allows TypeScript to correctly find and augment the module.
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { EPRFForm, Patient } from '../types';
 
 // The 'jspdf-autotable' import augments the jsPDF interface automatically.
-// No manual declaration is needed.
 
 // Function to fetch an image and convert it to Base64
 const getLogoBase64 = async (url: string): Promise<string> => {
@@ -87,7 +84,7 @@ const addKeyValue = (doc: jsPDF, key: string, value: string | number | string[] 
 
 
 export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
-  const doc = new jsPDF();
+  const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => void };
   const yPos = { y: 15 };
 
   await addHeader(doc, yPos);
@@ -104,7 +101,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
       ],
       theme: 'plain',
       styles: { fontSize: 9, cellPadding: 1 },
-      didDrawPage: (data) => { yPos.y = data.cursor.y; }
+      didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
   });
 
   // --- Type-Specific Sections ---
@@ -118,7 +115,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               head: [['Time', 'Observation / Action']],
               body: eprf.welfareLog.map(item => [item.time, item.observation]),
               theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
-              didDrawPage: (data) => { yPos.y = data.cursor.y; }
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       } else {
           addText(doc, 'No welfare entries logged.', yPos);
@@ -141,7 +138,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               ['Last Oral Intake', eprf.lastOralIntake || 'N/A'],
           ],
           theme: 'plain', styles: { fontSize: 9, cellPadding: 1 },
-          didDrawPage: (data) => { yPos.y = data.cursor.y; }
+          didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
       });
 
       if (eprf.painAssessment && eprf.painAssessment.severity > 0) {
@@ -154,7 +151,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
                   ['Severity', `${eprf.painAssessment.severity}/10`, 'Time', eprf.painAssessment.time],
               ],
               theme: 'plain', styles: { fontSize: 9, cellPadding: 1 },
-              didDrawPage: (data) => { yPos.y = data.cursor.y; }
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       }
 
@@ -176,7 +173,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               startY: yPos.y,
               body: disabilityBody,
               theme: 'striped', styles: { fontSize: 9, cellPadding: 1.5 },
-              didDrawPage: (data) => { yPos.y = data.cursor.y; }
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       }
       
@@ -210,7 +207,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
           head: [['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'BG', 'Pain', 'On O2', 'NEWS2']],
           body: eprf.vitals.map(v => [v.time, v.hr, v.rr, v.bp, `${v.spo2}%`, `${v.temp}°C`, v.bg, v.painScore, v.onOxygen ? 'Yes' : 'No', v.news2 ?? 'N/A']),
           theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
-          didDrawPage: (data) => { yPos.y = data.cursor.y; }
+          didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
       });
       yPos.y += 5;
   }
@@ -225,7 +222,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               head: [['Time', 'Medication', 'Dose', 'Route']],
               body: eprf.medicationsAdministered.map(m => [m.time, m.medication, m.dose, m.route]),
               theme: 'striped', headStyles: { fillColor: [0, 168, 232] },
-              didDrawPage: (data) => { yPos.y = data.cursor.y; }
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       }
       checkPageBreak(doc, yPos, 20);
@@ -235,7 +232,7 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
               head: [['Time', 'Intervention', 'Details']],
               body: eprf.interventions.map(i => [i.time, i.intervention, i.details]),
               theme: 'striped', headStyles: { fillColor: [0, 168, 232] },
-              didDrawPage: (data) => { yPos.y = data.cursor.y; }
+              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
           });
       }
       yPos.y += 5;

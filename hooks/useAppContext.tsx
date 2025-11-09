@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import type { EventLog, Shift, EPRFForm } from '../types';
 import { useAuth } from './useAuth';
@@ -123,7 +122,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addEPRFDraft = (draft: EPRFForm) => {
     setOpenEPRFDrafts(prev => {
         if (prev.some(d => d.id === draft.id)) {
-            return prev;
+            return prev.map(d => d.id === draft.id ? draft : d);
         }
         return [...prev, draft];
     });

@@ -121,7 +121,6 @@ const MajorIncidentDashboard: React.FC = () => {
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">Personnel Status</h2>
                     <div className="space-y-6 max-h-[60vh] overflow-y-auto">
                         {Object.entries(groupedCheckins).map(([status, staff]) => {
-                            // FIX: Cast `staff` to StaffCheckin[] as Object.entries returns the value as `unknown`.
                             const staffList = staff as StaffCheckin[];
                             return (
                             <div key={status}>

@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { EventLog } from '../types';
@@ -37,10 +36,10 @@ export const getEventById = async (eventId: string): Promise<EventLog | null> =>
     return { id: docSnap.id, ...data, status } as EventLog;
 }
 
-export const createEvent = async (eventData: Omit<EventLog, 'id'>): Promise<void> => {
+export const createEvent = async (eventData: Omit<EventLog, 'id' | 'status'>): Promise<void> => {
     await firestore.addDoc(firestore.collection(db, 'events'), eventData);
 }
-export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventLog, 'id'>>): Promise<void> => {
+export const updateEvent = async (eventId: string, eventData: Partial<Omit<EventLog, 'id'| 'status'>>): Promise<void> => {
     await firestore.updateDoc(firestore.doc(db, 'events', eventId), eventData);
 }
 export const deleteEvent = async (eventId: string): Promise<void> => {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import type { Shift, EventLog, User as AppUser } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
@@ -138,7 +137,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 isUnavailability: formData.isUnavailability,
                 unavailabilityReason: formData.unavailabilityReason,
                 bids: shift?.bids || [],
+                // FIX: Widened type of status to allow for conditional assignment.
+                status: 'Open' as Shift['status'] // Default status
             };
+
+            if (formData.assignedStaffUids.length > 0 && !formData.isUnavailability) {
+                shiftData.status = 'Assigned';
+            }
+
             await onSave(shiftData as Omit<Shift, 'id'>);
             onClose();
         } catch (error) {
@@ -160,6 +166,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         } finally {
             setIsDeleting(false);
             setDeleteModalOpen(false);
+            onClose(); // Close the main modal as well
         }
     }
     

@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-// FIX: Corrected import path for announcement service functions.
 import { getAnnouncements, sendAnnouncementToAllUsers } from '../services/announcementService';
 import type { Announcement } from '../types';
 import { SpinnerIcon, MegaphoneIcon } from '../components/icons';

@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { EPRFForm, AuditEntry } from '../types';
@@ -205,6 +204,6 @@ export const updateSyncedSignatures = async (eprfId: string, updates: { clinicia
     const docRef = firestore.doc(db, 'eprfs', eprfId);
     await firestore.updateDoc(docRef, {
         ...updates,
-        signaturesNeedSync: false
+        signaturesNeedSync: firestore.deleteField()
     });
 };

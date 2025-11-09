@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-// FIX: The error indicates signOut is not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -29,6 +28,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -37,6 +37,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     if (user?.uid) {
       const unsubscribe = listenToNotificationsForUser(user.uid, (newNotifications) => {
         setNotifications(newNotifications);
+        setUnreadCount(newNotifications.filter(n => !n.read).length);
       });
       return () => unsubscribe();
     }
@@ -52,8 +53,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     if (location.pathname.includes('/inventory/vehicle/')) return 'Vehicle Details';
     if (location.pathname.includes('/inventory/kit/')) return 'Kit Details';
     if (location.pathname.includes('/patients/')) return 'Patient Details';
+    if (location.pathname.includes('/staff/')) return 'Staff Details';
     if (location.pathname.includes('/admin')) return 'Admin Panel';
     if (location.pathname.includes('/staff-analytics')) return 'Staff Analytics';
+    if (location.pathname.includes('/major-incidents/')) return 'Incident Dashboard';
 
     const path = pathSegments[0];
 
@@ -64,6 +67,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     if (path === 'events') return 'Duty Logon';
     if (path === 'inventory') return 'Inventory';
     if (path === 'controlled-drugs') return 'Controlled Drugs';
+    if (path === 'major-incidents') return 'Major Incidents';
+    if (path === 'cpd') return 'CPD Log';
     
     // Default/fallback title generation
     if (!path || path === 'dashboard') return 'Dashboard';
@@ -82,9 +87,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
 
   const handleNotificationClick = async (notification: Notification) => {
     setNotificationsOpen(false);
-    navigate(notification.link || '/dashboard');
-    await markNotificationAsRead(notification.id!);
-    // Listener will update state automatically
+    if (notification.link) {
+      navigate(notification.link);
+    }
+    if (!notification.read) {
+        await markNotificationAsRead(notification.id!);
+    }
   };
 
   useEffect(() => {
@@ -141,8 +149,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
              <div className="relative">
                 <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Notifications">
                     <BellIcon className="w-6 h-6" />
-                    {notifications.length > 0 && (
-                        <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">{notifications.length}</span>
+                    {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">{unreadCount}</span>
                     )}
                 </button>
                  {notificationsOpen && (

@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Shift } from '../types';
@@ -70,14 +69,14 @@ export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> =
 
 export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift, 'id'>>, originalAssignedUids: string[] = []): Promise<void> => {
     const assignedStaffUids = shiftData.assignedStaff?.map(s => s.uid);
-    let dataToUpdate: Partial<Shift> = assignedStaffUids ? { ...shiftData, assignedStaffUids } : shiftData;
+    let dataToUpdate: Partial<Shift> & { assignedStaffUids?: string[] } = assignedStaffUids ? { ...shiftData, assignedStaffUids } : shiftData;
 
     // If staff are being assigned, clear any existing bids.
     if (assignedStaffUids && assignedStaffUids.length > 0) {
         dataToUpdate.bids = [];
     }
 
-    await firestore.updateDoc(firestore.doc(db, 'shifts', shiftId), dataToUpdate as any);
+    await firestore.updateDoc(firestore.doc(db, 'shifts', shiftId), dataToUpdate);
 
     // Notify newly assigned staff
     const newStaff = shiftData.assignedStaff?.filter(s => !originalAssignedUids.includes(s.uid));

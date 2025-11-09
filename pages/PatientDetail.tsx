@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
@@ -14,7 +10,6 @@ import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { performAiAudit } from '../services/auditService';
-// FIX: The error indicates Timestamp is not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 
 const DetailCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (

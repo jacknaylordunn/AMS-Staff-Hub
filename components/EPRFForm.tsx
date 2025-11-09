@@ -435,7 +435,8 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     
     const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            Array.from(e.target.files).forEach(file => uploadAndAddAttachment(file, file.name));
+            // FIX: Explicitly type `file` as File to resolve ambiguity from iterating over a FileList.
+            Array.from(e.target.files).forEach((file: File) => uploadAndAddAttachment(file, file.name));
         }
     };
 
@@ -593,7 +594,7 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
 
     return (
         <form onSubmit={e => e.preventDefault()} className="pb-20">
-            <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 mb-6 sticky top-[128px] md:top-[80px] z-20 p-2">
+            <div className="bg-white dark:bg-gray-800 mb-6 p-2">
                  <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
             </div>
 

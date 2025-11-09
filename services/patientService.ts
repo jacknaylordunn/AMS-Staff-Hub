@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Patient } from '../types';
@@ -43,12 +42,12 @@ export const searchPatients = async (searchTerm: string): Promise<Patient[]> => 
     // This is a simplified client-side search and will not scale well with a large patient database.
     // A proper implementation would use a dedicated search service.
     const patientsCol = firestore.collection(db, 'patients');
-    const q = firestore.query(patientsCol, firestore.orderBy('lastName'));
+    const q = firestore.query(patientsCol, firestore.orderBy('lastName'), firestore.limit(100));
     const snapshot = await firestore.getDocs(q);
     const patients = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
     
     return patients.filter(p => 
         `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.dob.includes(searchTerm.toLowerCase())
-    );
+    ).slice(0, 10);
 }

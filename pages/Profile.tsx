@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-// FIX: The errors indicate members are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { requestRoleChange, updateUserProfile } from '../services/userService';

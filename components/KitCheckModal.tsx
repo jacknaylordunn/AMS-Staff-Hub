@@ -84,7 +84,9 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
         let aggregatedNotes = notes ? `Overall Notes: ${notes}\n\n` : '';
         let hasFailures = false;
 
-        const checkedItemsArray = Object.entries(checkedItems).map(([itemName, data]) => {
+        // FIX: Replaced Object.entries with Object.keys to fix type inference issue where `data` was `unknown`.
+        const checkedItemsArray = Object.keys(checkedItems).map((itemName) => {
+            const data = checkedItems[itemName];
             if (data.status === 'Fail') {
                 hasFailures = true;
                 if (data.note) {
@@ -143,7 +145,6 @@ const KitCheckModal: React.FC<KitCheckModalProps> = ({ isOpen, onClose, onSave, 
                                     </div>
                                 </summary>
                                 <div className="mt-4 space-y-3">
-                                    {/* FIX: Cast `items` to KitChecklistItem[] as Object.entries loses type information. */}
                                     {(items as KitChecklistItem[]).map(item => (
                                         <div key={item.name} className="border-t dark:border-gray-600 pt-3">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">

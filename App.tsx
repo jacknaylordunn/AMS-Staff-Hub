@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -12,7 +10,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-// FIX: The error indicates EPRF is not exported. It will be fixed with a named export. The import is already correct for a named export.
 import { EPRF } from './pages/EPRF';
 import Documents from './pages/Documents';
 import Rota from './pages/Rota';
@@ -38,11 +35,11 @@ import Staff from './pages/Staff';
 import StaffDetail from './pages/StaffDetail';
 import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
-// FIX: The error indicates signOut and sendEmailVerification are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from './services/firebase';
 import { showToast } from './components/Toast';
 import { SpinnerIcon } from './components/icons';
+import EmailVerification from './components/EmailVerification';
 
 
 const PendingApproval: React.FC = () => {
@@ -76,64 +73,6 @@ const PendingApproval: React.FC = () => {
         </div>
     );
 };
-
-const EmailVerification: React.FC = () => {
-    const navigate = ReactRouterDOM.useNavigate();
-    const [sending, setSending] = useState(false);
-
-    const handleLogout = async () => {
-        try {
-            await firebaseAuth.signOut(auth);
-            navigate('/login');
-        } catch (error) {
-            showToast('Error signing out.', 'error');
-        }
-    };
-
-    const handleResend = async () => {
-        if (auth.currentUser) {
-            setSending(true);
-            try {
-                await firebaseAuth.sendEmailVerification(auth.currentUser);
-                showToast('Verification email sent! Please check your inbox.', 'success');
-            } catch (error) {
-                showToast('Failed to send verification email.', 'error');
-            } finally {
-                setSending(false);
-            }
-        }
-    };
-
-    return (
-        <div className="flex flex-col items-center justify-center h-screen bg-ams-gray dark:bg-gray-900 text-center p-4">
-            <img src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Logo%20FINAL%20(2).png" alt="AMS Logo" className="h-16 mb-8" />
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">Verify Your Email</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400 mt-4 max-w-xl">
-                A verification link has been sent to your email address. Please click the link to continue.
-            </p>
-            <p className="text-md text-gray-500 dark:text-gray-500 mt-2">
-                Once verified, refresh this page to log in.
-            </p>
-            <div className="flex items-center gap-4 mt-8">
-                <button
-                    onClick={handleResend}
-                    disabled={sending}
-                    className="px-6 py-3 bg-ams-light-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center justify-center"
-                >
-                    {sending && <SpinnerIcon className="w-5 h-5 mr-2" />}
-                    Resend Email
-                </button>
-                <button
-                    onClick={handleLogout}
-                    className="px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
-                >
-                    Logout
-                </button>
-            </div>
-        </div>
-    );
-};
-
 
 const AppRoutes: React.FC = () => {
     const { user, loading, isEmailVerified } = useAuth();

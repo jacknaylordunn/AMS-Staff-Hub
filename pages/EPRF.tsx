@@ -4,10 +4,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { getAllDraftsForUser, createDraftEPRF } from '../services/eprfService';
 import { getInitialFormState } from '../utils/eprfHelpers';
-import EPRFForm from '../components/EPRFForm';
+import EPRFFormComponent from '../components/EPRFForm';
 import { SpinnerIcon, EprfIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
-// FIX: Renamed imported type EPRFForm to EPRFFormType to avoid conflict with the EPRFForm component.
 import type { EPRFForm as EPRFFormType } from '../types';
 
 export const EPRF: React.FC = () => {
@@ -26,6 +25,9 @@ export const EPRF: React.FC = () => {
 
     useEffect(() => {
         if (!user || hasRunEffect.current) {
+            if (openEPRFDrafts.length > 0 && isLoading) {
+                setIsLoading(false);
+            }
             return;
         }
 
@@ -104,7 +106,7 @@ export const EPRF: React.FC = () => {
     }
     
     if (activeDraft) {
-        return <EPRFForm initialEPRFData={activeDraft} onComplete={() => handleCloseForm(activeDraft.id!)} />;
+        return <EPRFFormComponent key={activeDraft.id} initialEPRFData={activeDraft} onComplete={() => handleCloseForm(activeDraft.id!)} />;
     }
     
     if (openEPRFDrafts.length > 0 && !activeDraft) {

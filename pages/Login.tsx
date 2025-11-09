@@ -1,11 +1,9 @@
 import React, { useState, FormEvent } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-// FIX: The errors indicate members are not exported. Using namespace import `* as firebaseAuth` from 'firebase/auth' to fix module resolution issues.
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/userService';
 import { SpinnerIcon } from '../components/icons';
-import type { User } from '../types';
 
 const validatePassword = (password: string): string[] => {
     const errors: string[] = [];

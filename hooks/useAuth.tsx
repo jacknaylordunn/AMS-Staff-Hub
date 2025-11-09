@@ -1,8 +1,7 @@
-// FIX: The errors indicate members are not exported. Using namespace imports `* as ...` to fix module resolution issues.
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as firebaseAuth from 'firebase/auth';
-import * as firestore from 'firebase/firestore'; // Import onSnapshot and doc
-import { auth, db } from '../services/firebase'; // Import db
+import * as firestore from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -44,11 +43,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     ...userProfile,
                 } as User);
             } else {
+                 // This case can happen during registration before profile is created
                  setUser({
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
-                    firstName: '',
-                    lastName: '',
+                    firstName: firebaseUser.displayName?.split(' ')[0] || '',
+                    lastName: firebaseUser.displayName?.split(' ')[1] || '',
+                    role: 'Pending'
                 });
             }
             setLoading(false);

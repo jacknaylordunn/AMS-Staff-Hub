@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { MajorIncident, METHANEreport, StaffCheckin, User } from '../types';
@@ -63,7 +62,7 @@ export const submitMethaneReport = async (reportData: Omit<METHANEreport, 'id' |
     });
 };
 
-export const getIncidentMethaneReports = (incidentId: string, callback: (reports: METHANEreport[]) => void) => {
+export const getIncidentMethaneReports = (incidentId: string, callback: (reports: METHANEreport[]) => void): firestore.Unsubscribe => {
     const reportsCol = firestore.collection(db, 'majorIncidents', incidentId, 'methaneReports');
     const q = firestore.query(reportsCol, firestore.orderBy('submittedAt', 'desc'));
     return firestore.onSnapshot(q, (snapshot) => {
@@ -86,7 +85,7 @@ export const checkInToIncident = async (incidentId: string, user: User, status: 
     });
 };
 
-export const getIncidentStaffCheckins = (incidentId: string, callback: (checkins: StaffCheckin[]) => void) => {
+export const getIncidentStaffCheckins = (incidentId: string, callback: (checkins: StaffCheckin[]) => void): firestore.Unsubscribe => {
     const checkinsCol = firestore.collection(db, 'majorIncidents', incidentId, 'checkins');
     const q = firestore.query(checkinsCol, firestore.orderBy('timestamp', 'desc'));
     return firestore.onSnapshot(q, (snapshot) => {

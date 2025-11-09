@@ -1,4 +1,3 @@
-// FIX: The errors indicate members are not exported. Using namespace import `* as firestore` from 'firebase/firestore' to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Kit, KitCheck } from '../types';
@@ -25,7 +24,7 @@ export const getKitById = async (kitId: string): Promise<Kit | null> => {
     return { id: docSnap.id, ...docSnap.data() } as Kit;
 };
 
-export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck'>): Promise<string> => {
+export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck' | 'assignedTo'>): Promise<string> => {
     const defaultChecklist = DEFAULT_KIT_CHECKLISTS[kitData.type] || [];
     const docRef = await firestore.addDoc(firestore.collection(db, 'kits'), {
         ...kitData,
@@ -93,7 +92,7 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
         },
         status: newStatus,
         trackedItems: newTrackedItems,
-        assignedTo: assignedTo, // This will be null on Sign In, correctly un-assigning it
+        assignedTo: assignedTo === null ? firestore.deleteField() : assignedTo,
     };
 
     batch.update(kitRef, updatePayload);
