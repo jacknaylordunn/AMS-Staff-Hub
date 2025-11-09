@@ -45,7 +45,7 @@ const addHeader = async (doc: jsPDF, yPos: { y: number }) => {
 };
 
 const addFooter = (doc: jsPDF) => {
-    const pageCount = doc.getNumberOfPages();
+    const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
@@ -64,236 +64,121 @@ const addSectionTitle = (doc: jsPDF, title: string, yPos: { y: number }) => {
     yPos.y += 6;
 };
 
-const addText = (doc: jsPDF, text: string, yPos: { y: number }, indent = 0) => {
+const addText = (doc: jsPDF, text: string | null | undefined, yPos: { y: number }, indent = 0) => {
+    if (!text || text.trim() === '') return;
     checkPageBreak(doc, yPos, 10);
     const splitText = doc.splitTextToSize(text, 182 - indent);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(40);
     doc.text(splitText, 14 + indent, yPos.y);
-    yPos.y += (splitText.length * 4) + 2;
+    yPos.y += (doc.getTextDimensions(splitText).h) + 2;
 };
 
-const addKeyValue = (doc: jsPDF, key: string, value: string | number | string[] | undefined | null, yPos: { y: number }) => {
-    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
-        value = 'N/A';
-    }
-    const finalValue = Array.isArray(value) ? value.join(', ') : value.toString();
-    addText(doc, `${key}: ${finalValue}`, yPos);
-};
-
-
+// FIX: Added missing exported function generateHandoverPdf
 export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
-  const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => void };
-  const yPos = { y: 15 };
+    const doc = new jsPDF();
+    const yPos = { y: 20 };
 
-  await addHeader(doc, yPos);
+    await addHeader(doc, yPos);
 
-  // --- Patient & Incident Details ---
-  addSectionTitle(doc, 'Patient & Incident Details', yPos);
-  doc.autoTable({
-      startY: yPos.y,
-      body: [
-          ['Name', `${patient.firstName} ${patient.lastName}`, 'Incident Date', eprf.incidentDate],
-          ['DOB / Age', `${patient.dob} (${eprf.patientAge})`, 'Incident Time', eprf.incidentTime],
-          ['Gender', eprf.patientGender, 'Location', eprf.incidentLocation],
-          ['Event', eprf.eventName || 'N/A', 'Incident #', eprf.incidentNumber],
-          ['Nature of Call', eprf.natureOfCall, '', ''],
-      ],
-      theme: 'plain',
-      styles: { fontSize: 9, cellPadding: 1 },
-      didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-  });
+    // Patient Details
+    addSectionTitle(doc, 'Patient Details', yPos);
+    addText(doc, `Name: ${eprf.patientName}`, yPos);
+    addText(doc, `DOB: ${patient.dob} (Age: ${eprf.patientAge})`, yPos);
+    addText(doc, `Gender: ${eprf.patientGender}`, yPos);
+    yPos.y += 5;
 
-  // --- Type-Specific Sections ---
-  if (eprf.presentationType === 'Welfare/Intox') {
-      addSectionTitle(doc, 'Welfare Log', yPos);
-      addKeyValue(doc, 'Presenting Situation', eprf.presentingComplaint, yPos);
-      checkPageBreak(doc, yPos, 20);
-      if (eprf.welfareLog?.length > 0) {
-          doc.autoTable({
-              startY: yPos.y,
-              head: [['Time', 'Observation / Action']],
-              body: eprf.welfareLog.map(item => [item.time, item.observation]),
-              theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-      } else {
-          addText(doc, 'No welfare entries logged.', yPos);
-      }
-      yPos.y += 5;
+    // Incident Details
+    addSectionTitle(doc, 'Incident Details', yPos);
+    addText(doc, `Date & Time: ${eprf.incidentDate} at ${eprf.incidentTime}`, yPos);
+    addText(doc, `Location: ${eprf.incidentLocation}`, yPos);
+    addText(doc, `Event: ${eprf.eventName || 'N/A'}`, yPos);
+    yPos.y += 5;
 
-  } else { // Medical/Trauma or Minor Injury
-      addSectionTitle(doc, 'Clinical Narrative', yPos);
-      addKeyValue(doc, 'Presenting Complaint', eprf.presentingComplaint, yPos);
-      addKeyValue(doc, 'History', eprf.history, yPos);
-      addKeyValue(doc, 'Mechanism of Injury', eprf.mechanismOfInjury, yPos);
+    // Clinical Narrative
+    addSectionTitle(doc, 'Clinical Narrative', yPos);
+    addText(doc, `Presenting Complaint: ${eprf.presentingComplaint}`, yPos);
+    addText(doc, `History: ${eprf.history}`, yPos);
+    yPos.y += 5;
+    
+    // SAMPLE History
+    addSectionTitle(doc, 'SAMPLE History', yPos);
+    addText(doc, `Allergies: ${eprf.allergies.join(', ') || 'None known'}`, yPos);
+    addText(doc, `Medications: ${eprf.medications.join(', ') || 'None'}`, yPos);
+    addText(doc, `Past Medical History: ${eprf.pastMedicalHistory || 'None'}`, yPos);
+    yPos.y += 5;
 
-      addSectionTitle(doc, 'SAMPLE History', yPos);
-      doc.autoTable({
-          startY: yPos.y,
-          body: [
-              ['Allergies', eprf.allergies.join(', ') || 'None known'],
-              ['Medications', eprf.medications.join(', ') || 'None'],
-              ['Past Medical History', eprf.pastMedicalHistory || 'N/A'],
-              ['Last Oral Intake', eprf.lastOralIntake || 'N/A'],
-              ['Social History', eprf.socialHistory || 'N/A'],
-          ],
-          theme: 'plain', styles: { fontSize: 9, cellPadding: 1 },
-          didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-      });
-
-      if (eprf.painAssessment && eprf.painAssessment.severity > 0) {
-          addSectionTitle(doc, 'Pain Assessment (OPQRST)', yPos);
-          doc.autoTable({
-              startY: yPos.y,
-              body: [
-                  ['Onset', eprf.painAssessment.onset, 'Provocation', eprf.painAssessment.provocation],
-                  ['Quality', eprf.painAssessment.quality, 'Radiation', eprf.painAssessment.radiation],
-                  ['Severity', `${eprf.painAssessment.severity}/10`, 'Time', eprf.painAssessment.time],
-              ],
-              theme: 'plain', styles: { fontSize: 9, cellPadding: 1 },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-      }
-
-      if (eprf.presentationType === 'Medical/Trauma') {
-          addSectionTitle(doc, 'Primary Survey & Disability', yPos);
-          const pupils = eprf.disability.pupils;
-          const pupilString = `L: ${pupils.leftSize}mm (${pupils.leftResponse}), R: ${pupils.rightSize}mm (${pupils.rightResponse})`;
-          const disabilityBody = [
-                ['Airway', `${eprf.airwayDetails?.status || 'N/A'}. Adjuncts: ${eprf.airwayDetails?.adjuncts.join(', ') || 'None'}`],
-                ['Breathing', `Effort: ${eprf.breathingDetails?.effort || 'N/A'}. Sounds: ${eprf.breathingDetails?.sounds.join(', ')} ${eprf.breathingDetails?.sides.join(', ')}`],
-                ['Circulation', `Pulse: ${eprf.circulationDetails?.pulseQuality || 'N/A'}. Skin: ${eprf.circulationDetails?.skin || 'N/A'}. CRT: ${eprf.circulationDetails.capillaryRefillTime || 'N/A'}s. Heart Sounds: ${eprf.circulationDetails.heartSounds || 'N/A'}`],
-                ['Disability', `AVPU: ${eprf.disability.avpu}, GCS: ${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor}), Pupils: ${pupilString}`],
-                ['Exposure', eprf.exposure || 'N/A'],
-            ];
-
-            if (eprf.disability.bloodGlucoseLevel || eprf.disability.fastTest) {
-                disabilityBody.push(['Other Neuro', `BM: ${eprf.disability.bloodGlucoseLevel || 'N/A'} | FAST: Face-${eprf.disability.fastTest?.face}, Arms-${eprf.disability.fastTest?.arms}, Speech-${eprf.disability.fastTest?.speech}`]);
-            }
-
-          doc.autoTable({
-              startY: yPos.y,
-              body: disabilityBody,
-              theme: 'striped', styles: { fontSize: 9, cellPadding: 1.5 },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-
-          addSectionTitle(doc, 'Limb Assessment', yPos);
-          doc.autoTable({
-              startY: yPos.y,
-              head: [['Limb', 'Power', 'Sensation']],
-              body: [
-                  ['Left Arm', eprf.limbAssessment.luPower, eprf.limbAssessment.luSensation],
-                  ['Right Arm', eprf.limbAssessment.ruPower, eprf.limbAssessment.ruSensation],
-                  ['Left Leg', eprf.limbAssessment.llPower, eprf.limbAssessment.llSensation],
-                  ['Right Leg', eprf.limbAssessment.rlPower, eprf.limbAssessment.rlSensation],
-              ],
-              theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-      }
-      
-      addSectionTitle(doc, 'Secondary Survey', yPos);
-      addText(doc, eprf.secondarySurvey || 'No findings noted.', yPos);
-
-      if (eprf.injuries?.length > 0) {
-          addSectionTitle(doc, 'Injuries & Interventions on Body Map', yPos);
-          for (const injury of eprf.injuries) {
-              checkPageBreak(doc, yPos, 45);
-              addText(doc, `${injury.type} (${injury.view}): ${injury.description}`, yPos);
-              if (injury.drawingDataUrl) {
-                try {
-                    doc.addImage(injury.drawingDataUrl, 'PNG', 14, yPos.y, 60, 40);
-                    yPos.y += 45;
-                } catch (e) {
-                    console.error("Failed to add injury image to PDF", e);
-                    addText(doc, '[Image could not be rendered]', yPos);
-                }
-              }
-          }
-      }
-  }
-
-  // --- Common Sections for All Types ---
-  if (eprf.vitals?.length > 0 && eprf.vitals.some(v => v.hr || v.rr || v.bp)) {
-      addSectionTitle(doc, 'Observations', yPos);
-      checkPageBreak(doc, yPos, 20);
-      doc.autoTable({
-          startY: yPos.y,
-          head: [['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'BG', 'Pain', 'On O2', 'NEWS2']],
-          body: eprf.vitals.map(v => [v.time, v.hr, v.rr, v.bp, `${v.spo2}%`, `${v.temp}°C`, v.bg, v.painScore, v.onOxygen ? 'Yes' : 'No', v.news2 ?? 'N/A']),
-          theme: 'grid', headStyles: { fillColor: [0, 51, 102] },
-          didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-      });
-      yPos.y += 5;
-  }
-  
-  if (eprf.presentationType !== 'Welfare/Intox') {
-      addSectionTitle(doc, 'Treatment & Interventions', yPos);
-      addKeyValue(doc, 'Working Impressions', eprf.impressions, yPos);
-      checkPageBreak(doc, yPos, 20);
-      if (eprf.medicationsAdministered?.length > 0) {
-          doc.autoTable({
-              startY: yPos.y,
-              head: [['Time', 'Medication', 'Dose', 'Route']],
-              body: eprf.medicationsAdministered.map(m => [m.time, m.medication, m.dose, m.route]),
-              theme: 'striped', headStyles: { fillColor: [0, 168, 232] },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-      }
-      checkPageBreak(doc, yPos, 20);
-      if (eprf.interventions?.length > 0) {
-          doc.autoTable({
-              startY: yPos.y,
-              head: [['Time', 'Intervention', 'Details']],
-              body: eprf.interventions.map(i => [i.time, i.intervention, i.details]),
-              theme: 'striped', headStyles: { fillColor: [0, 168, 232] },
-              didDrawPage: (data: any) => { yPos.y = data.cursor.y; }
-          });
-      }
-      yPos.y += 5;
-  }
-  
-   if (eprf.attachments?.length > 0) {
-      addSectionTitle(doc, 'Attachments', yPos);
-      addKeyValue(doc, 'Attached Files', eprf.attachments.map(a => a.fileName), yPos);
-  }
-
-  addSectionTitle(doc, 'Disposition & Handover', yPos);
-  addKeyValue(doc, 'Final Disposition', eprf.disposition, yPos);
-  if (eprf.disposition === 'Conveyed to ED') {
-      addKeyValue(doc, 'Destination', eprf.dispositionDetails.destination, yPos);
-      addKeyValue(doc, 'Handover To', eprf.dispositionDetails.handoverTo, yPos);
-  } else if (eprf.disposition === 'Referred to Other Service') {
-      addKeyValue(doc, 'Referral Details', eprf.dispositionDetails.referralDetails, yPos);
-  }
-  addKeyValue(doc, 'Handover Notes', eprf.handoverDetails, yPos);
-  
-  addSectionTitle(doc, 'Crew & Signatures', yPos);
-  addKeyValue(doc, 'Report Author', eprf.createdBy.name, yPos);
-  addKeyValue(doc, 'Attending Crew', eprf.crewMembers.map(c => c.name), yPos);
-  if (eprf.reviewedBy) {
-    addKeyValue(doc, 'Reviewed By', `${eprf.reviewedBy.name} on ${eprf.reviewedBy.date.toDate().toLocaleDateString()}`, yPos);
-  }
-  
-  const addSignature = (dataUrl: string | undefined, title: string, x: number) => {
-    if (dataUrl) {
-      try {
-        checkPageBreak(doc, yPos, 40);
-        doc.text(title, x, yPos.y);
-        doc.addImage(dataUrl, 'PNG', x, yPos.y + 2, 60, 30);
-      } catch (e) {
-        console.error("Failed to add signature image to PDF", e);
-      }
+    // Assessment
+    addSectionTitle(doc, 'Assessment Findings', yPos);
+    addText(doc, `AVPU: ${eprf.disability.avpu}`, yPos);
+    addText(doc, `GCS: ${eprf.disability.gcs.total} (E${eprf.disability.gcs.eyes}V${eprf.disability.gcs.verbal}M${eprf.disability.gcs.motor})`, yPos);
+    if (eprf.secondarySurvey) {
+        addText(doc, `Secondary Survey: ${eprf.secondarySurvey}`, yPos);
     }
-  };
-  addSignature(eprf.clinicianSignatureUrl, 'Clinician Signature', 14);
-  addSignature(eprf.patientSignatureUrl, 'Patient/Guardian Signature', 105);
-  yPos.y += 40;
+    yPos.y += 5;
 
-  addFooter(doc);
+    // Vitals
+    if(eprf.vitals.length > 0 && eprf.vitals.some(v => v.hr || v.rr || v.bp)) { // Check if vitals exist
+        addSectionTitle(doc, 'Observations', yPos);
+        (doc as any).autoTable({
+            startY: yPos.y,
+            head: [['Time', 'HR', 'RR', 'BP', 'SpO2', 'Temp', 'NEWS2']],
+            body: eprf.vitals.map(v => [v.time, v.hr, v.rr, v.bp, `${v.spo2}%`, `${v.temp}°C`, v.news2 ?? 'N/A']),
+            theme: 'grid',
+            headStyles: { fillColor: [0, 51, 102] }, // AMS Blue
+        });
+        yPos.y = (doc as any).lastAutoTable.finalY + 10;
+    }
+    
+    // Treatment
+    addSectionTitle(doc, 'Treatment Provided', yPos);
+    if (eprf.medicationsAdministered.length > 0) {
+        addText(doc, 'Medications:', yPos);
+        (doc as any).autoTable({
+            startY: yPos.y,
+            head: [['Time', 'Medication', 'Dose', 'Route']],
+            body: eprf.medicationsAdministered.map(m => [m.time, m.medication, m.dose, m.route]),
+            theme: 'grid',
+            headStyles: { fillColor: [0, 51, 102] },
+        });
+        yPos.y = (doc as any).lastAutoTable.finalY + 5;
+    }
+    
+    if (eprf.interventions.length > 0) {
+        addText(doc, 'Interventions:', yPos);
+        (doc as any).autoTable({
+            startY: yPos.y,
+            head: [['Time', 'Intervention', 'Details']],
+            body: eprf.interventions.map(i => [i.time, i.intervention, i.details]),
+            theme: 'grid',
+            headStyles: { fillColor: [0, 51, 102] },
+        });
+        yPos.y = (doc as any).lastAutoTable.finalY + 5;
+    }
+    
+    if (eprf.medicationsAdministered.length === 0 && eprf.interventions.length === 0) {
+        addText(doc, 'No specific treatment provided.', yPos);
+    }
+    yPos.y += 5;
+    
+    // Handover
+    addSectionTitle(doc, 'Handover', yPos);
+    addText(doc, `Disposition: ${eprf.disposition}`, yPos);
+    if (eprf.disposition === 'Conveyed to ED') {
+        addText(doc, `Destination: ${eprf.dispositionDetails.destination}`, yPos);
+        addText(doc, `Handover to: ${eprf.dispositionDetails.handoverTo}`, yPos);
+    }
+    if (eprf.handoverDetails) {
+        addText(doc, `Handover Notes: ${eprf.handoverDetails}`, yPos);
+    }
+    yPos.y += 5;
 
-  doc.save(`pcr_${patient.lastName}_${eprf.incidentDate}.pdf`);
+    // Crew
+    addSectionTitle(doc, 'Attending Crew', yPos);
+    addText(doc, eprf.crewMembers.map(c => c.name).join(', '), yPos);
+    
+    addFooter(doc);
+
+    doc.save(`Handover_${patient.lastName}_${patient.firstName}_${eprf.incidentDate}.pdf`);
 };

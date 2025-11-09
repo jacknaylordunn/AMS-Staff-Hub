@@ -215,7 +215,8 @@ const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                     <ViewField label="Final Disposition" value={eprf.disposition} />
                     {eprf.disposition === 'Conveyed to ED' && <ViewField label="Destination" value={eprf.dispositionDetails.destination} />}
-                    {eprf.disposition === 'Conveyed to ED' && <ViewField label="Receiving Clinician" value={eprf.dispositionDetails.receivingClinician} />}
+                    {/* FIX: Corrected receivingClinician to handoverTo to match the type definition. */}
+                    {eprf.disposition === 'Conveyed to ED' && <ViewField label="Handover To" value={eprf.dispositionDetails.handoverTo} />}
                 </div>
                 {eprf.disposition === 'Referred to Other Service' && <ViewField label="Referral Details" value={eprf.dispositionDetails.referralDetails} />}
                 <ViewField label="Handover Notes" value={eprf.handoverDetails} />

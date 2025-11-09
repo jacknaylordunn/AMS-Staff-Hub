@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { EventLog, Shift } from '../types';
 import { useAuth } from '../hooks/useAuth';

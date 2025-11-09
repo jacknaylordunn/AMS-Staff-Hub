@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const DashboardIcon: React.FC<{ className?: string }> = ({ className }) => (

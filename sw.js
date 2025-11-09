@@ -1,3 +1,4 @@
+
 const CACHE_NAME = 'aegis-hub-cache-v2';
 const urlsToCache = [
   '/',

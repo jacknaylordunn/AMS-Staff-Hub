@@ -1,3 +1,4 @@
+
 import * as firestore from 'firebase/firestore';
 
 export interface ComplianceDocument {

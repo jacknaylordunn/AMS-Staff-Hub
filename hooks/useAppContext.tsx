@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import * as firestore from 'firebase/firestore';
 import type { EventLog, Shift, EPRFForm } from '../types';

@@ -1,3 +1,4 @@
+
 import type { VitalSign } from '../types';
 
 export const calculateNews2Score = (vitals: Partial<VitalSign>): number | undefined => {

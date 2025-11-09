@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import type { CompanyDocument } from '../types';
 import { getDocuments, createDocument, deleteDocument } from '../services/documentService';
