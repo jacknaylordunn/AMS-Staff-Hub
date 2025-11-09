@@ -1,8 +1,11 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import type { EPRFForm, Patient } from '../types';
+import type { EPRFForm, Patient, Injury } from '../types';
 
 // The 'jspdf-autotable' import augments the jsPDF interface automatically.
+const BODY_IMAGE_ANTERIOR = 'https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Staff%20Hub/Body%20Map%20-%20Front.jpeg';
+const BODY_IMAGE_POSTERIOR = 'https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/AMS/Staff%20Hub/Body%20Map%20-%20Back.jpeg';
+
 
 // Function to fetch an image and convert it to Base64
 const getLogoBase64 = async (url: string): Promise<string> => {
@@ -75,7 +78,57 @@ const addText = (doc: jsPDF, text: string | null | undefined, yPos: { y: number 
     yPos.y += (doc.getTextDimensions(splitText).h) + 2;
 };
 
-// FIX: Added missing exported function generateHandoverPdf
+// Helper for injury map generation
+const getMarkerStyle = (type: Injury['type']) => {
+    if (type === 'IV Access' || type === 'IO Access') return { color: 'rgba(59, 130, 246, 0.9)' }; // blue-500
+    if (type === 'Wound') return { color: 'rgba(239, 68, 68, 0.9)' }; // red-500
+    if (type === 'Fracture') return { color: 'rgba(249, 115, 22, 0.9)' }; // orange-500
+    if (type === 'Burn') return { color: 'rgba(168, 85, 247, 0.9)' }; // purple-500
+    return { color: 'rgba(107, 114, 128, 0.9)' }; // gray-500
+};
+
+const generateBodyMapImage = (view: 'anterior' | 'posterior', injuries: Injury[], startingIndex: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const canvasWidth = 400;
+        const canvasHeight = 800;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject('Could not get canvas context');
+
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            injuries.forEach((injury, index) => {
+                const markerX = (injury.coords.x / 100) * canvas.width;
+                const markerY = (injury.coords.y / 100) * canvas.height;
+
+                const { color } = getMarkerStyle(injury.type);
+                const number = startingIndex + index;
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(markerX, markerY, 12, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(number), markerX, markerY + 1);
+            });
+
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject('Failed to load body map image');
+        img.src = view === 'anterior' ? BODY_IMAGE_ANTERIOR : BODY_IMAGE_POSTERIOR;
+    });
+};
+
+
 export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
     const doc = new jsPDF();
     const yPos = { y: 20 };
@@ -117,6 +170,45 @@ export const generateHandoverPdf = async (eprf: EPRFForm, patient: Patient) => {
         addText(doc, `Secondary Survey: ${eprf.secondarySurvey}`, yPos);
     }
     yPos.y += 5;
+
+    // Injury Map & Details
+    if (eprf.injuries && eprf.injuries.length > 0) {
+        addSectionTitle(doc, 'Injury Map & Details', yPos);
+
+        const anteriorInjuries = eprf.injuries.filter(i => i.view === 'anterior');
+        const posteriorInjuries = eprf.injuries.filter(i => i.view === 'posterior');
+        
+        if (anteriorInjuries.length > 0) {
+            checkPageBreak(doc, yPos, 75);
+            const startY = yPos.y;
+            const anteriorImgData = await generateBodyMapImage('anterior', anteriorInjuries, 1);
+            doc.addImage(anteriorImgData, 'PNG', 14, startY, 60, 120);
+
+            const textYPos = { y: startY };
+            addText(doc, "Anterior Injuries:", textYPos, 80);
+            anteriorInjuries.forEach((injury, index) => {
+                addText(doc, `${index + 1}. ${injury.type}: ${injury.description}`, textYPos, 85);
+            });
+            
+            yPos.y = Math.max(textYPos.y, startY + 125);
+        }
+
+        if (posteriorInjuries.length > 0) {
+            checkPageBreak(doc, yPos, 75);
+            const startY = yPos.y;
+            const posteriorImgData = await generateBodyMapImage('posterior', posteriorInjuries, anteriorInjuries.length + 1);
+            doc.addImage(posteriorImgData, 'PNG', 14, startY, 60, 120);
+
+            const textYPos = { y: startY };
+            addText(doc, "Posterior Injuries:", textYPos, 80);
+            posteriorInjuries.forEach((injury, index) => {
+                addText(doc, `${anteriorInjuries.length + index + 1}. ${injury.type}: ${injury.description}`, textYPos, 85);
+            });
+
+            yPos.y = Math.max(textYPos.y, startY + 125);
+        }
+    }
+
 
     // Vitals
     if(eprf.vitals.length > 0 && eprf.vitals.some(v => v.hr || v.rr || v.bp)) { // Check if vitals exist
