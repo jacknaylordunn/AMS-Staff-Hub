@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import * as firestore from 'firebase/firestore';
@@ -268,6 +269,8 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
 
 const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     const { user } = useAuth();
+    // FIX: `isOnline` is provided by the `useOnlineStatus` hook, not `useAppContext`.
+    const { updateEPRFDraft } = useAppContext();
     const { isOnline } = useOnlineStatus();
     const navigate = ReactRouterDOM.useNavigate();
     
@@ -312,6 +315,12 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     };
 
     const steps = formSteps[state.presentationType] || formSteps['Medical/Trauma'];
+
+    useEffect(() => {
+        if (state) {
+            updateEPRFDraft(state);
+        }
+    }, [state, updateEPRFDraft]);
 
     useEffect(() => {
         getUsers().then(users => {

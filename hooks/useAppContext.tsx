@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import * as firestore from 'firebase/firestore';
 import type { EventLog, Shift, EPRFForm } from '../types';
 import { useAuth } from './useAuth';
@@ -17,6 +17,7 @@ interface AppContextType {
   addEPRFDraft: (draft: EPRFForm) => void;
   removeEPRFDraft: (draftId: string) => void;
   setActiveEPRFId: (draftId: string | null) => void;
+  updateEPRFDraft: (draft: EPRFForm) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -137,6 +138,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveEPRFIdState(draftId);
   }
 
+  const updateEPRFDraft = useCallback((updatedDraft: EPRFForm) => {
+    setOpenEPRFDrafts(prevDrafts =>
+        prevDrafts.map(draft =>
+            draft.id === updatedDraft.id ? updatedDraft : draft
+        )
+    );
+  }, []);
+
 
   return (
     <AppContext.Provider value={{ 
@@ -150,6 +159,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveEPRFId,
         addEPRFDraft,
         removeEPRFDraft,
+        updateEPRFDraft
     }}>
       {children}
     </AppContext.Provider>

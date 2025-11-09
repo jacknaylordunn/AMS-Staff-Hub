@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppContext } from '../hooks/useAppContext';
 import { useAuth } from '../hooks/useAuth';
@@ -81,7 +82,7 @@ const EPRFTabs: React.FC = () => {
                                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}
                             >
-                                {draft.patientName || `Patient ${index + 1}`}
+                                {draft.patientName ? draft.patientName.toUpperCase() : `Patient ${index + 1}`}
                             </button>
                              <button 
                                 onClick={(e) => { e.stopPropagation(); setDraftToDelete(draft.id!); }}
