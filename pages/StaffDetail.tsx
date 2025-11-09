@@ -66,7 +66,7 @@ const StaffDetail: React.FC = () => {
     }
     
     const getExpiryColor = (expiryDate?: string): string => {
-        if (!expiryDate) return 'text-gray-500';
+        if (!expiryDate) return 'text-gray-500 dark:text-gray-400';
         const today = new Date();
         const expiry = new Date(expiryDate);
         today.setHours(0,0,0,0);
@@ -77,7 +77,7 @@ const StaffDetail: React.FC = () => {
 
         if (expiry < today) return 'text-red-500 font-bold';
         if (expiry <= thirtyDaysFromNow) return 'text-orange-500 font-semibold';
-        return 'text-green-600';
+        return 'text-green-600 dark:text-green-400';
     };
 
 
@@ -115,6 +115,31 @@ const StaffDetail: React.FC = () => {
                     <DetailCard title="Contact Information">
                         <p><strong>Email:</strong> {user.email}</p>
                         <p><strong>Phone:</strong> {user.phone || 'Not provided'}</p>
+                        <p><strong>Address:</strong> {user.address || 'Not provided'}</p>
+                        <p><strong>Registration:</strong> {user.registrationNumber || 'N/A'}</p>
+                    </DetailCard>
+                </div>
+                <div className="lg:col-span-2">
+                    <DetailCard title="Compliance Documents">
+                         <button onClick={() => setUploadModalOpen(true)} className="absolute top-4 right-4 flex items-center text-sm px-3 py-1 bg-ams-blue text-white rounded-md hover:bg-opacity-90">
+                            <PlusIcon className="w-4 h-4 mr-1"/> Upload
+                        </button>
+                        <div className="space-y-3">
+                            {user.complianceDocuments && user.complianceDocuments.length > 0 ? user.complianceDocuments.map(doc => (
+                                <div key={doc.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <DocsIcon className="w-6 h-6 text-ams-blue dark:text-ams-light-blue" />
+                                        <div>
+                                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-800 dark:text-gray-200 hover:underline">{doc.name}</a>
+                                            <p className={`text-sm ${getExpiryColor(doc.expiryDate)}`}>Expires: {doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString() : 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleDeleteClick(doc)} className="p-2 text-gray-400 hover:text-red-600"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                            )) : (
+                                <p className="text-gray-500 dark:text-gray-400">No compliance documents uploaded for this user.</p>
+                            )}
+                        </div>
                     </DetailCard>
                 </div>
             </div>

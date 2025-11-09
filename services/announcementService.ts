@@ -45,3 +45,7 @@ export const sendAnnouncementToAllUsers = async (message: string, sender: { uid:
     
     await Promise.all(promises);
 }
+
+export const deleteAnnouncement = async (announcementId: string): Promise<void> => {
+    await firestore.deleteDoc(firestore.doc(db, 'announcements', announcementId));
+};

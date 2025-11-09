@@ -246,7 +246,7 @@ const dataURLtoBlob = (dataUrl: string): Blob => {
     return new Blob([u8arr], { type: mime });
 };
 
-const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
+const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     const { user } = useAuth();
     const { isOnline } = useOnlineStatus();
     const navigate = ReactRouterDOM.useNavigate();
@@ -1068,4 +1068,4 @@ const EPRFForm: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplete }) => {
     );
 };
 
-export default EPRFForm;
+export default EPRFFormComponent;

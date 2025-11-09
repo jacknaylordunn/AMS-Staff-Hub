@@ -120,11 +120,12 @@ service cloud.firestore {
     
     // Announcements
     // - All authenticated users can read.
-    // - Only Managers/Admins can create.
+    // - Only Managers/Admins can create or delete.
     match /announcements/{announcementId} {
         allow read: if request.auth != null;
         allow create: if isManagerOrAdmin(request.auth.uid);
-        allow update, delete: if false; // Announcements are immutable
+        allow update: if false; // Announcements are immutable
+        allow delete: if isManagerOrAdmin(request.auth.uid);
     }
 
     // Notifications
