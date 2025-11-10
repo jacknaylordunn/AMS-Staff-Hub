@@ -4,8 +4,8 @@ import { Section, SelectField, InputField, labelBaseClasses } from './FormContro
 import SpeechEnabledTextArea from '../SpeechEnabledTextArea';
 import SignaturePad, { SignaturePadRef } from '../SignaturePad';
 import { PlusIcon, DocsIcon, CameraIcon, SpinnerIcon, CheckIcon } from '../icons';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import app from '../../services/firebase';
+// FIX: Switched to compat version of Firebase Functions.
+import { functions } from '../../services/firebase';
 import { showToast } from '../Toast';
 
 interface Step7Props {
@@ -76,8 +76,8 @@ const Step7_DispositionHandover: React.FC<Step7Props> = ({ state, dispatch, allS
     const handleGenerateSummary = async () => {
         setIsSummarizing(true);
         showToast("Generating handover summary...", "info");
-        const functions = getFunctions(app);
-        const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
+        // FIX: Use compat syntax for httpsCallable.
+        const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
         try {
             const systemInstruction = "You are a clinical assistant. Summarize the provided ePRF JSON data into a concise SBAR (Situation, Background, Assessment, Recommendation) handover report suitable for a hospital emergency department. Focus on clinically relevant information. Be clear and direct.";
             const context = {
@@ -88,7 +88,8 @@ const Step7_DispositionHandover: React.FC<Step7Props> = ({ state, dispatch, allS
             };
             const prompt = `${systemInstruction}\n\nGenerate an SBAR handover for this patient: ${JSON.stringify(context)}`;
             const result = await askClinicalAssistant({ query: prompt });
-            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: result.data.response });
+            // FIX: Cast result from compat callable function.
+            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: (result.data as { response: string }).response });
             showToast("Handover summary generated.", "success");
         } catch (err) {
             console.error("Cloud function for summary generation failed:", err);

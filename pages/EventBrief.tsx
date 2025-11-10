@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getShiftById } from '../services/rotaService';
 import { getEventById } from '../services/eventService';
-import { getVehicleById } from '../services/assetService';
-import { getKitById } from '../services/inventoryService';
-import type { Shift, EventLog, Vehicle, Kit } from '../types';
-// FIX: The 'Users' icon is not exported from 'components/icons'. Replaced with 'PatientsIcon' which uses the same underlying icon.
+import { getVehicleById, addVehicleCheck } from '../services/assetService';
+import { getKitById, addKitCheck } from '../services/inventoryService';
+import type { Shift, EventLog, Vehicle, Kit, VehicleCheck, KitCheck } from '../types';
 import { SpinnerIcon, RotaIcon, ClockIcon, PatientsIcon, AmbulanceIcon, BoxIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
+import { useAuth } from '../hooks/useAuth';
+import VehicleCheckModal from '../components/VehicleCheckModal';
+import KitCheckModal from '../components/KitCheckModal';
 
 const InfoCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; className?: string }> = ({ title, icon, children, className }) => (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow ${className}`}>
@@ -25,65 +27,121 @@ const InfoCard: React.FC<{ title: string; icon: React.ReactNode; children: React
 
 const EventBrief: React.FC = () => {
     const { shiftId } = useParams<{ shiftId: string }>();
+    const { user } = useAuth();
     const [shift, setShift] = useState<Shift | null>(null);
     const [event, setEvent] = useState<EventLog | null>(null);
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
     const [kits, setKits] = useState<Kit[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+    const [isVehicleCheckModalOpen, setVehicleCheckModalOpen] = useState(false);
+    const [isKitCheckModalOpen, setKitCheckModalOpen] = useState(false);
+    const [selectedKitForCheck, setSelectedKitForCheck] = useState<Kit | null>(null);
+
+    const fetchData = async () => {
         if (!shiftId) {
             setLoading(false);
             showToast("Shift ID not found.", "error");
             return;
         }
 
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const shiftData = await getShiftById(shiftId);
-                if (!shiftData) {
-                    showToast("Shift not found.", "error");
-                    setLoading(false);
-                    return;
-                }
-                setShift(shiftData);
-
-                const promises: Promise<any>[] = [getEventById(shiftData.eventId)];
-                if (shiftData.assignedVehicleId) {
-                    promises.push(getVehicleById(shiftData.assignedVehicleId));
-                } else {
-                    promises.push(Promise.resolve(null));
-                }
-                if (shiftData.assignedKitIds && shiftData.assignedKitIds.length > 0) {
-                    const kitPromises = shiftData.assignedKitIds.map(id => getKitById(id));
-                    promises.push(Promise.all(kitPromises));
-                } else {
-                    promises.push(Promise.resolve([]));
-                }
-
-                const [eventData, vehicleData, kitsData] = await Promise.all(promises);
-                
-                setEvent(eventData as EventLog | null);
-                setVehicle(vehicleData as Vehicle | null);
-                setKits((kitsData as (Kit | null)[]).filter(Boolean) as Kit[]);
-
-            } catch (err) {
-                console.error("Failed to fetch brief data:", err);
-                showToast("Failed to load event brief.", "error");
-            } finally {
+        setLoading(true);
+        try {
+            const shiftData = await getShiftById(shiftId);
+            if (!shiftData) {
+                showToast("Shift not found.", "error");
                 setLoading(false);
+                return;
             }
-        };
+            setShift(shiftData);
 
+            const promises: Promise<any>[] = [getEventById(shiftData.eventId)];
+            if (shiftData.assignedVehicleId) {
+                promises.push(getVehicleById(shiftData.assignedVehicleId));
+            } else {
+                promises.push(Promise.resolve(null));
+            }
+            if (shiftData.assignedKitIds && shiftData.assignedKitIds.length > 0) {
+                const kitPromises = shiftData.assignedKitIds.map(id => getKitById(id));
+                promises.push(Promise.all(kitPromises));
+            } else {
+                promises.push(Promise.resolve([]));
+            }
+
+            const [eventData, vehicleData, kitsData] = await Promise.all(promises);
+            
+            setEvent(eventData as EventLog | null);
+            setVehicle(vehicleData as Vehicle | null);
+            setKits((kitsData as (Kit | null)[]).filter(Boolean) as Kit[]);
+
+        } catch (err) {
+            console.error("Failed to fetch brief data:", err);
+            showToast("Failed to load event brief.", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchData();
     }, [shiftId]);
+
+    const handleSaveVehicleCheck = async (checkData: Omit<VehicleCheck, 'id' | 'date'>) => {
+        if (!shift?.assignedVehicleId || !user) return;
+        try {
+            await addVehicleCheck(shift.assignedVehicleId, checkData);
+            showToast("Vehicle check submitted successfully.", "success");
+            fetchData(); // Refresh data
+        } catch (e) {
+            showToast("Failed to submit vehicle check.", "error");
+        } finally {
+            setVehicleCheckModalOpen(false);
+        }
+    };
+
+    const handleSaveKitCheck = async (checkData: Omit<KitCheck, 'id' | 'date'>) => {
+        if (!selectedKitForCheck?.id || !user) return;
+        try {
+            await addKitCheck(selectedKitForCheck.id, checkData);
+            showToast("Kit check submitted successfully.", "success");
+            fetchData(); // Refresh data
+        } catch (e) {
+            showToast("Failed to submit kit check.", "error");
+        } finally {
+            setKitCheckModalOpen(false);
+            setSelectedKitForCheck(null);
+        }
+    };
+
+    const openKitCheckModal = (kit: Kit) => {
+        setSelectedKitForCheck(kit);
+        setKitCheckModalOpen(true);
+    };
     
     if (loading) return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-12 h-12 text-ams-blue" /></div>;
     if (!shift) return <div className="text-center p-10">Shift not found.</div>;
 
     return (
         <div>
+            {isVehicleCheckModalOpen && vehicle && user && (
+                <VehicleCheckModal 
+                    isOpen={isVehicleCheckModalOpen}
+                    onClose={() => setVehicleCheckModalOpen(false)}
+                    onSave={handleSaveVehicleCheck}
+                    vehicle={vehicle}
+                    user={user}
+                />
+            )}
+            {isKitCheckModalOpen && selectedKitForCheck && user && (
+                 <KitCheckModal
+                    isOpen={isKitCheckModalOpen}
+                    onClose={() => { setKitCheckModalOpen(false); setSelectedKitForCheck(null); }}
+                    onSave={handleSaveKitCheck}
+                    kit={selectedKitForCheck}
+                    user={user}
+                    type="Sign Out"
+                />
+            )}
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">Event Briefing</h1>
             <p className="text-lg text-gray-500 dark:text-gray-400 mb-6">{shift.eventName}</p>
 
@@ -106,14 +164,24 @@ const EventBrief: React.FC = () => {
                 </InfoCard>
                 <InfoCard title="Assigned Vehicle" icon={<AmbulanceIcon className="w-6 h-6" />}>
                     {vehicle ? (
-                        <p>{vehicle.name} ({vehicle.registration})</p>
+                        <div className="flex justify-between items-center">
+                            <span>{vehicle.name} ({vehicle.registration})</span>
+                            <button onClick={() => setVehicleCheckModalOpen(true)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">Start Check</button>
+                        </div>
                     ) : (
                         <p>No vehicle assigned.</p>
                     )}
                 </InfoCard>
                 <InfoCard title="Assigned Kits" icon={<BoxIcon className="w-6 h-6" />} className="lg:col-span-2">
                     {kits.length > 0 ? (
-                        <ul className="list-disc list-inside">{kits.map(k => <li key={k.id}>{k.name} ({k.type})</li>)}</ul>
+                        <ul className="space-y-2">
+                            {kits.map(k => (
+                                <li key={k.id} className="flex justify-between items-center">
+                                    <span>{k.name} ({k.type})</span>
+                                    <button onClick={() => openKitCheckModal(k)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">Start Check</button>
+                                </li>
+                            ))}
+                        </ul>
                     ) : (
                         <p>No kits assigned to this shift.</p>
                     )}

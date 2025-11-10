@@ -8,17 +8,29 @@ export const usePatientSearch = () => {
     const [searchLoading, setSearchLoading] = useState(false);
 
     useEffect(() => {
+        if (patientSearch.length <= 2) {
+            setSearchResults([]);
+            setSearchLoading(false); // Ensure loading is false
+            return;
+        }
+
         const handler = setTimeout(async () => {
-            if (patientSearch.length > 2) {
-                setSearchLoading(true);
+            setSearchLoading(true); // Set loading right before the async call
+            try {
                 const results = await searchPatients(patientSearch);
                 setSearchResults(results);
-                setSearchLoading(false);
-            } else {
+            } catch (error) {
+                console.error("Error searching patients:", error);
                 setSearchResults([]);
+            } finally {
+                setSearchLoading(false);
             }
         }, 500);
-        return () => clearTimeout(handler);
+
+        // Cleanup function: clears the timeout if the component unmounts or if the dependency changes before the timeout fires.
+        return () => {
+            clearTimeout(handler);
+        };
     }, [patientSearch]);
 
     return {

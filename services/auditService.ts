@@ -2,8 +2,7 @@ import * as firestore from "firebase/firestore";
 import { db } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import app from './firebase';
+import { functions } from './firebase';
 
 const anonymizeEPRF = (eprf: EPRFForm, patient: Patient): Partial<EPRFForm> => {
     const { 
@@ -37,9 +36,7 @@ const getJRCALCGuidelines = () => {
 };
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
-    // FIX: Refactored to use a secure Firebase Cloud Function instead of client-side Gemini SDK.
-    const functions = getFunctions(app);
-    const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
+    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
     // 1. Fetch associated patient data
     const patientDoc = await firestore.getDoc(firestore.doc(db, 'patients', eprf.patientId!));
@@ -83,7 +80,14 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
 
     // 4. Call Cloud Function
     const result = await askClinicalAssistant({ query: prompt });
-    const resultJson = JSON.parse(result.data.response);
+    let resultJson;
+    try {
+        resultJson = JSON.parse((result.data as { response: string }).response);
+    } catch (e) {
+        console.error("Failed to parse AI audit response:", (result.data as { response: string }).response, e);
+        throw new Error("AI assistant returned an invalid response.");
+    }
+    
 
     // 5. Save results
     const auditResult: Omit<AiAuditResult, 'id'> = {

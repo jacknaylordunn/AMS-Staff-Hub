@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
 import * as firestore from 'firebase/firestore';
-// FIX: Import Vehicle and Kit types
 import type { Shift, EventLog, User as AppUser, Vehicle, Kit } from '../types';
 import { SpinnerIcon, TrashIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
@@ -17,7 +15,6 @@ interface ShiftModalProps {
     date: Date | null;
     events: EventLog[];
     staff: AppUser[];
-    // FIX: Add missing props
     vehicles: Vehicle[];
     kits: Kit[];
     type: 'shift' | 'unavailability';
@@ -36,7 +33,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         assignedStaffUids: [] as string[],
         isUnavailability: false,
         unavailabilityReason: '',
-        // FIX: Add vehicle and kit state
         assignedVehicleId: '',
         assignedKitIds: [] as string[],
     });
@@ -63,7 +59,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 assignedStaffUids: shift.assignedStaff.map(s => s.uid),
                 isUnavailability: shift.isUnavailability || false,
                 unavailabilityReason: shift.unavailabilityReason || '',
-                // FIX: Populate vehicle and kit state from shift
                 assignedVehicleId: shift.assignedVehicleId || '',
                 assignedKitIds: shift.assignedKitIds || [],
             });
@@ -80,7 +75,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 assignedStaffUids: type === 'unavailability' ? [currentUser.uid] : [],
                 isUnavailability: type === 'unavailability',
                 unavailabilityReason: '',
-                // FIX: Default vehicle and kit state
                 assignedVehicleId: '',
                 assignedKitIds: [],
             });
@@ -129,7 +123,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         setFormData(prev => ({...prev, assignedStaffUids: selectedUids}));
     };
 
-    // FIX: Add handler for multi-select kit dropdown
     const handleKitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedIds = Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value);
         setFormData(prev => ({...prev, assignedKitIds: selectedIds}));
@@ -145,7 +138,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 return { uid, name: userFullName };
             });
 
-            // FIX: Add vehicle and kit data to the shift payload
             const assignedVehicle = vehicles.find(v => v.id === formData.assignedVehicleId);
             const assignedKits = formData.assignedKitIds.map(kitId => {
                 const kit = kits.find(k => k.id === kitId);
@@ -164,7 +156,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 isUnavailability: formData.isUnavailability,
                 unavailabilityReason: formData.unavailabilityReason,
                 bids: shift?.bids || [],
-                // FIX: Widened type of status to allow for conditional assignment.
                 status: 'Open' as Shift['status'], // Default status
                 assignedVehicleId: formData.assignedVehicleId || undefined,
                 assignedVehicleName: assignedVehicle ? assignedVehicle.name : undefined,
@@ -287,7 +278,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                                 {staff.map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
                             </select>
                         </div>
-                        {/* FIX: Add vehicle and kit assignment fields */}
                         <div className="mt-4">
                             <label className={labelClasses}>Assigned Vehicle</label>
                             <select name="assignedVehicleId" value={formData.assignedVehicleId} onChange={handleChange} className={inputClasses} disabled={!isManager}>

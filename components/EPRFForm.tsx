@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
-// FIX: Import 'firestore' to use firestore.Timestamp
 import * as firestore from 'firebase/firestore';
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../types';
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../../types';
 import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ChevronLeftIcon, ChevronRightIcon, QuestionMarkCircleIcon, ShieldExclamationIcon, DocsIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';

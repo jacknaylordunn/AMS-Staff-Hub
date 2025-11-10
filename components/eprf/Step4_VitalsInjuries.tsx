@@ -1,4 +1,3 @@
-// FIX: Import 'useEffect' from react.
 import React, { useEffect } from 'react';
 import type { EPRFForm, VitalSign, Injury } from '../../types';
 import { Section, inputBaseClasses } from './FormControls';

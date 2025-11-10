@@ -10,19 +10,30 @@ const ViewSection: React.FC<{ title: string; children: React.ReactNode; classNam
     </div>
 );
 
-const ViewField: React.FC<{ label: string; value?: string | number | null | string[] | object; className?: string }> = ({ label, value, className }) => (
-    <div className={`mb-3 ${className}`}>
-        <span className="block font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">{label}</span>
-        {/* FIX: Replaced complex ternary with a more explicit series of checks to satisfy TypeScript's type inference for ReactNode, correctly handle rendering the number 0, and pretty-print objects. */}
-        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap text-base">{
-            value == null ? 'N/A' :
-            Array.isArray(value) ? (value.length > 0 ? value.join(', ') : 'None specified') :
-            typeof value === 'object' ? JSON.stringify(value, null, 2) :
-            value === '' ? 'N/A' :
-            String(value)
-        }</p>
-    </div>
-);
+const ViewField: React.FC<{ label: string; value?: string | number | null | string[] | object; className?: string }> = ({ label, value, className }) => {
+    const renderValue = (val: any): string => {
+        if (val == null || val === '') return 'N/A';
+        if (typeof val === 'number' && val === 0) return '0';
+        if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : 'None specified';
+        if (typeof val === 'object') {
+            const keys = Object.keys(val);
+            if (keys.length === 0) return 'N/A';
+            // Simple key-value display for flat objects
+            return keys.map(key => {
+                const subVal = (val as any)[key];
+                return `${key.charAt(0).toUpperCase() + key.slice(1)}: ${subVal}`;
+            }).join(', ');
+        }
+        return String(val);
+    };
+
+    return (
+        <div className={`mb-3 ${className}`}>
+            <span className="block font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">{label}</span>
+            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap text-base">{renderValue(value)}</p>
+        </div>
+    );
+};
 
 const EPRFView: React.FC<{ eprf: EPRFForm }> = ({ eprf }) => {
     return (

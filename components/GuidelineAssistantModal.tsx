@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import app from '../services/firebase';
+// FIX: Switched to compat version of Firebase Functions.
+import { functions } from '../services/firebase';
 import { SpinnerIcon, SparklesIcon, QuestionMarkCircleIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -16,8 +16,8 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [error, setError] = useState('');
     const [showHelp, setShowHelp] = useState(false);
 
-    const functions = getFunctions(app);
-    const askClinicalAssistant = httpsCallable<{ query: string }, { response: string }>(functions, 'askClinicalAssistant');
+    // FIX: Use compat syntax for httpsCallable.
+    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
 
     const handleQuery = async (e: React.FormEvent) => {
@@ -31,7 +31,8 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
 
         try {
             const result = await askClinicalAssistant({ query });
-            setResponse(result.data.response);
+            // FIX: Cast result from compat callable function.
+            setResponse((result.data as { response: string }).response);
         } catch (err: any) {
             console.error("Cloud function error:", err);
             let errorMessage = "Sorry, I couldn't fetch the information. Please check your connection or contact an administrator.";

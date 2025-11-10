@@ -1,14 +1,17 @@
 
+
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+// FIX: Using compat imports for storage and functions to resolve module errors.
 import 'firebase/compat/storage';
 import 'firebase/compat/functions';
 
 import { getAuth } from 'firebase/auth';
 import { enableIndexedDbPersistence, getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+// FIX: Removed modular imports for storage and functions as they were causing errors.
+// import { getStorage } from 'firebase/storage';
+// import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCXi3QZphKo0pnyP6IIgS_dVL0rWxpTE5Y",
@@ -23,11 +26,13 @@ const firebaseConfig = {
 // Initialize Firebase using compat
 const app = firebase.initializeApp(firebaseConfig);
 
-// Initialize services using modular v9 functions
+// Initialize services using modular v9 functions for some, and compat for others.
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app);
+// FIX: Use compat version of storage and functions.
+export const storage = firebase.storage();
+export const functions = firebase.functions();
+
 
 // Enable offline persistence
 enableIndexedDbPersistence(db).catch((err) => {
