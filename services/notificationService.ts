@@ -1,25 +1,29 @@
-import * as firestore from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import { db } from './firebase';
 import type { Notification } from '../types';
 
 // Notification Functions
 export const createNotification = async (userId: string, message: string, link?: string) => {
-    await firestore.addDoc(firestore.collection(db, 'notifications'), {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.collection('notifications').add({
         userId,
         message,
         link: link || '',
         read: false,
-        createdAt: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        createdAt: firebase.firestore.Timestamp.now(),
     });
 };
 
 export const listenToNotificationsForUser = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
-    const notificationsCol = firestore.collection(db, 'notifications');
-    const q = firestore.query(notificationsCol,
-        firestore.where('userId', '==', userId),
-        firestore.limit(20));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const notificationsCol = db.collection('notifications');
+    const q = notificationsCol
+        .where('userId', '==', userId)
+        .limit(20);
     
-    return firestore.onSnapshot(q, (snapshot) => {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    return q.onSnapshot((snapshot) => {
         const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
         // Sort client-side to avoid needing a composite index
         notifications.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
@@ -28,33 +32,37 @@ export const listenToNotificationsForUser = (userId: string, callback: (notifica
 };
 
 export const getNotificationsForUser = async (userId: string): Promise<Notification[]> => {
-    const notificationsCol = firestore.collection(db, 'notifications');
-    const q = firestore.query(notificationsCol,
-        firestore.where('userId', '==', userId),
-        firestore.where('read', '==', false),
-        firestore.orderBy('createdAt', 'desc'),
-        firestore.limit(10));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const notificationsCol = db.collection('notifications');
+    const q = notificationsCol
+        .where('userId', '==', userId)
+        .where('read', '==', false)
+        .orderBy('createdAt', 'desc')
+        .limit(10);
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
-    await firestore.updateDoc(firestore.doc(db, 'notifications', notificationId), { read: true });
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`notifications/${notificationId}`).update({ read: true });
 };
 
 export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
-    const notificationsCol = firestore.collection(db, 'notifications');
-    const q = firestore.query(notificationsCol,
-        firestore.where('userId', '==', userId),
-        firestore.where('read', '==', false));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const notificationsCol = db.collection('notifications');
+    const q = notificationsCol
+        .where('userId', '==', userId)
+        .where('read', '==', false);
     
-    const snapshot = await firestore.getDocs(q);
+    const snapshot = await q.get();
     
     if (snapshot.empty) {
         return;
     }
     
-    const batch = firestore.writeBatch(db);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const batch = db.batch();
     snapshot.docs.forEach(doc => {
         batch.update(doc.ref, { read: true });
     });

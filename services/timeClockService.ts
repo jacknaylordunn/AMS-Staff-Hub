@@ -1,21 +1,25 @@
-import * as firestore from 'firebase/firestore';
+
+// FIX: Use compat firestore syntax and types.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import { db } from './firebase';
 import type { TimeClockEntry, Shift, User } from '../types';
 
 export const getActiveClockInForUser = async (userId: string): Promise<TimeClockEntry | null> => {
-    const clockCol = firestore.collection(db, 'timeClockEntries');
-    const q = firestore.query(
-        clockCol,
-        firestore.where('userId', '==', userId),
-        firestore.where('status', '==', 'Clocked In'),
-        firestore.limit(1)
-    );
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Use compat 'collection' and 'query' methods.
+    const clockCol = db.collection('timeClockEntries');
+    const q = clockCol
+        .where('userId', '==', userId)
+        .where('status', '==', 'Clocked In')
+        .limit(1);
+    
+    // FIX: Use compat 'get' method.
+    const snapshot = await q.get();
     if (snapshot.empty) {
         return null;
     }
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as TimeClockEntry;
+    const docSnap = snapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() } as TimeClockEntry;
 };
 
 export const clockIn = async (shift: Shift, user: User, location: GeolocationCoordinates | null): Promise<TimeClockEntry> => {
@@ -27,18 +31,23 @@ export const clockIn = async (shift: Shift, user: User, location: GeolocationCoo
         userName: `${user.firstName} ${user.lastName}`.trim(),
         shiftId: shift.id!,
         shiftName: `${roleForShiftName} at ${shift.eventName}`,
-        clockInTime: firestore.Timestamp.now(),
+        // FIX: Use compat 'Timestamp'.
+        clockInTime: firebase.firestore.Timestamp.now(),
         status: 'Clocked In',
-        ...(location && { clockInLocation: new firestore.GeoPoint(location.latitude, location.longitude) }),
+        // FIX: Use compat 'GeoPoint'.
+        ...(location && { clockInLocation: new firebase.firestore.GeoPoint(location.latitude, location.longitude) }),
     };
 
-    const docRef = await firestore.addDoc(firestore.collection(db, 'timeClockEntries'), newEntryData);
+    // FIX: Use compat 'add' method on a collection.
+    const docRef = await db.collection('timeClockEntries').add(newEntryData);
     return { id: docRef.id, ...newEntryData, clockInTime: newEntryData.clockInTime };
 };
 
-export const clockOut = async (entryId: string, clockInTime: firestore.Timestamp, location: GeolocationCoordinates | null): Promise<void> => {
-    const docRef = firestore.doc(db, 'timeClockEntries', entryId);
-    const clockOutTime = firestore.Timestamp.now();
+export const clockOut = async (entryId: string, clockInTime: firebase.firestore.Timestamp, location: GeolocationCoordinates | null): Promise<void> => {
+    // FIX: Use compat 'doc' method.
+    const docRef = db.doc(`timeClockEntries/${entryId}`);
+    // FIX: Use compat 'Timestamp'.
+    const clockOutTime = firebase.firestore.Timestamp.now();
     const durationMillis = clockOutTime.toMillis() - clockInTime.toMillis();
     const durationHours = durationMillis / (1000 * 60 * 60);
 
@@ -46,20 +55,23 @@ export const clockOut = async (entryId: string, clockInTime: firestore.Timestamp
         clockOutTime,
         status: 'Clocked Out',
         durationHours: parseFloat(durationHours.toFixed(2)),
-        ...(location && { clockOutLocation: new firestore.GeoPoint(location.latitude, location.longitude) }),
+        // FIX: Use compat 'GeoPoint'.
+        ...(location && { clockOutLocation: new firebase.firestore.GeoPoint(location.latitude, location.longitude) }),
     };
 
-    await firestore.updateDoc(docRef, updateData);
+    // FIX: Use compat 'update' method.
+    await docRef.update(updateData);
 };
 
 export const getTimeClockEntriesForDateRange = async (start: Date, end: Date): Promise<TimeClockEntry[]> => {
-    const clockCol = firestore.collection(db, 'timeClockEntries');
-    const q = firestore.query(
-        clockCol,
-        firestore.where('clockInTime', '>=', start),
-        firestore.where('clockInTime', '<=', end),
-        firestore.orderBy('clockInTime', 'desc')
-    );
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Use compat firestore methods.
+    const clockCol = db.collection('timeClockEntries');
+    const q = clockCol
+        .where('clockInTime', '>=', start)
+        .where('clockInTime', '<=', end)
+        .orderBy('clockInTime', 'desc');
+    
+    // FIX: Use compat 'get' method.
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TimeClockEntry));
 };

@@ -1,6 +1,9 @@
+
+
 import React, { useState } from 'react';
-// FIX: Added import for firestore to resolve 'Cannot find name' error.
-import * as firestore from 'firebase/firestore';
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
+import firebase from 'firebase/compat/app';
 import type { Shift } from '../types';
 import { createMultipleShifts } from '../services/rotaService';
 import { SpinnerIcon } from './icons';
@@ -71,8 +74,8 @@ const RepeatShiftModal: React.FC<RepeatShiftModalProps> = ({ isOpen, onClose, sh
                      // FIX: Construct the new shift object with the correct properties.
                      newShifts.push({ 
                         ...baseShift, 
-                        start: firestore.Timestamp.fromDate(newStart),
-                        end: firestore.Timestamp.fromDate(newEnd),
+                        start: firebase.firestore.Timestamp.fromDate(newStart),
+                        end: firebase.firestore.Timestamp.fromDate(newEnd),
                         slots: newSlots,
                         allAssignedStaffUids: [],
                         status: 'Open',
@@ -99,8 +102,8 @@ const RepeatShiftModal: React.FC<RepeatShiftModalProps> = ({ isOpen, onClose, sh
                     // FIX: Construct the new shift object with the correct properties.
                     newShifts.push({ 
                         ...baseShift,
-                        start: firestore.Timestamp.fromDate(newStart),
-                        end: firestore.Timestamp.fromDate(newEnd),
+                        start: firebase.firestore.Timestamp.fromDate(newStart),
+                        end: firebase.firestore.Timestamp.fromDate(newEnd),
                         slots: newSlots,
                         allAssignedStaffUids: [],
                         status: 'Open',

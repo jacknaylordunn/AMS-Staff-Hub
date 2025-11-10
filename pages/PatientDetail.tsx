@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { getPatientById } from '../services/patientService';
@@ -10,7 +12,9 @@ import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { performAiAudit } from '../services/auditService';
-import * as firestore from 'firebase/firestore';
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp.
+import firebase from 'firebase/compat/app';
 
 const DetailCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -240,7 +244,8 @@ const PatientDetail: React.FC = () => {
                 ...selectedEPRF, 
                 status: 'Reviewed', 
                 reviewNotes: undefined,
-                reviewedBy: { ...reviewer, date: firestore.Timestamp.now() }
+                // FIX: Use compat 'Timestamp'.
+                reviewedBy: { ...reviewer, date: firebase.firestore.Timestamp.now() }
             };
             
             setEprfs(prev => prev.map(e => e.id === selectedEPRF.id ? approvedEprf : e));

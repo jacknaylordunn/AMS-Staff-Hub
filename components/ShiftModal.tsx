@@ -1,5 +1,9 @@
+
+
 import React, { useState, useEffect } from 'react';
-import * as firestore from 'firebase/firestore';
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp.
+import firebase from 'firebase/compat/app';
 // FIX: Replaced non-existent 'AppUser' with 'User' type.
 import type { Shift, ShiftSlot, User, Vehicle, Kit } from '../types';
 import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon } from './icons';
@@ -135,8 +139,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             const shiftData: Omit<Shift, 'id'> = {
                 eventName: formData.eventName,
                 location: formData.location,
-                start: firestore.Timestamp.fromDate(new Date(formData.start)),
-                end: firestore.Timestamp.fromDate(new Date(formData.end)),
+                // FIX: Use compat 'Timestamp'.
+                start: firebase.firestore.Timestamp.fromDate(new Date(formData.start)),
+                end: firebase.firestore.Timestamp.fromDate(new Date(formData.end)),
                 notes: formData.notes,
                 isUnavailability: formData.isUnavailability,
                 unavailabilityReason: formData.unavailabilityReason,
@@ -240,7 +245,19 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
 
     const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
-    const title = type === 'unavailability' ? (shift ? 'Edit Unavailability' : 'Add Unavailability') : (shift ? 'Edit Shift' : 'Create New Shift');
+    
+    const getTitle = () => {
+        if (type === 'unavailability') {
+            return shift ? 'Edit Unavailability' : 'Add Unavailability';
+        }
+        // type is 'shift'
+        if (isManager) {
+            return shift ? 'Edit Shift' : 'Create New Shift';
+        }
+        // For non-managers, it's a view/bid modal
+        return 'View Shift';
+    };
+    const title = getTitle();
 
     const renderManagerContent = () => (
          <form onSubmit={handleSubmit}>
@@ -370,8 +387,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         return (
             <div>
                  <h3 className="text-lg font-bold">{shift?.eventName}</h3>
-                 <p>{shift?.start.toDate().toLocaleString()} - {shift?.end.toDate().toLocaleString([], {hour: '2-digit', minute: '2-digit'})}</p>
-                 <p className="mt-2">{shift?.notes}</p>
+                 <p>{shift?.start.toDate().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                 <p className="mt-2 text-gray-600 dark:text-gray-400">{shift?.location}</p>
+                 {shift?.notes && <p className="mt-2 text-sm italic">"{shift?.notes}"</p>}
+                 
                  <div className="mt-6 pt-4 border-t dark:border-gray-600">
                     <h4 className="font-semibold mb-2">Available Slots to Bid On</h4>
                     {biddableSlots.length > 0 ? (
@@ -379,19 +398,23 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                         {biddableSlots.map(slot => {
                             const myBid = (shift?.slots.find(s => s.id === slot.id)?.bids || []).find(b => b.uid === currentUser.uid);
                             return (
-                                <div key={slot.id} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                    <span className="font-medium">{slot.roleRequired}</span>
+                                <div key={slot.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                    <span className="font-medium text-gray-800 dark:text-gray-200">{slot.roleRequired}</span>
                                     {myBid ? (
-                                        <button onClick={() => handleCancelBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md">Withdraw Bid</button>
+                                        <button onClick={() => handleCancelBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-400">
+                                            {loading ? <SpinnerIcon className="w-4 h-4" /> : 'Withdraw Bid'}
+                                        </button>
                                     ) : (
-                                        <button onClick={() => handleBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-green-500 text-white rounded-md">Bid</button>
+                                        <button onClick={() => handleBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400">
+                                            {loading ? <SpinnerIcon className="w-4 h-4" /> : 'Bid'}
+                                        </button>
                                     )}
                                 </div>
                             )
                         })}
                         </div>
                     ) : (
-                        <p className="text-sm text-gray-500">No slots available for you to bid on for this shift.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No slots available for you to bid on for this shift.</p>
                     )}
                  </div>
             </div>

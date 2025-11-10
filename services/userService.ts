@@ -1,48 +1,54 @@
-import * as firestore from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
 import type { User, ComplianceDocument } from '../types';
 
 // User Profile Functions
 export const createUserProfile = async (uid: string, data: { email: string; firstName: string; lastName: string; registrationNumber?: string }) => {
-  await firestore.setDoc(firestore.doc(db, 'users', uid), {
+  // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+  await db.doc(`users/${uid}`).set({
     ...data,
     role: 'Pending', // All new users must be approved by a manager
-    createdAt: firestore.Timestamp.now(),
+    createdAt: firebase.firestore.Timestamp.now(),
   });
 };
 
 export const getUserProfile = async (uid:string): Promise<User | null> => {
-  const docRef = firestore.doc(db, 'users', uid);
-  const docSnap = await firestore.getDoc(docRef);
-  if (docSnap.exists()) {
+  // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+  const docRef = db.doc(`users/${uid}`);
+  const docSnap = await docRef.get();
+  if (docSnap.exists) {
     return { uid, ...docSnap.data() } as User;
   }
   return null;
 };
 
 export const updateUserProfile = async (uid: string, data: Partial<Omit<User, 'uid' | 'email'>>) => {
-  const userRef = firestore.doc(db, 'users', uid);
-  await firestore.updateDoc(userRef, data);
+  // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+  const userRef = db.doc(`users/${uid}`);
+  await userRef.update(data);
 };
 
 export const addComplianceDocumentToUser = async (uid: string, newDocument: ComplianceDocument) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, {
-        complianceDocuments: firestore.arrayUnion(newDocument)
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({
+        complianceDocuments: firebase.firestore.FieldValue.arrayUnion(newDocument)
     });
 };
 
 export const deleteUserProfile = async (uid: string): Promise<void> => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.deleteDoc(userRef);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.delete();
     // Note: This does not delete the user from Firebase Authentication.
     // A cloud function would be required for that. For now, this effectively
     // blocks them from using the app.
 };
 
 export const getUsers = async (): Promise<User[]> => {
-    const usersCol = firestore.collection(db, 'users');
-    const snapshot = await firestore.getDocs(firestore.query(usersCol, firestore.orderBy('lastName')));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const usersCol = db.collection('users');
+    const snapshot = await usersCol.orderBy('lastName').get();
     return snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
 };
 
@@ -61,46 +67,52 @@ export const getStaffListForKudos = async (): Promise<User[]> => {
 };
 
 export const listenToUsers = (callback: (users: User[]) => void): () => void => {
-    const q = firestore.query(firestore.collection(db, 'users'), firestore.orderBy('lastName'));
-    return firestore.onSnapshot(q, (snapshot) => {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const q = db.collection('users').orderBy('lastName');
+    return q.onSnapshot((snapshot) => {
         const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
         callback(users);
     }, (error) => console.error("Error listening to users:", error));
 };
 
 export const requestRoleChange = async (uid: string, newRole: User['role']) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, { pendingRole: newRole });
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({ pendingRole: newRole });
     // Notifications are now handled by a cloud function.
 };
 
 export const approveRoleChange = async (uid: string, newRole: User['role']) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({
         role: newRole,
-        pendingRole: firestore.deleteField()
+        pendingRole: firebase.firestore.FieldValue.delete()
     });
     // Notification is now handled by a cloud function.
 };
 
 export const rejectRoleChange = async (uid: string) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, {
-        pendingRole: firestore.deleteField()
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({
+        pendingRole: firebase.firestore.FieldValue.delete()
     });
     // Notification is now handled by a cloud function.
 };
 
 export const saveFCMToken = async (uid: string, token: string) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, {
-        fcmTokens: firestore.arrayUnion(token)
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({
+        fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
     });
 };
 
 export const removeFCMToken = async (uid: string, token: string) => {
-    const userRef = firestore.doc(db, 'users', uid);
-    await firestore.updateDoc(userRef, {
-        fcmTokens: firestore.arrayRemove(token)
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const userRef = db.doc(`users/${uid}`);
+    await userRef.update({
+        fcmTokens: firebase.firestore.FieldValue.arrayRemove(token)
     });
 };

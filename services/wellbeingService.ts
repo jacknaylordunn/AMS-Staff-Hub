@@ -1,33 +1,42 @@
-import * as firestore from 'firebase/firestore';
+// FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection(...).get()) to align with the application's Firebase setup.
+import firebase from 'firebase/compat/app';
 import { db } from './firebase';
 import type { Kudo, AnonymousFeedback } from '../types';
 
 export const getKudos = async (limitCount: number = 20): Promise<Kudo[]> => {
-    const kudosCol = firestore.collection(db, 'kudos');
-    const q = firestore.query(kudosCol, firestore.orderBy('createdAt', 'desc'), firestore.limit(limitCount));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Use modular 'collection' and 'query' functions.
+    const kudosCol = db.collection('kudos');
+    const q = kudosCol.orderBy('createdAt', 'desc').limit(limitCount);
+    // FIX: Use modular 'getDocs' function.
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Kudo));
 };
 
 export const addKudo = async (kudoData: Omit<Kudo, 'id' | 'createdAt'>): Promise<void> => {
-    await firestore.addDoc(firestore.collection(db, 'kudos'), {
+    // FIX: Use modular 'addDoc' and 'collection' functions.
+    await db.collection('kudos').add({
         ...kudoData,
-        createdAt: firestore.Timestamp.now(),
+        // FIX: Use modular 'Timestamp' from named imports.
+        createdAt: firebase.firestore.Timestamp.now(),
     });
     // Notification is now handled by a cloud function.
 };
 
 export const getAnonymousFeedback = async (): Promise<AnonymousFeedback[]> => {
-    const feedbackCol = firestore.collection(db, 'anonymousFeedback');
-    const q = firestore.query(feedbackCol, firestore.orderBy('createdAt', 'desc'));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Use modular 'collection' and 'query' functions.
+    const feedbackCol = db.collection('anonymousFeedback');
+    const q = feedbackCol.orderBy('createdAt', 'desc');
+    // FIX: Use modular 'getDocs' function.
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AnonymousFeedback));
 };
 
 export const addAnonymousFeedback = async (message: string, category: AnonymousFeedback['category']): Promise<void> => {
-    await firestore.addDoc(firestore.collection(db, 'anonymousFeedback'), {
+    // FIX: Use modular 'addDoc' and 'collection' functions.
+    await db.collection('anonymousFeedback').add({
         message,
         category,
-        createdAt: firestore.Timestamp.now(),
+        // FIX: Use modular 'Timestamp' from named imports.
+        createdAt: firebase.firestore.Timestamp.now(),
     });
 };

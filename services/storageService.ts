@@ -1,4 +1,5 @@
-// FIX: Removed modular storage imports and use compat syntax from firebase service.
+// FIX: Use modular storage imports and syntax.
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebase';
 
 /**
@@ -8,9 +9,9 @@ import { storage } from './firebase';
  * @returns A promise that resolves with the public download URL of the uploaded file.
  */
 export const uploadFile = async (file: File | Blob, path: string): Promise<string> => {
-    // FIX: Switched to compat storage syntax.
-    const storageRef = storage.ref(path);
-    await storageRef.put(file);
-    const downloadURL = await storageRef.getDownloadURL();
+    // FIX: Switched to modular storage syntax.
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
 };

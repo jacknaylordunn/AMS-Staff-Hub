@@ -1,3 +1,4 @@
+
 import React from 'react';
 // FIX: Replaced undefined 'EventLog' with 'Shift' to align with current data model.
 import type { EPRFForm, Shift } from '../../types';
@@ -58,7 +59,7 @@ const Step1_Incident: React.FC<Step1Props> = ({ state, dispatch, availableShifts
         <div>
             <Section title="Incident & Triage">
                 {/* FIX: Changed logic to handle shift selection instead of obsolete eventId. */}
-                {!state.shiftId ? (
+                {availableShifts.length > 0 && !state.eventName ? (
                     <SelectField label="Select Event*" name="shiftId" value={state.shiftId || ''} onChange={handleShiftChange} className="md:col-span-2" required>
                         <option value="">-- Please select an event --</option>
                         {availableShifts.map(shift => <option key={shift.id} value={shift.id}>{shift.eventName} ({shift.start.toDate().toLocaleDateString()})</option>)}

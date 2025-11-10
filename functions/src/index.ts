@@ -1,6 +1,7 @@
-import * as functions from "firebase-functions";
+// FIX: Updated to Firebase Functions v2 syntax.
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-// FIX: Corrected import from 'GoogleGenerativeAI' to 'GoogleGenAI' per SDK guidelines.
 import { GoogleGenAI } from "@google/genai";
 
 admin.initializeApp();
@@ -15,23 +16,23 @@ if (!API_KEY) {
   );
 }
 
-// FIX: Corrected constructor from 'GoogleGenerativeAI' to 'GoogleGenAI'.
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
 
-export const askClinicalAssistant = functions.https.onCall(
-  async (data, context) => {
+// FIX: Updated to onCall v2 syntax.
+export const askClinicalAssistant = onCall(
+  async (request) => {
     // Check if the user is authenticated.
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+    if (!request.auth) {
+      throw new HttpsError(
         "unauthenticated",
         "The function must be called while authenticated."
       );
     }
 
-    const query = data.query;
+    const query = request.data.query;
     if (!query || typeof query !== "string") {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "The function must be called with a 'query' string argument."
       );
@@ -49,7 +50,7 @@ export const askClinicalAssistant = functions.https.onCall(
       return { response: result.text };
     } catch (error) {
       console.error("Gemini API call failed:", error);
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "internal",
         "Failed to get a response from the AI assistant."
       );
@@ -57,42 +58,43 @@ export const askClinicalAssistant = functions.https.onCall(
   }
 );
 
-export const sendAnnouncement = functions.https.onCall(
-  async (data, context) => {
+// FIX: Updated to onCall v2 syntax.
+export const sendAnnouncement = onCall(
+  async (request) => {
     // Check auth
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+    if (!request.auth) {
+      throw new HttpsError(
         "unauthenticated",
         "The function must be called while authenticated."
       );
     }
     
     // Check for manager/admin role
-    const userDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
+    const userDoc = await admin.firestore().collection("users").doc(request.auth.uid).get();
     const userData = userDoc.data();
     if (!userData || !['Manager', 'Admin'].includes(userData.role)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "permission-denied",
             "User must be a Manager or Admin to send announcements."
         );
     }
 
-    const message = data.message;
-    const link = data.link;
-    const target = data.target as {
+    const message = request.data.message;
+    const link = request.data.link;
+    const target = request.data.target as {
         type: "all" | "roles" | "event";
         roles?: string[];
         eventName?: string;
     };
 
     if (!message || typeof message !== "string") {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "invalid-argument",
             "The function must be called with a 'message' string argument."
         );
     }
     if (!target || !target.type) {
-        throw new functions.https.HttpsError("invalid-argument", "A valid 'target' object must be provided.");
+        throw new HttpsError("invalid-argument", "A valid 'target' object must be provided.");
     }
     
     const db = admin.firestore();
@@ -100,13 +102,13 @@ export const sendAnnouncement = functions.https.onCall(
 
     if (target.type === "roles") {
         if (!target.roles || !Array.isArray(target.roles) || target.roles.length === 0) {
-            throw new functions.https.HttpsError("invalid-argument", "Target type 'roles' requires a non-empty 'roles' array.");
+            throw new HttpsError("invalid-argument", "Target type 'roles' requires a non-empty 'roles' array.");
         }
         const usersSnapshot = await db.collection("users").where("role", "in", target.roles).get();
         usersSnapshot.forEach((doc) => uniqueUserIds.add(doc.id));
     } else if (target.type === "event") {
         if (!target.eventName || typeof target.eventName !== "string") {
-            throw new functions.https.HttpsError("invalid-argument", "Target type 'event' requires an 'eventName' string.");
+            throw new HttpsError("invalid-argument", "Target type 'event' requires an 'eventName' string.");
         }
         const shiftsSnapshot = await db.collection("shifts").where("eventName", "==", target.eventName).get();
         shiftsSnapshot.forEach((doc) => {
@@ -130,9 +132,9 @@ export const sendAnnouncement = functions.https.onCall(
         return { success: true, notificationsSent: 0 };
     }
 
-    const senderName = (userData.firstName && userData.lastName) ? `${userData.firstName} ${userData.lastName}`.trim() : context.auth.token.name;
+    const senderName = (userData.firstName && userData.lastName) ? `${userData.firstName} ${userData.lastName}`.trim() : request.auth.token.name;
     const sender = {
-        uid: context.auth.uid,
+        uid: request.auth.uid,
         name: senderName,
     };
 
@@ -237,7 +239,7 @@ export const sendAnnouncement = functions.https.onCall(
 
     } catch (error) {
         console.error("Failed to send announcement:", error);
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "internal",
             "Failed to send announcement."
         );
@@ -246,10 +248,12 @@ export const sendAnnouncement = functions.https.onCall(
 );
 
 
-export const onUserUpdate = functions.firestore.document("users/{userId}")
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
+// FIX: Updated to onDocumentUpdated v2 syntax.
+export const onUserUpdate = onDocumentUpdated("users/{userId}", async (event) => {
+    if (!event.data) return null;
+
+    const before = event.data.before.data();
+    const after = event.data.after.data();
     const db = admin.firestore();
     
     const promises = [];
@@ -288,7 +292,7 @@ export const onUserUpdate = functions.firestore.document("users/{userId}")
 
         const newNotifRef = db.collection("notifications").doc();
         promises.push(newNotifRef.set({
-            userId: context.params.userId,
+            userId: event.params.userId,
             message: message,
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -303,10 +307,11 @@ export const onUserUpdate = functions.firestore.document("users/{userId}")
     return null;
   });
 
-export const onKudoCreate = functions.firestore.document("kudos/{kudoId}")
-    .onCreate(async (snap) => {
+// FIX: Updated to onDocumentCreated v2 syntax.
+export const onKudoCreate = onDocumentCreated("kudos/{kudoId}", async (event) => {
+        const snap = event.data;
+        if (!snap) return;
         const kudo = snap.data();
-        if (!kudo) return;
 
         const db = admin.firestore();
         const newNotifRef = db.collection("notifications").doc();
@@ -320,10 +325,11 @@ export const onKudoCreate = functions.firestore.document("kudos/{kudoId}")
         });
     });
 
-export const onEprfUpdate = functions.firestore.document("eprfs/{eprfId}")
-  .onUpdate(async (change) => {
-    const before = change.before.data();
-    const after = change.after.data();
+// FIX: Updated to onDocumentUpdated v2 syntax.
+export const onEprfUpdate = onDocumentUpdated("eprfs/{eprfId}", async (event) => {
+    if (!event.data) return;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
     
     // Check if ePRF was returned to draft
     if (before.status !== 'Draft' && after.status === 'Draft' && after.reviewNotes) {
@@ -341,10 +347,11 @@ export const onEprfUpdate = functions.firestore.document("eprfs/{eprfId}")
     return null;
   });
 
-export const getSeniorClinicians = functions.https.onCall(
-  async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+// FIX: Updated to onCall v2 syntax.
+export const getSeniorClinicians = onCall(
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
         "unauthenticated",
         "The function must be called while authenticated."
       );
@@ -353,10 +360,10 @@ export const getSeniorClinicians = functions.https.onCall(
     const seniorRoles = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
     
     // Also check if the person requesting the list is a senior clinician
-    const requesterDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
+    const requesterDoc = await admin.firestore().collection("users").doc(request.auth.uid).get();
     const requesterData = requesterDoc.data();
     if (!requesterData || !seniorRoles.includes(requesterData.role)) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "permission-denied",
             "User must be a senior clinician to access this list."
         );
@@ -379,10 +386,11 @@ export const getSeniorClinicians = functions.https.onCall(
   }
 );
 
-export const getStaffListForKudos = functions.https.onCall(
-    async (data, context) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError(
+// FIX: Updated to onCall v2 syntax.
+export const getStaffListForKudos = onCall(
+    async (request) => {
+        if (!request.auth) {
+            throw new HttpsError(
                 "unauthenticated",
                 "The function must be called while authenticated."
             );
@@ -406,87 +414,151 @@ export const getStaffListForKudos = functions.https.onCall(
     }
 );
 
-// Bidding Cloud Functions
-export const bidOnShift = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "User must be authenticated to bid.");
-    }
-    const { shiftId, slotId } = data;
-    if (!shiftId || !slotId) {
-        throw new functions.https.HttpsError("invalid-argument", "shiftId and slotId are required.");
-    }
+// FIX: Updated to onCall v2 syntax.
+export const bidOnShift = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const {uid} = request.auth;
+  const {shiftId, slotId} = request.data;
+  if (typeof shiftId !== "string" || typeof slotId !== "string") {
+    throw new HttpsError(
+      "invalid-argument",
+      "'shiftId' and 'slotId' must be strings."
+    );
+  }
 
-    const userDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
-    const userData = userDoc.data();
-    if (!userData) {
-        throw new functions.https.HttpsError("not-found", "User profile not found.");
-    }
+  const userDoc = await admin.firestore().collection("users").doc(uid).get();
+  if (!userDoc.exists) {
+    throw new HttpsError("not-found", "User profile not found.");
+  }
+  const userData = userDoc.data()!;
+  const userName = `${userData.firstName || ""} ${
+    userData.lastName || ""
+  }`.trim();
 
-    const user = {
-        uid: context.auth.uid,
-        name: `${userData.firstName} ${userData.lastName}`.trim(),
-    };
-    
-    const shiftRef = admin.firestore().collection('shifts').doc(shiftId);
-    
-    return admin.firestore().runTransaction(async (transaction) => {
-        const shiftDoc = await transaction.get(shiftRef);
-        if (!shiftDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Shift not found.');
-        }
-        
-        const shiftData = shiftDoc.data() as any; // Cast to Shift type if available
-        const slotIndex = shiftData.slots.findIndex((s: any) => s.id === slotId);
+  const shiftRef = admin.firestore().collection("shifts").doc(shiftId);
 
-        if (slotIndex === -1) {
-            throw new functions.https.HttpsError('not-found', 'Slot not found.');
-        }
-        if (shiftData.slots[slotIndex].assignedStaff) {
-             throw new functions.https.HttpsError('failed-precondition', 'Slot is already assigned.');
-        }
-        const hasBid = shiftData.slots[slotIndex].bids.some((b: any) => b.uid === user.uid);
-        if (hasBid) {
-            throw new functions.https.HttpsError('already-exists', 'You have already bid on this slot.');
-        }
+  try {
+    await admin.firestore().runTransaction(async (transaction) => {
+      const shiftDoc = await transaction.get(shiftRef);
+      if (!shiftDoc.exists) {
+        throw new HttpsError("not-found", "Shift does not exist.");
+      }
 
-        shiftData.slots[slotIndex].bids.push({ ...user, timestamp: admin.firestore.FieldValue.serverTimestamp() });
-        transaction.update(shiftRef, { slots: shiftData.slots });
-        return { success: true };
+      const shiftData = shiftDoc.data();
+      if (!shiftData || !Array.isArray(shiftData.slots)) {
+        throw new HttpsError("internal", "Shift data is malformed.");
+      }
+
+      const slots = shiftData.slots as any[];
+      const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
+
+      if (slotIndex === -1) {
+        throw new HttpsError("not-found", "The selected slot was not found.");
+      }
+
+      const targetSlot = slots[slotIndex];
+
+      if (targetSlot.assignedStaff) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This slot is already assigned."
+        );
+      }
+
+      const bids = Array.isArray(targetSlot.bids) ? targetSlot.bids : [];
+      if (bids.some((b: any) => b && b.uid === uid)) {
+        // Silently succeed if already bid, no need to throw.
+        return;
+      }
+
+      const newSlots = slots.map((s, index) => {
+        if (index === slotIndex) {
+          return {
+            ...s,
+            bids: [
+              ...bids,
+              {
+                uid: uid,
+                name: userName,
+                timestamp: admin.firestore.Timestamp.now(),
+              },
+            ],
+          };
+        }
+        return s;
+      });
+
+      transaction.update(shiftRef, {slots: newSlots});
     });
+    return {success: true};
+  } catch (error: any) {
+    console.error("Transaction failed: bidOnShift", error);
+    if (error.code) {
+      // It's already an HttpsError
+      throw error;
+    }
+    throw new HttpsError(
+      "internal",
+      "Could not place bid due to a server error."
+    );
+  }
 });
 
-export const cancelBidOnShift = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
+
+// FIX: Updated to onCall v2 syntax.
+export const cancelBidOnShift = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication is required.");
     }
-    const { shiftId, slotId } = data;
-    if (!shiftId || !slotId) {
-        throw new functions.https.HttpsError("invalid-argument", "shiftId and slotId are required.");
+    const { uid } = request.auth;
+    const { shiftId, slotId } = request.data;
+    if (typeof shiftId !== "string" || typeof slotId !== "string") {
+        throw new HttpsError("invalid-argument", "'shiftId' and 'slotId' must be strings.");
     }
 
-    const shiftRef = admin.firestore().collection('shifts').doc(shiftId);
+    const shiftRef = admin.firestore().collection("shifts").doc(shiftId);
 
-    return admin.firestore().runTransaction(async (transaction) => {
-        const shiftDoc = await transaction.get(shiftRef);
-        if (!shiftDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Shift not found.');
-        }
+    try {
+        await admin.firestore().runTransaction(async (transaction) => {
+            const shiftDoc = await transaction.get(shiftRef);
+            if (!shiftDoc.exists) {
+                throw new HttpsError("not-found", "Shift does not exist.");
+            }
 
-        const shiftData = shiftDoc.data() as any;
-        const slotIndex = shiftData.slots.findIndex((s: any) => s.id === slotId);
-        if (slotIndex === -1) {
-            throw new functions.https.HttpsError('not-found', 'Slot not found.');
-        }
+            const shiftData = shiftDoc.data();
+            if (!shiftData || !Array.isArray(shiftData.slots)) {
+                throw new HttpsError("internal", "Shift data is malformed.");
+            }
+            
+            const slots = shiftData.slots as any[];
+            const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
-        const initialBidCount = shiftData.slots[slotIndex].bids.length;
-        shiftData.slots[slotIndex].bids = shiftData.slots[slotIndex].bids.filter((b: any) => b.uid !== context.auth!.uid);
+            if (slotIndex === -1) {
+                throw new HttpsError("not-found", "The specified slot does not exist.");
+            }
+            
+            const newSlots = slots.map((s, index) => {
+                if (index === slotIndex) {
+                    const bids = Array.isArray(s.bids) ? s.bids : [];
+                    return {
+                        ...s,
+                        bids: bids.filter((b: any) => b && b.uid !== uid),
+                    };
+                }
+                return s;
+            });
+            
+            transaction.update(shiftRef, { slots: newSlots });
+        });
 
-        if (initialBidCount === shiftData.slots[slotIndex].bids.length) {
-            // No bid was removed, which is not an error, just an FYI.
-            return { success: true, message: "No bid found to withdraw." };
-        }
-
-        transaction.update(shiftRef, { slots: shiftData.slots });
         return { success: true };
-    });
+    } catch (error: any) {
+        console.error("Transaction failed: cancelBidOnShift", error);
+         if (error.code) { // It's already an HttpsError
+            throw error;
+        }
+        throw new HttpsError("internal", "Could not withdraw bid due to a server error.");
+    }
 });

@@ -1,7 +1,8 @@
 
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as firebaseAuth from 'firebase/auth';
-import * as firestore from 'firebase/firestore';
+// FIX: Use named imports for modular Firestore SDK.
 import { auth, db } from '../services/firebase';
 import type { User } from '../types';
 
@@ -33,10 +34,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (firebaseUser) {
         setIsEmailVerified(firebaseUser.emailVerified);
         
-        const userDocRef = firestore.doc(db, 'users', firebaseUser.uid);
+        // FIX: Use compat 'doc' function.
+        const userDocRef = db.doc(`users/${firebaseUser.uid}`);
         
-        unsubscribeFirestore = firestore.onSnapshot(userDocRef, (docSnap) => {
-            if (docSnap.exists()) {
+        // FIX: Use compat 'onSnapshot' function.
+        unsubscribeFirestore = userDocRef.onSnapshot((docSnap) => {
+            if (docSnap.exists) {
                 const userProfile = docSnap.data();
                 setUser({
                     uid: firebaseUser.uid,

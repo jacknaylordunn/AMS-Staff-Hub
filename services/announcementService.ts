@@ -1,4 +1,3 @@
-import * as firestore from 'firebase/firestore';
 import { db, functions } from './firebase';
 import type { Announcement } from '../types';
 
@@ -10,7 +9,8 @@ export type AnnouncementTarget =
 
 // Announcement Functions
 export const getAnnouncements = async (): Promise<Announcement[]> => {
-    const snapshot = await firestore.getDocs(firestore.query(firestore.collection(db, 'announcements'), firestore.orderBy('createdAt', 'desc'), firestore.limit(20)));
+    // FIX: Replaced modular Firestore imports and function calls with compat syntax to match the rest of the application's Firebase setup.
+    const snapshot = await db.collection('announcements').orderBy('createdAt', 'desc').limit(20).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
 }
 
@@ -21,5 +21,6 @@ export const sendAnnouncement = async (message: string, target: AnnouncementTarg
 }
 
 export const deleteAnnouncement = async (announcementId: string): Promise<void> => {
-    await firestore.deleteDoc(firestore.doc(db, 'announcements', announcementId));
+    // FIX: Replaced modular Firestore imports and function calls with compat syntax to match the rest of the application's Firebase setup.
+    await db.doc(`announcements/${announcementId}`).delete();
 };

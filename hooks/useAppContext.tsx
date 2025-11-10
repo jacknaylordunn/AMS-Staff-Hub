@@ -1,5 +1,9 @@
+
+
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import * as firestore from 'firebase/firestore';
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp and GeoPoint.
+import firebase from 'firebase/compat/app';
 // FIX: Removed unused 'EventLog' type which is not defined in types.ts
 import type { Shift, EPRFForm, TimeClockEntry } from '../types';
 import { useAuth } from './useAuth';
@@ -30,10 +34,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!saved) return null;
       const parsed = JSON.parse(saved);
       // Re-hydrate Timestamps and GeoPoints
-      if (parsed.clockInTime) parsed.clockInTime = new firestore.Timestamp(parsed.clockInTime.seconds, parsed.clockInTime.nanoseconds);
-      if (parsed.clockOutTime) parsed.clockOutTime = new firestore.Timestamp(parsed.clockOutTime.seconds, parsed.clockOutTime.nanoseconds);
-      if (parsed.clockInLocation) parsed.clockInLocation = new firestore.GeoPoint(parsed.clockInLocation.latitude, parsed.clockInLocation.longitude);
-      if (parsed.clockOutLocation) parsed.clockOutLocation = new firestore.GeoPoint(parsed.clockOutLocation.latitude, parsed.clockOutLocation.longitude);
+      // FIX: Use compat 'Timestamp' and 'GeoPoint'.
+      if (parsed.clockInTime) parsed.clockInTime = new firebase.firestore.Timestamp(parsed.clockInTime.seconds, parsed.clockInTime.nanoseconds);
+      if (parsed.clockOutTime) parsed.clockOutTime = new firebase.firestore.Timestamp(parsed.clockOutTime.seconds, parsed.clockOutTime.nanoseconds);
+      if (parsed.clockInLocation) parsed.clockInLocation = new firebase.firestore.GeoPoint(parsed.clockInLocation.latitude, parsed.clockInLocation.longitude);
+      if (parsed.clockOutLocation) parsed.clockOutLocation = new firebase.firestore.GeoPoint(parsed.clockOutLocation.latitude, parsed.clockOutLocation.longitude);
       return parsed;
     } catch (e) {
       console.error("Failed to parse activeClockIn from sessionStorage", e);

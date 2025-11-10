@@ -1,5 +1,9 @@
+
+
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
-import * as firestore from 'firebase/firestore';
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
+import firebase from 'firebase/compat/app';
 // FIX: Replaced undefined 'EventLog' with 'Shift' type.
 import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, Shift } from '../../types';
 import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ChevronLeftIcon, ChevronRightIcon, QuestionMarkCircleIcon, ShieldExclamationIcon, DocsIcon } from './icons';
@@ -287,8 +291,9 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     
     const handleSaveNewPatient = async (newPatient: Omit<Patient, 'id' | 'createdAt'>) => {
         try {
+            // FIX: Use compat 'Timestamp'.
             const patientId = await addPatient(newPatient);
-            handleSelectPatient({ ...newPatient, id: patientId, createdAt: firestore.Timestamp.now() });
+            handleSelectPatient({ ...newPatient, id: patientId, createdAt: firebase.firestore.Timestamp.now() });
             showToast('Patient created successfully.', 'success');
             setPatientModalOpen(false);
         } catch (error) {

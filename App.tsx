@@ -78,6 +78,7 @@ const PendingApproval: React.FC = () => {
 
 const AppRoutes: React.FC = () => {
     const { user, loading, isEmailVerified } = useAuth();
+    const location = ReactRouterDOM.useLocation();
 
     useEffect(() => {
         if (user && messaging && Notification.permission === 'granted') {
@@ -101,6 +102,11 @@ const AppRoutes: React.FC = () => {
                 <div className="text-white dark:text-gray-300 text-2xl animate-pulse">Loading Aegis Hub...</div>
             </div>
         );
+    }
+
+    // If user is logged in, don't let them see the login page.
+    if (user && location.pathname === '/login') {
+        return <ReactRouterDOM.Navigate to="/dashboard" replace />;
     }
 
     if (user && !isEmailVerified) {

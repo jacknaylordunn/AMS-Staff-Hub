@@ -1,8 +1,11 @@
-import * as firestore from "firebase/firestore";
-import { db } from './firebase';
+
+
+// FIX: Use compat firestore and functions syntax.
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
+import { db, functions } from './firebase';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
-import { functions } from './firebase';
 
 const anonymizeEPRF = (eprf: EPRFForm, patient: Patient): Partial<EPRFForm> => {
     const { 
@@ -36,11 +39,13 @@ const getJRCALCGuidelines = () => {
 };
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
+    // FIX: Use compat httpsCallable
     const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
     // 1. Fetch associated patient data
-    const patientDoc = await firestore.getDoc(firestore.doc(db, 'patients', eprf.patientId!));
-    if (!patientDoc.exists()) throw new Error("Patient not found for audit");
+    // FIX: Use compat 'get' and 'doc' functions.
+    const patientDoc = await db.collection('patients').doc(eprf.patientId!).get();
+    if (!patientDoc.exists) throw new Error("Patient not found for audit");
     const patient = { id: patientDoc.id, ...patientDoc.data() } as Patient;
 
     const managerProfile = await getUserProfile(managerId);
@@ -53,7 +58,7 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
     // 3. Prepare Prompt
     const prompt = `
     Analyze the following anonymized electronic Patient Report Form (ePRF) data.
-    Your task is to act as a clinical auditor for a UK event medical company.
+    Your task is to act as a clinical auditor for a UK event medical provider.
     Evaluate the report based on UK clinical standards (primarily JRCALC) and best practices for documentation.
     
     **CONTEXT: JRCALC GUIDELINES**
@@ -96,19 +101,22 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
         patientId: eprf.patientId!,
         eventName: eprf.eventName,
         incidentDate: eprf.incidentDate,
-        auditedAt: firestore.Timestamp.now(),
+        // FIX: Use compat 'Timestamp'.
+        auditedAt: firebase.firestore.Timestamp.now(),
         auditedBy: { uid: managerId, name: `${managerProfile.firstName} ${managerProfile.lastName}` },
     };
 
-    const auditDocRef = firestore.doc(db, 'audits', eprf.id!); // Use ePRF ID as audit ID for 1:1 mapping
-    await firestore.setDoc(auditDocRef, auditResult);
+    // FIX: Use compat 'doc' and 'set' functions.
+    const auditDocRef = db.collection('audits').doc(eprf.id!); // Use ePRF ID as audit ID for 1:1 mapping
+    await auditDocRef.set(auditResult);
 
     return auditDocRef.id;
 };
 
 export const getAuditResults = async (): Promise<AiAuditResult[]> => {
-    const auditsCol = firestore.collection(db, 'audits');
-    const q = firestore.query(auditsCol, firestore.orderBy('auditedAt', 'desc'));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Use compat firestore methods.
+    const auditsCol = db.collection('audits');
+    const q = auditsCol.orderBy('auditedAt', 'desc');
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AiAuditResult));
 };

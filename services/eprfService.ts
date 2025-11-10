@@ -1,4 +1,4 @@
-import * as firestore from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import { db } from './firebase';
 import type { EPRFForm, AuditEntry, MedicationAdministered, User as AppUser } from '../types';
 import { addLedgerEntry } from './drugLedgerService';
@@ -24,13 +24,15 @@ export const getIncidentNumber = async (): Promise<string> => {
     const dd = String(now.getDate()).padStart(2, '0');
     const datePrefix = `AMS${yyyy}${mm}${dd}`;
 
-    const counterRef = firestore.doc(db, 'counters', datePrefix);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const counterRef = db.doc(`counters/${datePrefix}`);
 
     try {
-        const newCount = await firestore.runTransaction(db, async (transaction) => {
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        const newCount = await db.runTransaction(async (transaction) => {
             const counterDoc = await transaction.get(counterRef);
             
-            const currentCount = counterDoc.exists() ? counterDoc.data().count : 0;
+            const currentCount = counterDoc.exists ? counterDoc.data()!.count : 0;
             const newCount = currentCount + 1;
 
             transaction.set(counterRef, { count: newCount }, { merge: true });
@@ -49,7 +51,8 @@ export const getIncidentNumber = async (): Promise<string> => {
 
 export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => {
     const auditEntry: AuditEntry = {
-        timestamp: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        timestamp: firebase.firestore.Timestamp.now(),
         user: eprfData.createdBy,
         action: 'Draft Created'
     };
@@ -57,19 +60,22 @@ export const createDraftEPRF = async (eprfData: EPRFForm): Promise<EPRFForm> => 
         ...prepareEPRFForFirebase(eprfData),
         incidentNumber: '',
         status: 'Draft' as const,
-        createdAt: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        createdAt: firebase.firestore.Timestamp.now(),
         auditLog: [auditEntry]
     };
-    const docRef = await firestore.addDoc(firestore.collection(db, 'eprfs'), dataToSave);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = await db.collection('eprfs').add(dataToSave);
     return { ...eprfData, id: docRef.id, status: 'Draft', createdAt: dataToSave.createdAt, auditLog: [auditEntry], incidentNumber: '' };
 };
 
 export const getActiveDraftsForEvent = async (userId: string, eventId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol,
-        firestore.where('createdBy.uid', '==', userId),
-        firestore.where('status', '==', 'Draft'));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol
+        .where('createdBy.uid', '==', userId)
+        .where('status', '==', 'Draft');
+    const snapshot = await q.get();
 
     if (snapshot.empty) {
         return [];
@@ -82,11 +88,12 @@ export const getActiveDraftsForEvent = async (userId: string, eventId: string): 
 
 
 export const getAllDraftsForUser = async (userId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol,
-        firestore.where('createdBy.uid', '==', userId),
-        firestore.where('status', '==', 'Draft'));
-     const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol
+        .where('createdBy.uid', '==', userId)
+        .where('status', '==', 'Draft');
+     const snapshot = await q.get();
     if (snapshot.empty) {
         return [];
     }
@@ -97,16 +104,19 @@ export const getAllDraftsForUser = async (userId: string): Promise<EPRFForm[]> =
 }
 
 export const getEPRFById = async (eprfId: string): Promise<EPRFForm | null> => {
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
-    const docSnap = await firestore.getDoc(docRef);
-    if (!docSnap.exists()) return null;
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return null;
     return { id: docSnap.id, ...docSnap.data() } as EPRFForm;
 }
 
 export const updateEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
     const dataToSave = prepareEPRFForFirebase(eprfData);
-    await firestore.updateDoc(docRef, dataToSave);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update(dataToSave);
 };
 
 export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<void> => {
@@ -142,47 +152,53 @@ export const finalizeEPRF = async (eprfId: string, eprfData: EPRFForm): Promise<
     }
 
     // 2. Finalize the ePRF document
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
     const dataToSave = prepareEPRFForFirebase(eprfData);
     // Remove audit log from main payload to avoid overwriting it when using arrayUnion
     delete (dataToSave as any).auditLog;
 
     const auditEntry: AuditEntry = {
-        timestamp: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        timestamp: firebase.firestore.Timestamp.now(),
         user: eprfData.createdBy,
         action: 'Submitted for Review'
     };
-    await firestore.updateDoc(docRef, {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update({
         ...dataToSave,
         status: 'Pending Review' as const,
-        auditLog: firestore.arrayUnion(auditEntry)
+        auditLog: firebase.firestore.FieldValue.arrayUnion(auditEntry)
     });
 };
 
 
 export const deleteEPRF = async (eprfId: string): Promise<void> => {
-    await firestore.deleteDoc(firestore.doc(db, 'eprfs', eprfId));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`eprfs/${eprfId}`).delete();
 };
 
 
 export const getEPRFsForPatient = async (patientId: string, user: AppUser): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
     const isManager = user.role === 'Manager' || user.role === 'Admin';
     let q;
 
     if (isManager) {
         // Managers can see all ePRFs for a patient. This query relies on rules allowing broad access for managers.
-        q = firestore.query(eprfsCol, firestore.where('patientId', '==', patientId));
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        q = eprfsCol.where('patientId', '==', patientId);
     } else {
         // Non-managers can only see ePRFs for this patient that they created.
         // This is a more secure query that works with the existing rules for all users.
-        q = firestore.query(eprfsCol, 
-            firestore.where('patientId', '==', patientId), 
-            firestore.where('createdBy.uid', '==', user.uid)
-        );
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        q = eprfsCol 
+            .where('patientId', '==', patientId)
+            .where('createdBy.uid', '==', user.uid);
     }
 
-    const snapshot = await firestore.getDocs(q);
+    const snapshot = await q.get();
     const eprfs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
     
     // Sort client-side to avoid needing composite indexes
@@ -192,21 +208,23 @@ export const getEPRFsForPatient = async (patientId: string, user: AppUser): Prom
 };
 
 export const getRecentEPRFsForUser = async (userId: string, limitCount: number = 5): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol,
-        firestore.where('createdBy.uid', '==', userId),
-        firestore.where('status', 'in', ['Pending Review', 'Reviewed']),
-        firestore.orderBy('createdAt', 'desc'),
-        firestore.limit(limitCount));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol
+        .where('createdBy.uid', '==', userId)
+        .where('status', 'in', ['Pending Review', 'Reviewed'])
+        .orderBy('createdAt', 'desc')
+        .limit(limitCount);
     
-    const snapshot = await firestore.getDocs(q);
+    const snapshot = await q.get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
 }
 
 export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, firestore.where('status', '==', 'Pending Review'));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol.where('status', '==', 'Pending Review');
+    const snapshot = await q.get();
     const reviews = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
     // Sort client-side to avoid needing a composite index
     reviews.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
@@ -214,57 +232,66 @@ export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {
 };
 
 export const getAllFinalizedEPRFs = async (): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, firestore.where('status', 'in', ['Pending Review', 'Reviewed']));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol.where('status', 'in', ['Pending Review', 'Reviewed']);
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
 export const approveEPRF = async (eprfId: string, reviewer: {uid: string, name: string}): Promise<void> => {
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
     const auditEntry: AuditEntry = {
-        timestamp: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        timestamp: firebase.firestore.Timestamp.now(),
         user: reviewer,
         action: 'Reviewed & Approved'
     };
-    await firestore.updateDoc(docRef, {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update({
         status: 'Reviewed' as const,
-        reviewedBy: { ...reviewer, date: firestore.Timestamp.now() },
-        reviewNotes: firestore.deleteField(), // Clear any previous "return to draft" notes
-        auditLog: firestore.arrayUnion(auditEntry)
+        reviewedBy: { ...reviewer, date: firebase.firestore.Timestamp.now() },
+        reviewNotes: firebase.firestore.FieldValue.delete(), // Clear any previous "return to draft" notes
+        auditLog: firebase.firestore.FieldValue.arrayUnion(auditEntry)
     });
 };
 
 export const returnEPRFToDraft = async (eprfId: string, eprfData: EPRFForm, manager: {uid: string, name: string}, reason: string): Promise<void> => {
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
     const auditEntry: AuditEntry = {
-        timestamp: firestore.Timestamp.now(),
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        timestamp: firebase.firestore.Timestamp.now(),
         user: manager,
         action: 'Returned for Correction',
         details: reason,
     };
-    await firestore.updateDoc(docRef, {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update({
         status: 'Draft' as const,
         reviewNotes: reason,
-        auditLog: firestore.arrayUnion(auditEntry)
+        auditLog: firebase.firestore.FieldValue.arrayUnion(auditEntry)
     });
     // Notification is now handled by a cloud function.
 }
 
 export const getEPRFsToSyncSignatures = async (userId: string): Promise<EPRFForm[]> => {
-    const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, 
-        firestore.where('createdBy.uid', '==', userId), 
-        firestore.where('signaturesNeedSync', '==', true)
-    );
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const eprfsCol = db.collection('eprfs');
+    const q = eprfsCol
+        .where('createdBy.uid', '==', userId) 
+        .where('signaturesNeedSync', '==', true);
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
 };
 
 export const updateSyncedSignatures = async (eprfId: string, updates: { clinicianSignatureUrl?: string, patientSignatureUrl?: string }): Promise<void> => {
-    const docRef = firestore.doc(db, 'eprfs', eprfId);
-    await firestore.updateDoc(docRef, {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`eprfs/${eprfId}`);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update({
         ...updates,
-        signaturesNeedSync: firestore.deleteField()
+        signaturesNeedSync: firebase.firestore.FieldValue.delete()
     });
 };

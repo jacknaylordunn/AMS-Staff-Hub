@@ -1,4 +1,8 @@
-import * as firestore from 'firebase/firestore';
+
+
+// FIX: Use compat firestore types.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
+import firebase from 'firebase/compat/app';
 import type { EPRFForm, User as AppUser } from '../types';
 
 export const getInitialFormState = (eventName: string | null, location: string | null, user: AppUser | null): EPRFForm => {
@@ -94,7 +98,8 @@ export const getInitialFormState = (eventName: string | null, location: string |
     clinicianSignatureUrl: '',
     signaturesNeedSync: false,
     crewMembers: user ? [{ uid: user.uid, name: fullName }] : [],
-    createdAt: firestore.Timestamp.now(),
+    // FIX: Use compat 'Timestamp'.
+    createdAt: firebase.firestore.Timestamp.now(),
     createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },
     status: 'Draft',
     auditLog: [],

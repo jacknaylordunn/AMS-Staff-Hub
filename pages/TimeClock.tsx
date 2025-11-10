@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Shift, TimeClockEntry } from '../types';
 import { useAuth } from '../hooks/useAuth';

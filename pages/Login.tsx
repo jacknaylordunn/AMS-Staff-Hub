@@ -1,6 +1,4 @@
-
 import React, { useState, FormEvent } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
 import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/userService';
@@ -38,7 +36,6 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = ReactRouterDOM.useNavigate();
 
   const handlePasswordReset = async () => {
     if (!email) {
@@ -79,7 +76,7 @@ const Login: React.FC = () => {
     if (isLogin) {
         try {
             await firebaseAuth.signInWithEmailAndPassword(auth, email, password);
-            navigate('/');
+            // Navigation is now handled by AppRoutes based on auth state
         } catch (err: any) {
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
                 setError('Invalid email or password.');

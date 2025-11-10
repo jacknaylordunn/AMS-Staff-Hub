@@ -1,4 +1,4 @@
-import * as firestore from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
 import type { Shift, ShiftSlot, User } from '../types';
 import { createNotification } from './notificationService';
@@ -13,9 +13,10 @@ const getShiftStatus = (slots: ShiftSlot[]): Shift['status'] => {
 };
 
 export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
-    const docRef = firestore.doc(db, 'shifts', shiftId);
-    const docSnap = await firestore.getDoc(docRef);
-    if (!docSnap.exists()) {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`shifts/${shiftId}`);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
         return null;
     }
     return { id: docSnap.id, ...docSnap.data() } as Shift;
@@ -23,21 +24,24 @@ export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
 
 // Shift Functions
 export const getShiftsForMonth = async (year: number, month: number): Promise<Shift[]> => {
-    const start = firestore.Timestamp.fromDate(new Date(year, month, 1));
-    const end = firestore.Timestamp.fromDate(new Date(year, month + 1, 1));
-    const shiftsCol = firestore.collection(db, 'shifts');
-    const q = firestore.query(shiftsCol, firestore.where('start', '>=', start), firestore.where('start', '<', end));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const start = firebase.firestore.Timestamp.fromDate(new Date(year, month, 1));
+    const end = firebase.firestore.Timestamp.fromDate(new Date(year, month + 1, 1));
+    const shiftsCol = db.collection('shifts');
+    const q = shiftsCol.where('start', '>=', start).where('start', '<', end);
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
 };
 
 export const listenToShiftsForMonth = (year: number, month: number, callback: (shifts: Shift[]) => void): () => void => {
-    const start = firestore.Timestamp.fromDate(new Date(year, month, 1));
-    const end = firestore.Timestamp.fromDate(new Date(year, month + 1, 1));
-    const shiftsCol = firestore.collection(db, 'shifts');
-    const q = firestore.query(shiftsCol, firestore.where('start', '>=', start), firestore.where('start', '<', end));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const start = firebase.firestore.Timestamp.fromDate(new Date(year, month, 1));
+    const end = firebase.firestore.Timestamp.fromDate(new Date(year, month + 1, 1));
+    const shiftsCol = db.collection('shifts');
+    const q = shiftsCol.where('start', '>=', start).where('start', '<', end);
     
-    const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const unsubscribe = q.onSnapshot((snapshot) => {
         const shifts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
         callback(shifts);
     }, (error) => {
@@ -49,21 +53,23 @@ export const listenToShiftsForMonth = (year: number, month: number, callback: (s
 };
 
 export const getShiftsForDateRange = async (startDate: Date, endDate: Date): Promise<Shift[]> => {
-    const start = firestore.Timestamp.fromDate(startDate);
-    const end = firestore.Timestamp.fromDate(endDate);
-    const shiftsCol = firestore.collection(db, 'shifts');
-    const q = firestore.query(shiftsCol, firestore.where('start', '>=', start), firestore.where('start', '<=', end), firestore.orderBy('start'));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const start = firebase.firestore.Timestamp.fromDate(startDate);
+    const end = firebase.firestore.Timestamp.fromDate(endDate);
+    const shiftsCol = db.collection('shifts');
+    const q = shiftsCol.where('start', '>=', start).where('start', '<=', end).orderBy('start');
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
 };
 
 export const getShiftsForUser = async (uid: string, year: number, month: number): Promise<Shift[]> => {
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 1);
-    const shiftsCol = firestore.collection(db, 'shifts');
-    const q = firestore.query(shiftsCol, firestore.where('allAssignedStaffUids', 'array-contains', uid));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const shiftsCol = db.collection('shifts');
+    const q = shiftsCol.where('allAssignedStaffUids', 'array-contains', uid);
     
-    const snapshot = await firestore.getDocs(q);
+    const snapshot = await q.get();
     const allUserShifts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
     
     // Client-side filtering for the specified month
@@ -76,7 +82,8 @@ export const getShiftsForUser = async (uid: string, year: number, month: number)
 export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> => {
     const allAssignedStaffUids = shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid);
     const status = getShiftStatus(shiftData.slots);
-    await firestore.addDoc(firestore.collection(db, 'shifts'), { ...shiftData, allAssignedStaffUids, status });
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.collection('shifts').add({ ...shiftData, allAssignedStaffUids, status });
 
     // Notify assigned staff
     for (const slot of shiftData.slots) {
@@ -94,11 +101,13 @@ export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift
         dataToUpdate.status = getShiftStatus(shiftData.slots);
     }
     
-    await firestore.updateDoc(firestore.doc(db, 'shifts', shiftId), dataToUpdate);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`shifts/${shiftId}`).update(dataToUpdate);
 };
 
 export const deleteShift = async (shiftId: string): Promise<void> => {
-    await firestore.deleteDoc(firestore.doc(db, 'shifts', shiftId));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`shifts/${shiftId}`).delete();
 };
 
 export const bidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
@@ -112,10 +121,12 @@ export const cancelBidOnShift = async (shiftId: string, slotId: string): Promise
 };
 
 export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; } | null) => {
-    const shiftRef = firestore.doc(db, 'shifts', shiftId);
-    await firestore.runTransaction(db, async (transaction) => {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    const shiftRef = db.doc(`shifts/${shiftId}`);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    await db.runTransaction(async (transaction) => {
         const shiftSnap = await transaction.get(shiftRef);
-        if (!shiftSnap.exists()) throw new Error("Shift not found");
+        if (!shiftSnap.exists) throw new Error("Shift not found");
 
         const shiftData = shiftSnap.data() as Shift;
         const slotIndex = shiftData.slots.findIndex(s => s.id === slotId);
@@ -155,11 +166,12 @@ export const createMultipleShifts = async (shiftsData: Omit<Shift, 'id'>[]): Pro
     }
 
     for (const chunk of chunks) {
-        const batch = firestore.writeBatch(db);
-        const shiftsCol = firestore.collection(db, 'shifts');
+        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+        const batch = db.batch();
+        const shiftsCol = db.collection('shifts');
         
         chunk.forEach(shiftData => {
-            const docRef = firestore.doc(shiftsCol);
+            const docRef = shiftsCol.doc();
             const allAssignedStaffUids = shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid);
             const status = getShiftStatus(shiftData.slots);
             batch.set(docRef, { ...shiftData, allAssignedStaffUids, status });

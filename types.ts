@@ -1,4 +1,8 @@
-import * as firestore from 'firebase/firestore';
+
+
+// FIX: Replaced modular SDK type imports with compat equivalents.
+// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp and GeoPoint.
+import firebase from 'firebase/compat/app';
 
 export interface ComplianceDocument {
   id: string;
@@ -6,7 +10,7 @@ export interface ComplianceDocument {
   url: string;
   fileName: string;
   expiryDate?: string; // YYYY-MM-DD
-  uploadedAt: firestore.Timestamp;
+  uploadedAt: firebase.firestore.Timestamp;
 }
 
 export interface User {
@@ -19,7 +23,7 @@ export interface User {
   role?: 'Pending' | 'First Aider' | 'FREC3' | 'FREC4/ECA' | 'FREC5/EMT/AAP' | 'Paramedic' | 'Nurse' | 'Doctor' | 'Welfare' | 'Admin' | 'Manager';
   pendingRole?: User['role'];
   registrationNumber?: string;
-  createdAt?: firestore.Timestamp;
+  createdAt?: firebase.firestore.Timestamp;
   complianceDocuments?: ComplianceDocument[];
   fcmTokens?: string[];
 }
@@ -35,11 +39,11 @@ export interface Patient {
     allergies: string;
     medications: string;
     medicalHistory: string;
-    createdAt: firestore.Timestamp;
+    createdAt: firebase.firestore.Timestamp;
 }
 
 export interface AuditEntry {
-  timestamp: firestore.Timestamp;
+  timestamp: firebase.firestore.Timestamp;
   user: {
     uid: string;
     name: string;
@@ -212,9 +216,9 @@ export interface EPRFForm {
 
   // Crew & Timestamps
   crewMembers: { uid: string; name: string; }[];
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
   createdBy: { uid: string; name: string; };
-  reviewedBy?: { uid: string; name: string; date: firestore.Timestamp; };
+  reviewedBy?: { uid: string; name: string; date: firebase.firestore.Timestamp; };
   reviewNotes?: string;
   auditLog: AuditEntry[];
   containsRestrictedDrugs?: boolean;
@@ -290,15 +294,15 @@ export interface ShiftSlot {
   id: string;
   roleRequired: Exclude<User['role'], undefined | 'Pending' | 'Admin' | 'Manager'>;
   assignedStaff: { uid: string; name: string; } | null;
-  bids: { uid: string; name: string; timestamp: firestore.Timestamp; }[];
+  bids: { uid: string; name: string; timestamp: firebase.firestore.Timestamp; }[];
 }
 
 export interface Shift {
   id?: string;
   eventName: string;
   location: string;
-  start: firestore.Timestamp;
-  end: firestore.Timestamp;
+  start: firebase.firestore.Timestamp;
+  end: firebase.firestore.Timestamp;
   status: 'Open' | 'Partially Assigned' | 'Fully Assigned' | 'Completed';
   slots: ShiftSlot[];
   allAssignedStaffUids: string[]; // For efficient querying. Aggregates all assigned UIDs from slots.
@@ -317,10 +321,10 @@ export interface TimeClockEntry {
   userName: string;
   shiftId: string;
   shiftName: string;
-  clockInTime: firestore.Timestamp;
-  clockOutTime?: firestore.Timestamp;
-  clockInLocation?: firestore.GeoPoint;
-  clockOutLocation?: firestore.GeoPoint;
+  clockInTime: firebase.firestore.Timestamp;
+  clockOutTime?: firebase.firestore.Timestamp;
+  clockInLocation?: firebase.firestore.GeoPoint;
+  clockOutLocation?: firebase.firestore.GeoPoint;
   durationHours?: number;
   status: 'Clocked In' | 'Clocked Out';
 }
@@ -331,14 +335,14 @@ export interface Notification {
   message: string;
   link?: string;
   read: boolean;
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export interface Announcement {
     id?: string;
     message: string;
     sentBy: { uid: string; name: string; };
-    createdAt: firestore.Timestamp;
+    createdAt: firebase.firestore.Timestamp;
 }
 
 export interface Vehicle {
@@ -348,11 +352,11 @@ export interface Vehicle {
   type: 'Ambulance' | 'RRV' | 'Car' | 'Buggy';
   status: 'In Service' | 'Maintenance Required' | 'Out of Service';
   lastCheck?: {
-    date: firestore.Timestamp;
+    date: firebase.firestore.Timestamp;
     user: { uid: string; name:string; };
     status: 'Pass' | 'Issues Found';
   };
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
   qrCodeValue?: string;
 }
 
@@ -371,7 +375,7 @@ export interface VehicleCheck {
     id?: string;
     vehicleId: string;
     vehicleName: string;
-    date: firestore.Timestamp;
+    date: firebase.firestore.Timestamp;
     user: { uid: string; name: string; };
     mileage: number;
     fuelLevel: 'Full' | '3/4' | '1/2' | '1/4' | 'Empty';
@@ -391,7 +395,7 @@ export interface CPDEntry {
   reflection: string;
   attachmentUrl?: string;
   attachmentFileName?: string;
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export interface MajorIncident {
@@ -399,16 +403,16 @@ export interface MajorIncident {
     name: string;
     location: string;
     status: 'Active' | 'Stood Down';
-    declaredAt: firestore.Timestamp;
+    declaredAt: firebase.firestore.Timestamp;
     declaredBy: { uid: string; name: string; };
-    stoodDownAt?: firestore.Timestamp;
+    stoodDownAt?: firebase.firestore.Timestamp;
     initialDetails: string;
 }
 
 export interface METHANEreport {
     id?: string;
     incidentId: string;
-    submittedAt: firestore.Timestamp;
+    submittedAt: firebase.firestore.Timestamp;
     submittedBy: { uid: string; name: string; };
     majorIncident: 'Yes' | 'No';
     exactLocation: string;
@@ -426,7 +430,7 @@ export interface StaffCheckin {
     userName: string;
     userRole: User['role'];
     status: 'Available - On Site' | 'Available - En Route' | 'Unavailable';
-    timestamp: firestore.Timestamp;
+    timestamp: firebase.firestore.Timestamp;
 }
 
 export type KitChecklistItem = {
@@ -442,11 +446,11 @@ export interface Kit {
   status: 'In Service' | 'Needs Restocking' | 'Out of Service' | 'With Crew';
   assignedTo?: { uid: string; name: string; };
   lastCheck?: {
-    date: firestore.Timestamp;
+    date: firebase.firestore.Timestamp;
     user: { uid: string; name:string; };
     status: 'Pass' | 'Issues Found';
   };
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
   qrCodeValue?: string; // This will be the unique ID, formatted like 'aegis-kit-qr:KIT_ID'
   trackedItems?: { itemName: string; expiryDate?: string; batchNumber?: string; }[];
   checklistItems?: KitChecklistItem[];
@@ -498,7 +502,7 @@ export interface KitCheck {
     id?: string;
     kitId: string;
     kitName: string;
-    date: firestore.Timestamp;
+    date: firebase.firestore.Timestamp;
     user: { uid: string; name: string; };
     type: 'Sign Out' | 'Sign In';
     checkedItems: { itemName: string; status: 'Pass' | 'Fail' | 'N/A'; note?: string; expiryDate?: string; batchNumber?: string; }[];
@@ -512,7 +516,7 @@ export interface ControlledDrugLedgerEntry {
     drugName: 'Morphine Sulphate 10mg/1ml' | 'Diazepam 10mg/2ml' | 'Midazolam 10mg/2ml' | 'Ketamine 100mg/2ml';
     batchNumber: string;
     expiryDate: string; // YYYY-MM-DD
-    timestamp: firestore.Timestamp;
+    timestamp: firebase.firestore.Timestamp;
     type: 'Received' | 'Moved' | 'Administered' | 'Wasted' | 'Balance Check';
     
     // For movement/receiving
@@ -542,14 +546,14 @@ export interface Kudo {
   to: { uid: string; name: string; };
   from: { uid: string; name: string; };
   message: string;
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export interface AnonymousFeedback {
   id?: string;
   message: string;
   category: 'Concern' | 'Suggestion' | 'Positive';
-  createdAt: firestore.Timestamp;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export interface AiAuditResult {
@@ -558,7 +562,7 @@ export interface AiAuditResult {
     patientId: string;
     eventName: string | null;
     incidentDate: string;
-    auditedAt: firestore.Timestamp;
+    auditedAt: firebase.firestore.Timestamp;
     auditedBy: { uid: string; name: string; };
     
     completenessScore: number;

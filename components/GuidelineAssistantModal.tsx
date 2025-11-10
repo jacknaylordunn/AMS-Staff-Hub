@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-// FIX: Switched to compat version of Firebase Functions.
+// FIX: Removed modular import for httpsCallable.
 import { functions } from '../services/firebase';
 import { SpinnerIcon, SparklesIcon, QuestionMarkCircleIcon } from './icons';
 import { showToast } from './Toast';
@@ -16,7 +17,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [error, setError] = useState('');
     const [showHelp, setShowHelp] = useState(false);
 
-    // FIX: Use compat syntax for httpsCallable.
+    // FIX: Use compat httpsCallable syntax.
     const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
 

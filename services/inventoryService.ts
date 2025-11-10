@@ -1,67 +1,77 @@
-import * as firestore from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
 import { db } from './firebase';
 import type { Kit, KitCheck } from '../types';
 import { DEFAULT_KIT_CHECKLISTS } from '../types';
 
 // Kit Functions
 export const getKits = async (): Promise<Kit[]> => {
-    const snapshot = await firestore.getDocs(firestore.query(firestore.collection(db, 'kits'), firestore.orderBy('name')));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const snapshot = await db.collection('kits').orderBy('name').get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
 };
 
 export const listenToKits = (callback: (kits: Kit[]) => void): () => void => {
-    const q = firestore.query(firestore.collection(db, 'kits'), firestore.orderBy('name'));
-    return firestore.onSnapshot(q, (snapshot) => {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const q = db.collection('kits').orderBy('name');
+    return q.onSnapshot((snapshot) => {
         const kits = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
         callback(kits);
     }, (error) => console.error("Error listening to kits:", error));
 };
 
 export const getKitById = async (kitId: string): Promise<Kit | null> => {
-    const docRef = firestore.doc(db, 'kits', kitId);
-    const docSnap = await firestore.getDoc(docRef);
-    if (!docSnap.exists()) return null;
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const docRef = db.doc(`kits/${kitId}`);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return null;
     return { id: docSnap.id, ...docSnap.data() } as Kit;
 };
 
 export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck' | 'assignedTo'>): Promise<string> => {
     const defaultChecklist = DEFAULT_KIT_CHECKLISTS[kitData.type] || [];
-    const docRef = await firestore.addDoc(firestore.collection(db, 'kits'), {
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const docRef = await db.collection('kits').add({
         ...kitData,
-        createdAt: firestore.Timestamp.now(),
+        createdAt: firebase.firestore.Timestamp.now(),
         checklistItems: defaultChecklist,
     });
     // Add the generated QR code value back to the doc
     const qrCodeValue = `aegis-kit-qr:${docRef.id}`;
-    await firestore.updateDoc(docRef, { qrCodeValue });
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    await docRef.update({ qrCodeValue });
     return docRef.id;
 };
 
 export const updateKit = async (kitId: string, kitData: Partial<Omit<Kit, 'id'>>): Promise<void> => {
-    await firestore.updateDoc(firestore.doc(db, 'kits', kitId), kitData);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`kits/${kitId}`).update(kitData);
 };
 
 export const deleteKit = async (kitId: string): Promise<void> => {
-    await firestore.deleteDoc(firestore.doc(db, 'kits', kitId));
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    await db.doc(`kits/${kitId}`).delete();
 };
 
 // Kit Check Functions
 export const getKitChecks = async (kitId: string): Promise<KitCheck[]> => {
-    const checksCol = firestore.collection(db, 'kits', kitId, 'checks');
-    const q = firestore.query(checksCol, firestore.orderBy('date', 'desc'), firestore.limit(20));
-    const snapshot = await firestore.getDocs(q);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const checksCol = db.collection('kits').doc(kitId).collection('checks');
+    const q = checksCol.orderBy('date', 'desc').limit(20);
+    const snapshot = await q.get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as KitCheck));
 };
 
 export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' | 'date'>): Promise<void> => {
-    const kitRef = firestore.doc(db, 'kits', kitId);
-    const checksCol = firestore.collection(kitRef, 'checks');
-    const now = firestore.Timestamp.now();
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const kitRef = db.doc(`kits/${kitId}`);
+    const checksCol = kitRef.collection('checks');
+    const now = firebase.firestore.Timestamp.now();
     
-    const batch = firestore.writeBatch(db);
+    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
+    const batch = db.batch();
 
     // Add the check document
-    const newCheckRef = firestore.doc(checksCol);
+    const newCheckRef = checksCol.doc();
     batch.set(newCheckRef, {
         ...checkData,
         date: now,
@@ -92,7 +102,7 @@ export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' 
         },
         status: newStatus,
         trackedItems: newTrackedItems,
-        assignedTo: assignedTo === null ? firestore.deleteField() : assignedTo,
+        assignedTo: assignedTo === null ? firebase.firestore.FieldValue.delete() : assignedTo,
     };
 
     batch.update(kitRef, updatePayload);

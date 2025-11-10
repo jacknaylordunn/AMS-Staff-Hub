@@ -1,10 +1,12 @@
+
+
 import React, { useRef, useState } from 'react';
 import type { EPRFForm, User as AppUser, Attachment } from '../../types';
-import { Section, SelectField, InputField, labelBaseClasses } from './FormControls';
+// FIX: Imported 'inputBaseClasses' from FormControls to resolve the 'Cannot find name' error.
+import { Section, SelectField, InputField, labelBaseClasses, inputBaseClasses } from './FormControls';
 import SpeechEnabledTextArea from '../SpeechEnabledTextArea';
 import SignaturePad, { SignaturePadRef } from '../SignaturePad';
-import { PlusIcon, DocsIcon, CameraIcon, SpinnerIcon, CheckIcon } from '../icons';
-// FIX: Switched to compat version of Firebase Functions.
+import { PlusIcon, DocsIcon, CameraIcon, SpinnerIcon, CheckIcon, SparklesIcon, TrashIcon } from '../icons';
 import { functions } from '../../services/firebase';
 import { showToast } from '../Toast';
 
@@ -41,7 +43,7 @@ const Step7_DispositionHandover: React.FC<Step7Props> = ({ state, dispatch, allS
         if (!selectedCrewMember) return;
         const member = allStaff.find(s => s.uid === selectedCrewMember);
         if (member && !state.crewMembers.some(c => c.uid === member.uid)) {
-            const newCrew = [...state.crewMembers, { uid: member.uid, name: `${member.firstName} ${member.lastName}` }];
+            const newCrew = [...state.crewMembers, { uid: member.uid, name: `${member.firstName} ${member.lastName}`.trim() }];
             dispatch({ type: 'UPDATE_FIELD', field: 'crewMembers', payload: newCrew });
             setSelectedCrewMember('');
         }
@@ -61,7 +63,6 @@ const Step7_DispositionHandover: React.FC<Step7Props> = ({ state, dispatch, allS
             Array.from(e.target.files).forEach((file: File) => {
                 uploadAndAddAttachment(file, file.name);
             });
-            // Clear the input value to allow re-uploading the same file
             if (e.target) {
                 e.target.value = '';
             }
@@ -69,129 +70,143 @@ const Step7_DispositionHandover: React.FC<Step7Props> = ({ state, dispatch, allS
     };
     
     const removeAttachment = (id: string) => {
-        // Note: This doesn't delete the file from storage, only removes the reference.
         dispatch({ type: 'UPDATE_ATTACHMENTS', payload: state.attachments.filter(att => att.id !== id) });
     };
     
     const handleGenerateSummary = async () => {
         setIsSummarizing(true);
         showToast("Generating handover summary...", "info");
-        // FIX: Use compat syntax for httpsCallable.
         const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
         try {
             const systemInstruction = "You are a clinical assistant. Summarize the provided ePRF JSON data into a concise SBAR (Situation, Background, Assessment, Recommendation) handover report suitable for a hospital emergency department. Focus on clinically relevant information. Be clear and direct.";
             const context = {
-                presentation: state.presentingComplaint, history: state.history,
-                vitals: state.vitals.slice(-2), findings: state.secondarySurvey,
-                treatment: state.medicationsAdministered.map(m => `${m.medication} ${m.dose}`).join(', ') + '; ' + state.interventions.map(i => i.intervention).join(', '),
-                allergies: state.allergies, medications: state.medications,
+                presentation: state.presentingComplaint, 
+                history: state.history,
+                vitals: state.vitals.slice(-1)[0], // Only the latest vitals
+                assessment: {
+                    avpu: state.disability.avpu,
+                    gcs: state.disability.gcs.total,
+                    airway: state.airway,
+                    breathing: state.breathing,
+                },
+                treatment: state.medicationsAdministered.map(m => `${m.medication} ${m.dose}`).join(', ') || 'None',
+                disposition: state.disposition,
             };
-            const prompt = `${systemInstruction}\n\nGenerate an SBAR handover for this patient: ${JSON.stringify(context)}`;
-            const result = await askClinicalAssistant({ query: prompt });
-            // FIX: Cast result from compat callable function.
-            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: (result.data as { response: string }).response });
-            showToast("Handover summary generated.", "success");
+            const query = `${systemInstruction}\n\nDATA:\n${JSON.stringify(context)}`;
+
+            const result = await askClinicalAssistant({ query });
+            const summary = (result.data as { response: string }).response;
+            dispatch({ type: 'UPDATE_FIELD', field: 'handoverDetails', payload: `${state.handoverDetails ? state.handoverDetails + '\n\n' : ''}AI Generated Summary:\n${summary}`});
+            showToast("AI handover summary generated.", "success");
         } catch (err) {
-            console.error("Cloud function for summary generation failed:", err);
-            showToast("Failed to generate summary.", "error");
+            console.error("AI summary generation failed:", err);
+            showToast("Failed to generate AI summary.", "error");
         } finally {
             setIsSummarizing(false);
         }
     };
-    
-    const triggerFinalize = () => {
-        const clinicianSig = clinicianSigRef.current?.getSignature();
-        const patientSig = patientSigRef.current?.getSignature();
-        onFinalize(clinicianSig || null, patientSig || null);
-    };
 
     return (
         <div>
-            <Section title="Final Disposition">
-                 <SelectField label="Disposition*" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2" required>
-                    <option value="Not Set">-- Select --</option>
+            <Section title="Disposition & Handover">
+                <SelectField label="Final Disposition*" name="disposition" value={state.disposition} onChange={handleChange} className="md:col-span-2" required>
+                    <option value="Not Set">-- Not Set --</option>
                     <option>Conveyed to ED</option>
                     <option>Left at Home (Own Consent)</option>
                     <option>Left at Home (Against Advice)</option>
                     <option>Referred to Other Service</option>
                     <option>Deceased on Scene</option>
                 </SelectField>
-                 {state.disposition === 'Conveyed to ED' && (
+                {state.disposition === 'Conveyed to ED' && (
                     <>
-                         <InputField label="Destination*" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} className="md:col-span-2" />
-                         <InputField label="Handover To" name="handoverTo" value={state.dispositionDetails.handoverTo} onChange={e => handleNestedChange('dispositionDetails', 'handoverTo', e)} />
+                        <InputField label="Destination" name="destination" value={state.dispositionDetails.destination} onChange={e => handleNestedChange('dispositionDetails', 'destination', e)} className="md:col-span-2" />
+                        <InputField label="Handover To (Name/Role)" name="handoverTo" value={state.dispositionDetails.handoverTo} onChange={e => handleNestedChange('dispositionDetails', 'handoverTo', e)} className="md:col-span-2" />
                     </>
                 )}
-                {state.disposition === 'Referred to Other Service' && (
+                 {state.disposition === 'Referred to Other Service' && (
                     <InputField label="Referral Details" name="referralDetails" value={state.dispositionDetails.referralDetails} onChange={e => handleNestedChange('dispositionDetails', 'referralDetails', e)} className="md:col-span-4" />
                 )}
-            </Section>
-            <Section title="Handover & Signatures">
+                <SpeechEnabledTextArea label="Handover Details / SBAR" name="handoverDetails" value={state.handoverDetails} onChange={e => handleChange(e as any)} rows={6} />
                 <div className="md:col-span-4">
-                    <SpeechEnabledTextArea label="Clinical Handover (SBAR)" name="handoverDetails" value={state.handoverDetails} onChange={e => handleChange(e as any)} rows={6} />
-                    <button onClick={handleGenerateSummary} disabled={isSummarizing} className="mt-2 flex items-center gap-2 text-sm px-4 py-2 bg-ams-blue/10 text-ams-blue rounded-md hover:bg-ams-blue/20 dark:bg-ams-light-blue/20 dark:text-ams-light-blue">
-                         {isSummarizing ? <SpinnerIcon className="w-5 h-5"/> : <SpinnerIcon className="w-5 h-5" />} Generate AI Handover Summary
-                    </button>
-                </div>
-                 <div className="md:col-span-2">
-                    <label className={labelBaseClasses}>Lead Clinician Signature</label>
-                    <SignaturePad ref={clinicianSigRef} />
-                 </div>
-                 <div className="md:col-span-2">
-                    <label className={labelBaseClasses}>Patient / Guardian Signature</label>
-                     <SignaturePad ref={patientSigRef} />
-                </div>
-                <div className="md:col-span-4 flex justify-end">
-                    <button onClick={triggerFinalize} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 flex items-center">
-                        {isSaving && <SpinnerIcon className="w-5 h-5 mr-2"/>}
-                        Finalize for Review
+                    <button type="button" onClick={handleGenerateSummary} disabled={isSummarizing} className="flex items-center gap-2 text-sm px-4 py-2 bg-purple-100 text-purple-800 rounded-md hover:bg-purple-200 dark:bg-purple-900/50 dark:text-purple-200">
+                        {isSummarizing ? <SpinnerIcon className="w-5 h-5"/> : <SparklesIcon className="w-5 h-5" />}
+                        Generate AI Handover Summary
                     </button>
                 </div>
             </Section>
-            <Section title="Attachments">
-                <div className="md:col-span-4 flex gap-4">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-sm px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300">
-                        <DocsIcon className="w-5 h-5"/> Upload File
-                    </button>
-                    <button type="button" onClick={() => setCameraModalOpen(true)} className="flex items-center gap-2 text-sm px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300">
-                       <CameraIcon className="w-5 h-5" /> Take Photo
-                    </button>
-                     <input type="file" ref={fileInputRef} onChange={handleFileSelected} multiple className="hidden" />
-                     {isUploading && <SpinnerIcon className="w-5 h-5 text-ams-blue inline-block ml-4" />}
+            
+            <Section title="Crew & Attachments">
+                <div className="md:col-span-2">
+                    <label className={labelBaseClasses}>Attending Crew</label>
+                    <ul className="mt-2 space-y-2">
+                        {state.crewMembers.map(c => (
+                            <li key={c.uid} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <span>{c.name}</span>
+                                {c.uid !== user?.uid && <button type="button" onClick={() => handleRemoveCrewMember(c.uid)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button>}
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="flex gap-2 mt-2">
+                        <select value={selectedCrewMember} onChange={e => setSelectedCrewMember(e.target.value)} className={inputBaseClasses + ' flex-grow'}>
+                            <option value="">-- Add Crew Member --</option>
+                            {allStaff.filter(s => !state.crewMembers.some(c => c.uid === s.uid)).map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
+                        </select>
+                        <button type="button" onClick={handleAddCrewMember} className="px-3 bg-gray-200 rounded-md"><PlusIcon className="w-5 h-5"/></button>
+                    </div>
                 </div>
-                 {state.attachments.length > 0 && (
-                    <div className="md:col-span-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+
+                <div className="md:col-span-2">
+                    <label className={labelBaseClasses}>Attachments</label>
+                    <div className="mt-2 space-y-2">
                         {state.attachments.map(att => (
-                            <div key={att.id} className="relative group">
-                                <a href={att.url} target="_blank" rel="noopener noreferrer">
-                                    {att.mimeType.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover rounded-md"/> : 
-                                        <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center"><DocsIcon className="w-8 h-8 text-gray-400" /></div>
-                                    }
-                                    <p className="text-xs truncate mt-1">{att.fileName}</p>
+                            <div key={att.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:underline">
+                                    <DocsIcon className="w-4 h-4"/>
+                                    <span className="truncate">{att.fileName}</span>
                                 </a>
-                                 <button onClick={() => removeAttachment(att.id)} className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 text-xs">✖</button>
+                                <button type="button" onClick={() => removeAttachment(att.id)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button>
                             </div>
                         ))}
                     </div>
-                )}
-            </Section>
-            <Section title="Crew Members">
-                 <div className="md:col-span-3 flex gap-2 items-end">
-                    <SelectField label="Add Crew Member" name="crew-member" value={selectedCrewMember} onChange={e => setSelectedCrewMember(e.target.value)}>
-                        <option value="">-- Select --</option>
-                        {allStaff.filter(s => !state.crewMembers.some(c => c.uid === s.uid)).map(s => <option key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</option>)}
-                    </SelectField>
-                    <button onClick={handleAddCrewMember} className="px-4 py-2 bg-ams-light-blue text-white rounded-md h-fit mb-0.5"><PlusIcon className="w-5 h-5"/></button>
-                </div>
-                 <div className="md:col-span-4">
-                    <div className="flex flex-wrap gap-2">
-                        {state.crewMembers.map(member => (
-                            <span key={member.uid} className="flex items-center gap-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold px-2 py-1 rounded-full">
-                                {member.name}
-                                <button type="button" onClick={() => handleRemoveCrewMember(member.uid)} className="text-red-500 hover:text-red-700 font-bold text-lg leading-none">&times;</button>
-                            </span>
-                        ))}
+                    <div className="flex gap-2 mt-2">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center text-sm px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded-md w-full justify-center">
+                            <PlusIcon className="w-5 h-5 mr-2"/> Upload File
+                        </button>
+                        <button type="button" onClick={() => setCameraModalOpen(true)} className="flex items-center text-sm px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded-md w-full justify-center">
+                            <CameraIcon className="w-5 h-5 mr-2"/> Take Photo
+                        </button>
+                        <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" multiple />
                     </div>
+                    {isUploading && <div className="flex items-center mt-2 text-sm"><SpinnerIcon className="w-4 h-4 mr-2"/>Uploading...</div>}
+                </div>
+            </Section>
+
+            <Section title="Signatures">
+                <div className="md:col-span-2">
+                    <label className={labelBaseClasses}>Lead Clinician Signature</label>
+                    <SignaturePad ref={clinicianSigRef} />
+                </div>
+                <div className="md:col-span-2">
+                    <label className={labelBaseClasses}>Patient / Guardian Signature</label>
+                    <SignaturePad ref={patientSigRef} />
+                </div>
+            </Section>
+            
+            <Section title="Finalize & Submit">
+                <div className="md:col-span-4 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const clinicianSig = clinicianSigRef.current?.getSignature();
+                            const patientSig = patientSigRef.current?.getSignature();
+                            onFinalize(clinicianSig, patientSig);
+                        }}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-400"
+                    >
+                        {isSaving ? <SpinnerIcon className="w-6 h-6" /> : <CheckIcon className="w-6 h-6" />}
+                        {isSaving ? 'Submitting...' : 'Finalize and Submit ePRF'}
+                    </button>
                 </div>
             </Section>
         </div>
