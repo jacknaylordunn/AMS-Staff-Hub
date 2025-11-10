@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 // FIX: Changed import path to point to the .tsx file to resolve module ambiguity.
 import { clockIn, clockOut, getTimeClockEntriesForDateRange } from '../services/timeClockService';
-import { getShiftsForUser } from '../services/rotaService';
+import { getShiftsForDateRange } from '../services/rotaService';
 import { SpinnerIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 
@@ -37,16 +37,15 @@ const StaffTimeClock: React.FC = () => {
         if (!user) return;
         setLoading(true);
         const today = new Date();
-        // Fetch shifts for today
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-        getShiftsForUser(user.uid, startOfDay.getFullYear(), startOfDay.getMonth())
+        getShiftsForDateRange(startOfDay, endOfDay)
             .then(shifts => {
-                const todayShifts = shifts.filter(s => {
-                    const shiftStart = s.start.toDate();
-                    return shiftStart >= startOfDay && shiftStart <= endOfDay && !s.isUnavailability;
-                });
+                const todayShifts = shifts.filter(s => 
+                    !s.isUnavailability &&
+                    s.slots.some(slot => slot.assignedStaff?.uid === user.uid)
+                );
                 setUserShifts(todayShifts);
             })
             .catch(() => showToast("Failed to load today's shifts.", "error"))
