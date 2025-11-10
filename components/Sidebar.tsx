@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     Controlled Drugs
                 </ReactRouterDOM.NavLink>
             )}
-            <ReactRouterDOM.NavLink to="/events" className={navLinkClasses} onClick={handleLinkClick}>
+            <ReactRouterDOM.NavLink to="/time-clock" className={navLinkClasses} onClick={handleLinkClick}>
               <EventsIcon className="w-6 h-6 mr-3" />
               Time Clock
             </ReactRouterDOM.NavLink>

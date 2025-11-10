@@ -1,14 +1,15 @@
 import * as firestore from 'firebase/firestore';
-import type { EPRFForm, EventLog, User as AppUser } from '../types';
+import type { EPRFForm, User as AppUser } from '../types';
 
-export const getInitialFormState = (event: EventLog | null, user: AppUser | null): EPRFForm => {
+export const getInitialFormState = (eventName: string | null, location: string | null, user: AppUser | null): EPRFForm => {
   const now = new Date();
   const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '';
   return {
     patientId: null,
-    eventId: event?.id || null,
-    eventName: event?.name || null,
+    // FIX: Initialize shiftId to correctly link to shifts.
+    shiftId: null,
+    eventName: eventName || null,
     presentationType: 'Medical/Trauma',
     natureOfCall: 'Emergency',
     incidentNumber: '',
@@ -20,7 +21,7 @@ export const getInitialFormState = (event: EventLog | null, user: AppUser | null
     leftSceneTime: '',
     atDestinationTime: '',
     clearDestinationTime: '',
-    incidentLocation: event?.location || '',
+    incidentLocation: location || '',
     patientName: '',
     patientAge: '',
     patientGender: 'Unknown',

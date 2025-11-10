@@ -57,10 +57,14 @@ const StaffAnalytics: React.FC = () => {
 
                 const durationHours = (shift.end.toMillis() - shift.start.toMillis()) / (1000 * 60 * 60);
 
-                shift.assignedStaff.forEach(staff => {
-                    if (analytics[staff.uid]) {
-                        analytics[staff.uid].shiftCount += 1;
-                        analytics[staff.uid].totalHours += durationHours;
+                // FIX: Iterate through slots to find assigned staff.
+                shift.slots.forEach(slot => {
+                    if (slot.assignedStaff) {
+                        const staff = slot.assignedStaff;
+                        if (analytics[staff.uid]) {
+                            analytics[staff.uid].shiftCount += 1;
+                            analytics[staff.uid].totalHours += durationHours;
+                        }
                     }
                 });
             });

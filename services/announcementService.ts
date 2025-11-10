@@ -2,10 +2,11 @@ import * as firestore from 'firebase/firestore';
 import { db, functions } from './firebase';
 import type { Announcement } from '../types';
 
+// FIX: Changed 'eventId' to 'eventName' to match the cloud function's expectation for event-based targeting.
 export type AnnouncementTarget =
     | { type: 'all' }
     | { type: 'roles', roles: string[] }
-    | { type: 'event', eventId: string };
+    | { type: 'event', eventName: string };
 
 // Announcement Functions
 export const getAnnouncements = async (): Promise<Announcement[]> => {

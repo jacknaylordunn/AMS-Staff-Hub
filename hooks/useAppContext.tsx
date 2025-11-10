@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import * as firestore from 'firebase/firestore';
-import type { EventLog, Shift, EPRFForm, TimeClockEntry } from '../types';
+// FIX: Removed unused 'EventLog' type which is not defined in types.ts
+import type { Shift, EPRFForm, TimeClockEntry } from '../types';
 import { useAuth } from './useAuth';
+// FIX: Changed import path to point to the .tsx file to resolve module ambiguity.
 import { getActiveClockInForUser } from '../services/timeClockService';
 
 

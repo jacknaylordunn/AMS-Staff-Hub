@@ -6,6 +6,7 @@ import 'firebase/compat/firestore';
 // FIX: Using compat imports for storage and functions to resolve module errors.
 import 'firebase/compat/storage';
 import 'firebase/compat/functions';
+import 'firebase/compat/messaging';
 
 import { getAuth } from 'firebase/auth';
 import { enableIndexedDbPersistence, getFirestore } from 'firebase/firestore';
@@ -23,6 +24,9 @@ const firebaseConfig = {
   measurementId: "G-1M3EW6SJZL"
 };
 
+// This key is public and is required to identify this web app to the FCM service.
+export const VAPID_KEY = 'BDSG-vA0Z6i_8qE2yJVh5Q-3p2N8yFw049xtuBwLqL9e3bY7c3X7z5H7y4J8g6T7q9E3w0C1f0e2Z4n6K8a5G9c';
+
 // Initialize Firebase using compat
 const app = firebase.initializeApp(firebaseConfig);
 
@@ -32,6 +36,7 @@ export const db = getFirestore(app);
 // FIX: Use compat version of storage and functions.
 export const storage = firebase.storage();
 export const functions = firebase.functions();
+export const messaging = firebase.messaging.isSupported() ? firebase.messaging() : null;
 
 
 // Enable offline persistence

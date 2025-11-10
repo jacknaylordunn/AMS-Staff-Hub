@@ -6,7 +6,8 @@ import { getInitialFormState } from '../utils/eprfHelpers';
 import { PlusIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
-import type { EventLog } from '../types';
+// FIX: No longer using EventLog. Importing rotaService to get shift details.
+import { getShiftById } from '../services/rotaService';
 
 const EPRFTabs: React.FC = () => {
     const { 
@@ -26,13 +27,14 @@ const EPRFTabs: React.FC = () => {
             return;
         }
         try {
-            const eventForForm: EventLog = {
-                id: activeClockIn.eventId,
-                name: activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event',
-                location: '',
-                date: activeClockIn.clockInTime.toDate().toISOString().split('T')[0],
-            };
-            const newDraft = await createDraftEPRF(getInitialFormState(eventForForm, user));
+            // FIX: Fetch full shift details to get event name and location for the new draft.
+            // This replaces the logic that used the non-existent 'EventLog' and 'eventId'.
+            const shift = await getShiftById(activeClockIn.shiftId);
+            const eventName = shift?.eventName || activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event';
+            const location = shift?.location || '';
+            
+            // FIX: Correctly pass eventName and location as separate arguments.
+            const newDraft = await createDraftEPRF(getInitialFormState(eventName, location, user));
             addEPRFDraft(newDraft);
             setActiveEPRFId(newDraft.id!);
         } catch (error) {

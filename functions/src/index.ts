@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+// FIX: Corrected import from 'GoogleGenerativeAI' to 'GoogleGenAI' per SDK guidelines.
 import { GoogleGenAI } from "@google/genai";
 
 admin.initializeApp();
@@ -14,6 +15,7 @@ if (!API_KEY) {
   );
 }
 
+// FIX: Corrected constructor from 'GoogleGenerativeAI' to 'GoogleGenAI'.
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
 
@@ -80,7 +82,7 @@ export const sendAnnouncement = functions.https.onCall(
     const target = data.target as {
         type: "all" | "roles" | "event";
         roles?: string[];
-        eventId?: string;
+        eventName?: string;
     };
 
     if (!message || typeof message !== "string") {
@@ -103,14 +105,14 @@ export const sendAnnouncement = functions.https.onCall(
         const usersSnapshot = await db.collection("users").where("role", "in", target.roles).get();
         usersSnapshot.forEach((doc) => uniqueUserIds.add(doc.id));
     } else if (target.type === "event") {
-        if (!target.eventId || typeof target.eventId !== "string") {
-            throw new functions.https.HttpsError("invalid-argument", "Target type 'event' requires an 'eventId' string.");
+        if (!target.eventName || typeof target.eventName !== "string") {
+            throw new functions.https.HttpsError("invalid-argument", "Target type 'event' requires an 'eventName' string.");
         }
-        const shiftsSnapshot = await db.collection("shifts").where("eventId", "==", target.eventId).get();
+        const shiftsSnapshot = await db.collection("shifts").where("eventName", "==", target.eventName).get();
         shiftsSnapshot.forEach((doc) => {
             const shift = doc.data();
-            if (shift.assignedStaffUids && Array.isArray(shift.assignedStaffUids)) {
-                shift.assignedStaffUids.forEach((uid: string) => uniqueUserIds.add(uid));
+            if (shift.allAssignedStaffUids && Array.isArray(shift.allAssignedStaffUids)) {
+                shift.allAssignedStaffUids.forEach((uid: string) => uniqueUserIds.add(uid));
             }
         });
     } else { // 'all'
@@ -135,6 +137,7 @@ export const sendAnnouncement = functions.https.onCall(
     };
 
     try {
+        // Create Announcement Doc
         const announcementData = {
             message,
             sentBy: sender,
@@ -142,13 +145,12 @@ export const sendAnnouncement = functions.https.onCall(
         };
         await db.collection("announcements").add(announcementData);
         
+        // Create in-app notifications
         const truncatedMessage = message.length > 50 ? message.substring(0, 50) + '...' : message;
         const notificationMessage = `New Hub Announcement: "${truncatedMessage}"`;
-
-        const promises = [];
+        const inAppPromises = [];
         let batch = db.batch();
         let count = 0;
-        
         for (const userId of userIds) {
             const newNotifRef = db.collection("notifications").doc();
             batch.set(newNotifRef, {
@@ -160,17 +162,76 @@ export const sendAnnouncement = functions.https.onCall(
             });
             count++;
             if (count === 499) { // Batch limit is 500 writes
-                promises.push(batch.commit());
+                inAppPromises.push(batch.commit());
                 batch = db.batch();
                 count = 0;
             }
         }
-
         if (count > 0) {
-            promises.push(batch.commit());
+            inAppPromises.push(batch.commit());
         }
+        await Promise.all(inAppPromises);
 
-        await Promise.all(promises);
+        // Send FCM Push Notifications
+        const tokensAndUsers: { token: string; userId: string }[] = [];
+        const userDocsPromises = [];
+        for (let i = 0; i < userIds.length; i += 30) { // Firestore 'in' query limit
+            const chunk = userIds.slice(i, i + 30);
+            userDocsPromises.push(db.collection('users').where(admin.firestore.FieldPath.documentId(), 'in', chunk).get());
+        }
+        const userDocsSnapshots = await Promise.all(userDocsPromises);
+        userDocsSnapshots.forEach(snapshot => {
+            snapshot.forEach(doc => {
+                const docData = doc.data();
+                if (docData.fcmTokens && Array.isArray(docData.fcmTokens)) {
+                    docData.fcmTokens.forEach((token: string) => {
+                        tokensAndUsers.push({ token, userId: doc.id });
+                    });
+                }
+            });
+        });
+
+        const allTokens = tokensAndUsers.map(t => t.token);
+
+        if (allTokens.length > 0) {
+            const pushNotificationMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
+            const payload = {
+                notification: {
+                    title: "Aegis Hub Announcement",
+                    body: pushNotificationMessage,
+                },
+                webpush: {
+                    fcmOptions: {
+                        link: link || "https://aegis-staff-hub.web.app/"
+                    }
+                }
+            };
+
+            const CHUNK_SIZE = 500;
+            for (let i = 0; i < allTokens.length; i += CHUNK_SIZE) {
+                const chunk = allTokens.slice(i, i + CHUNK_SIZE);
+                const response = await admin.messaging().sendEachForMulticast({ tokens: chunk, ...payload });
+
+                const tokensToRemove: Promise<any>[] = [];
+                response.responses.forEach((result, index) => {
+                    const error = result.error;
+                    if (error) {
+                        const tokenIndex = i + index;
+                        console.error('Failure sending notification to', allTokens[tokenIndex], error);
+                        if (error.code === 'messaging/invalid-registration-token' ||
+                            error.code === 'messaging/registration-token-not-registered') {
+                            const staleToken = tokensAndUsers[tokenIndex];
+                            tokensToRemove.push(
+                                db.collection('users').doc(staleToken.userId).update({
+                                    fcmTokens: admin.firestore.FieldValue.arrayRemove(staleToken.token)
+                                })
+                            );
+                        }
+                    }
+                });
+                await Promise.all(tokensToRemove);
+            }
+        }
         
         return { success: true, notificationsSent: userIds.length };
 

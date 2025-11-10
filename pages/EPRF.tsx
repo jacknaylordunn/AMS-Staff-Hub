@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { getAllDraftsForUser, createDraftEPRF } from '../services/eprfService';
+import { getShiftById } from '../services/rotaService';
 import { getInitialFormState } from '../utils/eprfHelpers';
 import EPRFFormComponent from '../components/EPRFForm';
 import { SpinnerIcon, EprfIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
-import type { EPRFForm as EPRFFormType, EventLog } from '../types';
+import type { EPRFForm as EPRFFormType } from '../types';
 
 export const EPRF: React.FC = () => {
     const { user } = useAuth();
@@ -60,13 +61,11 @@ export const EPRF: React.FC = () => {
                 setIsLoading(false);
             } else if (activeClockIn) {
                 try {
-                    const eventForForm: EventLog = {
-                        id: activeClockIn.eventId,
-                        name: activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event',
-                        location: '', // Location isn't available on TimeClockEntry
-                        date: activeClockIn.clockInTime.toDate().toISOString().split('T')[0],
-                    };
-                    const newDraft = await createDraftEPRF(getInitialFormState(eventForForm, user));
+                    const eventName = activeClockIn.shiftName.split(' at ')[1] || 'Unknown Event';
+                    const shift = await getShiftById(activeClockIn.shiftId);
+                    const location = shift?.location || '';
+                    
+                    const newDraft = await createDraftEPRF(getInitialFormState(eventName, location, user));
                     if (!isMounted) return;
                     addEPRFDraft(newDraft);
                     setActiveEPRFId(newDraft.id!);
@@ -133,7 +132,7 @@ export const EPRF: React.FC = () => {
                 <h2 className="mt-4 text-2xl font-bold text-gray-800 dark:text-gray-200">Clock In Required</h2>
                 <p className="mt-2 text-gray-500 dark:text-gray-400">You must be clocked in to a shift before you can create a new ePRF.</p>
                 <button
-                    onClick={() => navigate('/events')}
+                    onClick={() => navigate('/time-clock')}
                     className="mt-6 px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
                 >
                     Go to Time Clock

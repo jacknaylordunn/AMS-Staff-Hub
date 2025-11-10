@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getAnnouncements, sendAnnouncement, deleteAnnouncement, AnnouncementTarget } from '../services/announcementService';
-import { getEvents } from '../services/eventService';
-import type { Announcement, EventLog } from '../types';
+import { getShiftsForDateRange } from '../services/rotaService';
+import type { Announcement, Shift } from '../types';
 import { SpinnerIcon, MegaphoneIcon, TrashIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -20,8 +20,8 @@ const Announcements: React.FC = () => {
     // New state for targeting
     const [targetType, setTargetType] = useState<'all' | 'roles' | 'event'>('all');
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-    const [selectedEventId, setSelectedEventId] = useState('');
-    const [events, setEvents] = useState<EventLog[]>([]);
+    const [selectedEventName, setSelectedEventName] = useState('');
+    const [upcomingShifts, setUpcomingShifts] = useState<Shift[]>([]);
 
     const fetchHistory = async () => {
         setHistoryLoading(true);
@@ -38,8 +38,22 @@ const Announcements: React.FC = () => {
     
     useEffect(() => {
         fetchHistory();
-        getEvents().then(setEvents); // Fetch events for the dropdown
+        const start = new Date();
+        const end = new Date();
+        end.setDate(start.getDate() + 30); // Fetch shifts for the next 30 days
+        getShiftsForDateRange(start, end).then(setUpcomingShifts);
     }, []);
+
+    const uniqueUpcomingEvents = useMemo(() => {
+        const eventNames = new Set<string>();
+        return upcomingShifts.filter(shift => {
+            if (!shift.isUnavailability && !eventNames.has(shift.eventName)) {
+                eventNames.add(shift.eventName);
+                return true;
+            }
+            return false;
+        });
+    }, [upcomingShifts]);
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,12 +70,12 @@ const Announcements: React.FC = () => {
             }
             target = { type: 'roles', roles: selectedRoles };
         } else if (targetType === 'event') {
-            if (!selectedEventId) {
+            if (!selectedEventName) {
                 showToast("Please select an event.", "error");
                 setLoading(false);
                 return;
             }
-            target = { type: 'event', eventId: selectedEventId };
+            target = { type: 'event', eventName: selectedEventName };
         } else {
             target = { type: 'all' };
         }
@@ -126,7 +140,7 @@ const Announcements: React.FC = () => {
                                 <select onChange={(e) => setTargetType(e.target.value as any)} value={targetType} className="w-full mt-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                                     <option value="all">All Staff</option>
                                     <option value="roles">Specific Roles</option>
-                                    <option value="event">Staff at an Event</option>
+                                    <option value="event">Staff on a Shift</option>
                                 </select>
                             </div>
 
@@ -146,11 +160,11 @@ const Announcements: React.FC = () => {
 
                             {targetType === 'event' && (
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Event</label>
-                                    <select onChange={(e) => setSelectedEventId(e.target.value)} value={selectedEventId} className="w-full mt-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Shift/Event</label>
+                                    <select onChange={(e) => setSelectedEventName(e.target.value)} value={selectedEventName} className="w-full mt-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
                                         <option value="">Select an event...</option>
-                                        {events.filter(e => e.status !== 'Completed').map(event => (
-                                            <option key={event.id} value={event.id}>{event.name} ({event.date})</option>
+                                        {uniqueUpcomingEvents.map(shift => (
+                                            <option key={shift.id} value={shift.eventName}>{shift.eventName} ({shift.start.toDate().toLocaleDateString()})</option>
                                         ))}
                                     </select>
                                 </div>

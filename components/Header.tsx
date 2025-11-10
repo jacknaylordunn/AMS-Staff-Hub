@@ -67,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
     if (path === 'eprf') return 'Patient Report Form';
     if (path === 'reviews') return 'ePRF Reviews';
     if (path === 'reports') return 'Reporting';
-    if (path === 'events') return 'Time Clock';
+    if (path === 'time-clock') return 'Time Clock';
     if (path === 'inventory') return 'Inventory';
     if (path === 'controlled-drugs') return 'Controlled Drugs';
     if (path === 'major-incidents') return 'Major Incidents';

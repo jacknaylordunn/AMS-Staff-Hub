@@ -21,6 +21,7 @@ export interface User {
   registrationNumber?: string;
   createdAt?: firestore.Timestamp;
   complianceDocuments?: ComplianceDocument[];
+  fcmTokens?: string[];
 }
 
 export interface Patient {
@@ -35,14 +36,6 @@ export interface Patient {
     medications: string;
     medicalHistory: string;
     createdAt: firestore.Timestamp;
-}
-
-export interface EventLog {
-    id?: string;
-    name: string;
-    date: string;
-    location: string;
-    status?: 'Upcoming' | 'Active' | 'Completed';
 }
 
 export interface AuditEntry {
@@ -70,7 +63,8 @@ export interface EPRFForm {
   status?: 'Draft' | 'Pending Review' | 'Reviewed';
   // Linking IDs
   patientId: string | null;
-  eventId: string | null;
+  // FIX: Added shiftId to correctly link ePRF to a shift from the rota.
+  shiftId: string | null;
   eventName: string | null;
 
   presentationType: 'Medical/Trauma' | 'Minor Injury' | 'Welfare/Intox';
@@ -292,17 +286,22 @@ export interface CompanyDocument {
   version: string;
 }
 
+export interface ShiftSlot {
+  id: string;
+  roleRequired: Exclude<User['role'], undefined | 'Pending' | 'Admin' | 'Manager'>;
+  assignedStaff: { uid: string; name: string; } | null;
+  bids: { uid: string; name: string; timestamp: firestore.Timestamp; }[];
+}
+
 export interface Shift {
   id?: string;
-  eventId: string;
   eventName: string;
+  location: string;
   start: firestore.Timestamp;
   end: firestore.Timestamp;
-  status: 'Open' | 'Assigned' | 'Completed';
-  assignedStaff: { uid: string; name: string; }[];
-  assignedStaffUids: string[]; // For efficient querying
-  bids: { uid: string; name: string; timestamp: firestore.Timestamp; }[];
-  roleRequired: string;
+  status: 'Open' | 'Partially Assigned' | 'Fully Assigned' | 'Completed';
+  slots: ShiftSlot[];
+  allAssignedStaffUids: string[]; // For efficient querying. Aggregates all assigned UIDs from slots.
   notes?: string;
   isUnavailability?: boolean;
   unavailabilityReason?: string;
@@ -318,7 +317,6 @@ export interface TimeClockEntry {
   userName: string;
   shiftId: string;
   shiftName: string;
-  eventId: string;
   clockInTime: firestore.Timestamp;
   clockOutTime?: firestore.Timestamp;
   clockInLocation?: firestore.GeoPoint;

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getShiftById } from '../services/rotaService';
-import { getEventById } from '../services/eventService';
 import { getVehicleById, addVehicleCheck } from '../services/assetService';
 import { getKitById, addKitCheck } from '../services/inventoryService';
-import type { Shift, EventLog, Vehicle, Kit, VehicleCheck, KitCheck } from '../types';
+import type { Shift, Vehicle, Kit, VehicleCheck, KitCheck } from '../types';
 import { SpinnerIcon, RotaIcon, ClockIcon, PatientsIcon, AmbulanceIcon, BoxIcon, CheckIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
@@ -29,7 +28,6 @@ const EventBrief: React.FC = () => {
     const { shiftId } = useParams<{ shiftId: string }>();
     const { user } = useAuth();
     const [shift, setShift] = useState<Shift | null>(null);
-    const [event, setEvent] = useState<EventLog | null>(null);
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
     const [kits, setKits] = useState<Kit[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,7 +53,7 @@ const EventBrief: React.FC = () => {
             }
             setShift(shiftData);
 
-            const promises: Promise<any>[] = [getEventById(shiftData.eventId)];
+            const promises: Promise<any>[] = [];
             if (shiftData.assignedVehicleId) {
                 promises.push(getVehicleById(shiftData.assignedVehicleId));
             } else {
@@ -68,9 +66,8 @@ const EventBrief: React.FC = () => {
                 promises.push(Promise.resolve([]));
             }
 
-            const [eventData, vehicleData, kitsData] = await Promise.all(promises);
+            const [vehicleData, kitsData] = await Promise.all(promises);
             
-            setEvent(eventData as EventLog | null);
             setVehicle(vehicleData as Vehicle | null);
             setKits((kitsData as (Kit | null)[]).filter(Boolean) as Kit[]);
 
@@ -121,6 +118,12 @@ const EventBrief: React.FC = () => {
     if (loading) return <div className="flex justify-center items-center p-10"><SpinnerIcon className="w-12 h-12 text-ams-blue" /></div>;
     if (!shift) return <div className="text-center p-10">Shift not found.</div>;
 
+    // FIX: Get user's role and colleagues from the shift's slots array.
+    const mySlot = shift?.slots.find(s => s.assignedStaff?.uid === user?.uid);
+    const colleagues = shift?.slots
+        .map(s => s.assignedStaff)
+        .filter((s): s is { uid: string; name: string } => !!s && s.uid !== user?.uid) || [];
+
     return (
         <div>
             {isVehicleCheckModalOpen && vehicle && user && (
@@ -147,17 +150,17 @@ const EventBrief: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <InfoCard title="Event Details" icon={<RotaIcon className="w-6 h-6" />}>
-                    <p><strong>Date:</strong> {event?.date}</p>
-                    <p><strong>Location:</strong> {event?.location}</p>
+                    <p><strong>Date:</strong> {shift.start.toDate().toLocaleDateString()}</p>
+                    <p><strong>Location:</strong> {shift.location}</p>
                 </InfoCard>
                 <InfoCard title="Your Shift" icon={<ClockIcon className="w-6 h-6" />}>
-                    <p><strong>Role:</strong> {shift.roleRequired}</p>
+                    <p><strong>Role:</strong> {mySlot?.roleRequired}</p>
                     <p><strong>Time:</strong> {shift.start.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {shift.end.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     {shift.notes && <p><strong>Notes:</strong> {shift.notes}</p>}
                 </InfoCard>
                 <InfoCard title="Assigned Colleagues" icon={<PatientsIcon className="w-6 h-6" />}>
-                    {shift.assignedStaff.length > 1 ? (
-                         <ul>{shift.assignedStaff.map(s => <li key={s.uid}>{s.name}</li>)}</ul>
+                    {colleagues.length > 0 ? (
+                         <ul>{colleagues.map(s => <li key={s.uid}>{s.name}</li>)}</ul>
                     ) : (
                         <p>You are the only staff member assigned to this shift.</p>
                     )}

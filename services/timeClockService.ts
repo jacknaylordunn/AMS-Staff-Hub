@@ -19,12 +19,14 @@ export const getActiveClockInForUser = async (userId: string): Promise<TimeClock
 };
 
 export const clockIn = async (shift: Shift, user: User, location: GeolocationCoordinates | null): Promise<TimeClockEntry> => {
+    const mySlot = shift.slots.find(s => s.assignedStaff?.uid === user.uid);
+    const roleForShiftName = mySlot ? mySlot.roleRequired : 'Staff';
+
     const newEntryData: Omit<TimeClockEntry, 'id'> = {
         userId: user.uid,
         userName: `${user.firstName} ${user.lastName}`.trim(),
         shiftId: shift.id!,
-        shiftName: `${shift.roleRequired} at ${shift.eventName}`,
-        eventId: shift.eventId,
+        shiftName: `${roleForShiftName} at ${shift.eventName}`,
         clockInTime: firestore.Timestamp.now(),
         status: 'Clocked In',
         ...(location && { clockInLocation: new firestore.GeoPoint(location.latitude, location.longitude) }),

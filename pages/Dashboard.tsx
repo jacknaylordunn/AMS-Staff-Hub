@@ -5,7 +5,7 @@ import { useAppContext } from '../hooks/useAppContext';
 import { getAllDraftsForUser, getPendingEPRFs } from '../services/eprfService';
 import { getShiftsForUser } from '../services/rotaService';
 import { getActiveIncidents } from '../services/majorIncidentService';
-import { getUsers } from '../services/userService';
+import { getUsers, saveFCMToken } from '../services/userService';
 import { getVehicles } from '../services/assetService';
 import type { EPRFForm, Shift, MajorIncident, User as AppUser, Vehicle } from '../types';
 import { EprfIcon, RotaIcon, QrCodeIcon, ShieldExclamationIcon, ClockIcon, ChartIcon, PatientsIcon, AmbulanceIcon } from '../components/icons';
@@ -14,6 +14,7 @@ import QrScannerModal from '../components/QrScannerModal';
 import StaffCheckInModal from '../components/StaffCheckInModal';
 import MethaneReportModal from '../components/MethaneReportModal';
 import HubFeed from '../components/HubFeed';
+import { messaging, VAPID_KEY } from '../services/firebase';
 
 // New Card Components
 const AtAGlanceCard: React.FC<{ icon: React.ReactNode, title: string, text: string, to: string, color: string }> = ({ icon, title, text, to, color }) => (
@@ -71,6 +72,15 @@ const Dashboard: React.FC = () => {
     const [isScannerOpen, setScannerOpen] = useState(false);
     const [isCheckInOpen, setCheckInOpen] = useState(false);
     const [isMethaneOpen, setMethaneOpen] = useState(false);
+    
+    // Notifications
+    const [showNotifBanner, setShowNotifBanner] = useState(false);
+
+    useEffect(() => {
+        if (messaging && Notification.permission === 'default') {
+            setShowNotifBanner(true);
+        }
+    }, []);
 
     useEffect(() => {
         if (user) {
@@ -130,6 +140,27 @@ const Dashboard: React.FC = () => {
         }
     };
     
+    const handleEnableNotifications = async () => {
+        if (!messaging || !user) return;
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+                if (token) {
+                    await saveFCMToken(user.uid, token);
+                    showToast('Notifications enabled!', 'success');
+                    setShowNotifBanner(false);
+                }
+            } else {
+                showToast('Notification permission was denied.', 'info');
+                setShowNotifBanner(false);
+            }
+        } catch (error) {
+            console.error("Error enabling notifications", error);
+            showToast('Could not enable notifications.', 'error');
+        }
+    };
+    
     const renderAtAGlance = () => {
         if (activeIncident) {
             return <AtAGlanceCard 
@@ -185,6 +216,16 @@ const Dashboard: React.FC = () => {
             {activeIncident && user && <MethaneReportModal isOpen={isMethaneOpen} onClose={() => setMethaneOpen(false)} incident={activeIncident} user={user} />}
 
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Welcome back, {user?.firstName}!</h1>
+            
+            {showNotifBanner && (
+                <div className="bg-ams-light-blue text-white p-4 rounded-lg mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <p className="font-medium">Enable notifications to receive important alerts, like major incidents, even when the app is closed.</p>
+                    <div className="flex-shrink-0">
+                        <button onClick={handleEnableNotifications} className="px-4 py-2 bg-white text-ams-blue font-bold rounded-md shadow-md hover:bg-gray-200">Enable</button>
+                        <button onClick={() => setShowNotifBanner(false)} className="ml-4 font-bold opacity-80 hover:opacity-100">Dismiss</button>
+                    </div>
+                </div>
+            )}
             
             <div className="mb-8">{renderAtAGlance()}</div>
             

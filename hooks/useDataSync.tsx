@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, ReactNode, useCallback, us
 import { useAuth } from './useAuth';
 import { useOnlineStatus } from './useOnlineStatus';
 import { getDocuments } from '../services/documentService';
-import { getEvents } from '../services/eventService';
 import { getUsers } from '../services/userService';
 import { getShiftsForUser } from '../services/rotaService';
 import { getEPRFsToSyncSignatures, updateSyncedSignatures } from '../services/eprfService';
@@ -83,7 +82,6 @@ export const DataSyncProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
             await Promise.all([
                 getDocuments(),
-                getEvents(),
                 isManager ? getUsers() : Promise.resolve(),
                 (async () => {
                     if (user) {

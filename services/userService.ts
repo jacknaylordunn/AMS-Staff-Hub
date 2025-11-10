@@ -76,3 +76,17 @@ export const rejectRoleChange = async (uid: string) => {
     });
     // Notification is now handled by a cloud function.
 };
+
+export const saveFCMToken = async (uid: string, token: string) => {
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, {
+        fcmTokens: firestore.arrayUnion(token)
+    });
+};
+
+export const removeFCMToken = async (uid: string, token: string) => {
+    const userRef = firestore.doc(db, 'users', uid);
+    await firestore.updateDoc(userRef, {
+        fcmTokens: firestore.arrayRemove(token)
+    });
+};

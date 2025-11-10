@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppProvider } from './hooks/useAppContext';
@@ -17,7 +17,7 @@ import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
-import Events from './pages/Events';
+import TimeClock from './pages/TimeClock';
 import EPRFReviews from './pages/EPRFReviews';
 import Inventory from './pages/Inventory';
 import VehicleDetail from './pages/VehicleDetail';
@@ -38,7 +38,7 @@ import PrintAsset from './pages/PrintAsset';
 import EventBrief from './pages/EventBrief';
 import LiveAssetDashboard from './pages/LiveAssetDashboard';
 import * as firebaseAuth from 'firebase/auth';
-import { auth } from './services/firebase';
+import { auth, messaging } from './services/firebase';
 import { showToast } from './components/Toast';
 import { SpinnerIcon } from './components/icons';
 import EmailVerification from './components/EmailVerification';
@@ -78,6 +78,22 @@ const PendingApproval: React.FC = () => {
 
 const AppRoutes: React.FC = () => {
     const { user, loading, isEmailVerified } = useAuth();
+
+    useEffect(() => {
+        if (user && messaging && Notification.permission === 'granted') {
+            // This listener handles messages received while the app is in the foreground.
+            const unsubscribe = messaging.onMessage((payload) => {
+                console.log('Foreground message received.', payload);
+                if (payload.notification) {
+                     showToast(
+                        `${payload.notification.title}: ${payload.notification.body}`,
+                        'info'
+                    );
+                }
+            });
+            return unsubscribe;
+        }
+    }, [user]);
 
     if (loading) {
         return (
@@ -129,7 +145,7 @@ const AppRoutes: React.FC = () => {
                 <ReactRouterDOM.Route path="profile" element={<Profile />} />
                 <ReactRouterDOM.Route path="patients" element={<Patients />} />
                 <ReactRouterDOM.Route path="patients/:patientId" element={<PatientDetail />} />
-                <ReactRouterDOM.Route path="events" element={<Events />} />
+                <ReactRouterDOM.Route path="time-clock" element={<TimeClock />} />
                 <ReactRouterDOM.Route path="brief/:shiftId" element={<EventBrief />} />
                  <ReactRouterDOM.Route 
                     path="reviews" 

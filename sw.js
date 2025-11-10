@@ -1,3 +1,43 @@
+self.importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
+self.importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCXi3QZphKo0pnyP6IIgS_dVL0rWxpTE5Y",
+  authDomain: "aegis-staff-hub.firebaseapp.com",
+  projectId: "aegis-staff-hub",
+  storageBucket: "aegis-staff-hub.appspot.com",
+  messagingSenderId: "645411821335",
+  appId: "1:645411821335:web:a3317a2caec51ec55c0952",
+  measurementId: "G-1M3EW6SJZL"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[sw.js] Received background message ', payload);
+  
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: '/icons/icon-192.png',
+    data: {
+        url: payload.fcmOptions.link
+    }
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const urlToOpen = event.notification.data.url || '/';
+    event.waitUntil(
+        self.clients.openWindow(urlToOpen)
+    );
+});
+
 
 const CACHE_NAME = 'aegis-hub-cache-v2';
 const urlsToCache = [

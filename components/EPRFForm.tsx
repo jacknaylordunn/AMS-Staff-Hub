@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
 import * as firestore from 'firebase/firestore';
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, EventLog } from '../../types';
+// FIX: Replaced undefined 'EventLog' with 'Shift' type.
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, Shift } from '../../types';
 import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ChevronLeftIcon, ChevronRightIcon, QuestionMarkCircleIcon, ShieldExclamationIcon, DocsIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { addPatient } from '../services/patientService';
 import { updateEPRF, finalizeEPRF, deleteEPRF } from '../services/eprfService';
-import { getEvents } from '../services/eventService';
+// FIX: Replaced obsolete 'eventService' with 'rotaService' to fetch shifts.
+import { getShiftsForDateRange } from '../services/rotaService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { showToast } from '../components/Toast';
@@ -225,7 +227,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const [allStaff, setAllStaff] = useState<AppUser[]>([]);
     const [seniorClinicians, setSeniorClinicians] = useState<AppUser[]>([]);
-    const [availableEvents, setAvailableEvents] = useState<EventLog[]>([]);
+    const [availableShifts, setAvailableShifts] = useState<Shift[]>([]);
     const [currentStep, setCurrentStep] = useState(1);
     
     const [isSafeguardingModalOpen, setSafeguardingModalOpen] = useState(false);
@@ -250,10 +252,17 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             const seniors = users.filter(u => u.uid !== user?.uid && ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'].includes(u.role || ''));
             setSeniorClinicians(seniors);
         });
-        if (!state.eventId) {
-            getEvents().then(events => setAvailableEvents(events.filter(e => e.status !== 'Completed')));
+        // FIX: Replaced logic using 'eventId' with 'shiftId' and fetched shifts instead of events.
+        if (!state.shiftId) {
+            const start = new Date();
+            const end = new Date();
+            end.setDate(start.getDate() + 90); // Look 90 days ahead for shifts.
+            getShiftsForDateRange(start, end).then(shifts => {
+                const upcoming = shifts.filter(s => s.status !== 'Completed' && !s.isUnavailability);
+                setAvailableShifts(upcoming);
+            });
         }
-    }, [state.eventId, user]);
+    }, [state.shiftId, user]);
 
     useEffect(() => {
         if (state.status !== 'Draft') return;
@@ -338,7 +347,7 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     
     const validateForm = (): boolean => {
         const errors: string[] = [];
-        if (!state.eventId) errors.push("An event must be selected for this report.");
+        if (!state.shiftId) errors.push("An event/shift must be selected for this report.");
         if (!state.patientName.trim()) errors.push("Patient name is required.");
         if (!state.incidentNumber.trim()) errors.push("Incident Number must be generated.");
         if (!state.incidentDate || !state.incidentTime) errors.push("Incident date and time are required.");
@@ -398,7 +407,8 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     
     const renderStep = () => {
         const stepName = steps[currentStep-1];
-        const stepProps = { state, dispatch, user, allStaff, availableEvents, isSaving, setWitnessModalOpen, setMedicationToWitnessIndex };
+        // FIX: Changed prop name from 'availableEvents' to 'availableShifts' to match Step1_Incident's props.
+        const stepProps = { state, dispatch, user, allStaff, availableShifts, isSaving, setWitnessModalOpen, setMedicationToWitnessIndex };
         
         switch (stepName) {
             case 'Incident':

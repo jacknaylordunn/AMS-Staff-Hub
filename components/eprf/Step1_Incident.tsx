@@ -1,5 +1,6 @@
 import React from 'react';
-import type { EPRFForm, EventLog } from '../../types';
+// FIX: Replaced undefined 'EventLog' with 'Shift' to align with current data model.
+import type { EPRFForm, Shift } from '../../types';
 import { Section, InputField, SelectField } from './FormControls';
 import TaggableInput from '../TaggableInput';
 import { SpinnerIcon, ClockIcon } from '../icons';
@@ -9,11 +10,12 @@ import { showToast } from '../Toast';
 interface Step1Props {
     state: EPRFForm;
     dispatch: React.Dispatch<any>;
-    availableEvents: EventLog[];
+    // FIX: Changed prop name and type from 'availableEvents: EventLog[]' to 'availableShifts: Shift[]'.
+    availableShifts: Shift[];
     isSaving: boolean;
 }
 
-const Step1_Incident: React.FC<Step1Props> = ({ state, dispatch, availableEvents, isSaving }) => {
+const Step1_Incident: React.FC<Step1Props> = ({ state, dispatch, availableShifts, isSaving }) => {
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -39,18 +41,30 @@ const Step1_Incident: React.FC<Step1Props> = ({ state, dispatch, availableEvents
         }
     };
     
+    // FIX: Added handler for shift selection to update multiple fields in the form state.
+    const handleShiftChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const shiftId = e.target.value;
+        const selectedShift = availableShifts.find(s => s.id === shiftId);
+        dispatch({ type: 'UPDATE_FIELD', field: 'shiftId', payload: shiftId });
+        if (selectedShift) {
+            dispatch({ type: 'UPDATE_FIELD', field: 'eventName', payload: selectedShift.eventName });
+            dispatch({ type: 'UPDATE_FIELD', field: 'incidentLocation', payload: selectedShift.location });
+        }
+    };
+
     const commonAgencies = ['Police', 'Fire & Rescue', 'HART', 'Security'];
 
     return (
         <div>
             <Section title="Incident & Triage">
-                {!state.eventId ? (
-                    <SelectField label="Select Event*" name="eventId" value={state.eventId || ''} onChange={handleChange} className="md:col-span-2" required>
+                {/* FIX: Changed logic to handle shift selection instead of obsolete eventId. */}
+                {!state.shiftId ? (
+                    <SelectField label="Select Event*" name="shiftId" value={state.shiftId || ''} onChange={handleShiftChange} className="md:col-span-2" required>
                         <option value="">-- Please select an event --</option>
-                        {availableEvents.map(event => <option key={event.id} value={event.id}>{event.name} ({event.date})</option>)}
+                        {availableShifts.map(shift => <option key={shift.id} value={shift.id}>{shift.eventName} ({shift.start.toDate().toLocaleDateString()})</option>)}
                     </SelectField>
                 ) : (
-                    <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" />
+                    <InputField label="Event Name" name="eventName" value={state.eventName || ''} onChange={handleChange} className="md:col-span-2" disabled/>
                 )}
                  <SelectField label="Nature of Call" name="natureOfCall" value={state.natureOfCall} onChange={handleChange}>
                     <option>Emergency</option>
@@ -75,7 +89,7 @@ const Step1_Incident: React.FC<Step1Props> = ({ state, dispatch, availableEvents
                 </div>
             </Section>
             <Section title="Event & Timestamps">
-                <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" />
+                <InputField label="Location" name="incidentLocation" value={state.incidentLocation} onChange={handleChange} className="md:col-span-4" disabled={!!state.shiftId} />
                 <InputField label="Incident Date" name="incidentDate" value={state.incidentDate} onChange={handleChange} type="date" required/>
                 <div className="relative"><label className="block text-sm font-medium text-gray-700 dark:text-gray-400">Incident Time*</label><input type="time" name="incidentTime" value={state.incidentTime} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required /><button type="button" onClick={handleSetTimeToNow('incidentTime')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
                 <div className="relative md:col-span-1"><label className="block text-sm font-medium text-gray-700 dark:text-gray-400">Time of Call</label><input type="time" name="timeOfCall" value={state.timeOfCall || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" /><button type="button" onClick={handleSetTimeToNow('timeOfCall')} className="absolute top-1 right-1 p-1 text-gray-400 hover:text-ams-blue"><ClockIcon className="w-4 h-4" /></button></div>
