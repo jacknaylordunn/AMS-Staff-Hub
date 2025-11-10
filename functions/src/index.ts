@@ -18,6 +18,15 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
+// Helper function to determine shift status based on filled slots
+const getShiftStatus = (slotsArr: any[]): string => {
+    const totalSlots = slotsArr.length;
+    const filledSlots = slotsArr.filter((s: any) => s.assignedStaff).length;
+    if (filledSlots === 0) return 'Open';
+    if (filledSlots < totalSlots) return 'Partially Assigned';
+    return 'Fully Assigned';
+};
+
 
 // FIX: Updated to onCall v2 syntax.
 export const askClinicalAssistant = onCall(
@@ -604,15 +613,7 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
                 slots[slotIndex].bids = [];
             }
             
-            const getShiftStatus = (slotsArr: any[]) => {
-                const totalSlots = slotsArr.length;
-                const filledSlots = slotsArr.filter(s => s.assignedStaff).length;
-                if (filledSlots === 0) return 'Open';
-                if (filledSlots < totalSlots) return 'Partially Assigned';
-                return 'Fully Assigned';
-            };
-
-            const allAssignedStaffUids = slots.map(s => s.assignedStaff?.uid).filter(Boolean);
+            const allAssignedStaffUids = slots.map((s: any) => s.assignedStaff?.uid).filter(Boolean);
             const status = getShiftStatus(slots);
 
             transaction.update(shiftRef, { 
