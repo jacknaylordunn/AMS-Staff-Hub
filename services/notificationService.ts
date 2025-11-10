@@ -17,12 +17,13 @@ export const listenToNotificationsForUser = (userId: string, callback: (notifica
     const notificationsCol = firestore.collection(db, 'notifications');
     const q = firestore.query(notificationsCol,
         firestore.where('userId', '==', userId),
-        firestore.orderBy('createdAt', 'desc'),
-        firestore.limit(10));
+        firestore.limit(20));
     
     return firestore.onSnapshot(q, (snapshot) => {
         const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-        callback(notifications);
+        // Sort client-side to avoid needing a composite index
+        notifications.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        callback(notifications.slice(0, 10)); // Apply limit after sorting
     });
 };
 

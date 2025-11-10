@@ -340,3 +340,153 @@ export const onEprfUpdate = functions.firestore.document("eprfs/{eprfId}")
     }
     return null;
   });
+
+export const getSeniorClinicians = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
+    }
+    
+    const seniorRoles = ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'];
+    
+    // Also check if the person requesting the list is a senior clinician
+    const requesterDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
+    const requesterData = requesterDoc.data();
+    if (!requesterData || !seniorRoles.includes(requesterData.role)) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "User must be a senior clinician to access this list."
+        );
+    }
+
+    const db = admin.firestore();
+    const usersSnapshot = await db.collection("users").where("role", "in", seniorRoles).get();
+    
+    const clinicians = usersSnapshot.docs.map(doc => {
+        const user = doc.data();
+        return {
+            uid: doc.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+        };
+    });
+
+    return { clinicians };
+  }
+);
+
+export const getStaffListForKudos = functions.https.onCall(
+    async (data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError(
+                "unauthenticated",
+                "The function must be called while authenticated."
+            );
+        }
+
+        const db = admin.firestore();
+        const usersSnapshot = await db.collection("users").where("role", "!=", "Pending").get();
+
+        const staffList = usersSnapshot.docs.map((doc) => {
+            const user = doc.data();
+            return {
+                uid: doc.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+            };
+        });
+
+        return { staff: staffList };
+    }
+);
+
+// Bidding Cloud Functions
+export const bidOnShift = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be authenticated to bid.");
+    }
+    const { shiftId, slotId } = data;
+    if (!shiftId || !slotId) {
+        throw new functions.https.HttpsError("invalid-argument", "shiftId and slotId are required.");
+    }
+
+    const userDoc = await admin.firestore().collection('users').doc(context.auth.uid).get();
+    const userData = userDoc.data();
+    if (!userData) {
+        throw new functions.https.HttpsError("not-found", "User profile not found.");
+    }
+
+    const user = {
+        uid: context.auth.uid,
+        name: `${userData.firstName} ${userData.lastName}`.trim(),
+    };
+    
+    const shiftRef = admin.firestore().collection('shifts').doc(shiftId);
+    
+    return admin.firestore().runTransaction(async (transaction) => {
+        const shiftDoc = await transaction.get(shiftRef);
+        if (!shiftDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'Shift not found.');
+        }
+        
+        const shiftData = shiftDoc.data() as any; // Cast to Shift type if available
+        const slotIndex = shiftData.slots.findIndex((s: any) => s.id === slotId);
+
+        if (slotIndex === -1) {
+            throw new functions.https.HttpsError('not-found', 'Slot not found.');
+        }
+        if (shiftData.slots[slotIndex].assignedStaff) {
+             throw new functions.https.HttpsError('failed-precondition', 'Slot is already assigned.');
+        }
+        const hasBid = shiftData.slots[slotIndex].bids.some((b: any) => b.uid === user.uid);
+        if (hasBid) {
+            throw new functions.https.HttpsError('already-exists', 'You have already bid on this slot.');
+        }
+
+        shiftData.slots[slotIndex].bids.push({ ...user, timestamp: admin.firestore.FieldValue.serverTimestamp() });
+        transaction.update(shiftRef, { slots: shiftData.slots });
+        return { success: true };
+    });
+});
+
+export const cancelBidOnShift = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
+    }
+    const { shiftId, slotId } = data;
+    if (!shiftId || !slotId) {
+        throw new functions.https.HttpsError("invalid-argument", "shiftId and slotId are required.");
+    }
+
+    const shiftRef = admin.firestore().collection('shifts').doc(shiftId);
+
+    return admin.firestore().runTransaction(async (transaction) => {
+        const shiftDoc = await transaction.get(shiftRef);
+        if (!shiftDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'Shift not found.');
+        }
+
+        const shiftData = shiftDoc.data() as any;
+        const slotIndex = shiftData.slots.findIndex((s: any) => s.id === slotId);
+        if (slotIndex === -1) {
+            throw new functions.https.HttpsError('not-found', 'Slot not found.');
+        }
+
+        const initialBidCount = shiftData.slots[slotIndex].bids.length;
+        shiftData.slots[slotIndex].bids = shiftData.slots[slotIndex].bids.filter((b: any) => b.uid !== context.auth!.uid);
+
+        if (initialBidCount === shiftData.slots[slotIndex].bids.length) {
+            // No bid was removed, which is not an error, just an FYI.
+            return { success: true, message: "No bid found to withdraw." };
+        }
+
+        transaction.update(shiftRef, { slots: shiftData.slots });
+        return { success: true };
+    });
+});

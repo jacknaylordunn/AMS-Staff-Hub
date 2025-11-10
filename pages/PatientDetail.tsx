@@ -165,14 +165,14 @@ const PatientDetail: React.FC = () => {
 
 
     useEffect(() => {
-        if (!patientId) return;
+        if (!patientId || !user) return;
 
         const fetchData = async () => {
             setLoading(true);
             try {
                 const [patientData, eprfsData] = await Promise.all([
                     getPatientById(patientId),
-                    getEPRFsForPatient(patientId)
+                    getEPRFsForPatient(patientId, user)
                 ]);
                 setPatient(patientData);
                 setEprfs(eprfsData);
@@ -194,7 +194,7 @@ const PatientDetail: React.FC = () => {
         };
 
         fetchData();
-    }, [patientId, location.search]);
+    }, [patientId, location.search, user]);
     
     const treatmentSummary = useMemo(() => {
         const allMeds: (MedicationAdministered & { encounterDate: string })[] = [];

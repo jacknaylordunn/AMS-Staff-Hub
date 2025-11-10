@@ -19,7 +19,7 @@ export const getActiveClockInForUser = async (userId: string): Promise<TimeClock
 };
 
 export const clockIn = async (shift: Shift, user: User, location: GeolocationCoordinates | null): Promise<TimeClockEntry> => {
-    const mySlot = shift.slots.find(s => s.assignedStaff?.uid === user.uid);
+    const mySlot = (shift.slots || []).find(s => s.assignedStaff?.uid === user.uid);
     const roleForShiftName = mySlot ? mySlot.roleRequired : 'Staff';
 
     const newEntryData: Omit<TimeClockEntry, 'id'> = {

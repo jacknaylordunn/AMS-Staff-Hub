@@ -44,7 +44,7 @@ const StaffTimeClock: React.FC = () => {
             .then(shifts => {
                 const todayShifts = shifts.filter(s => 
                     !s.isUnavailability &&
-                    s.slots.some(slot => slot.assignedStaff?.uid === user.uid)
+                    (s.slots || []).some(slot => slot.assignedStaff?.uid === user.uid)
                 );
                 setUserShifts(todayShifts);
             })
@@ -115,7 +115,7 @@ const StaffTimeClock: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {userShifts.map(shift => {
                         // FIX: Find the user's specific slot to get their role for this shift.
-                        const mySlot = shift.slots.find(s => s.assignedStaff?.uid === user?.uid);
+                        const mySlot = (shift.slots || []).find(s => s.assignedStaff?.uid === user?.uid);
                         return (
                         <div key={shift.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col justify-between border-l-4 border-ams-blue dark:border-ams-light-blue">
                              <div>

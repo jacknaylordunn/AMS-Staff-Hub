@@ -237,13 +237,14 @@ const Rota: React.FC = () => {
                                         const biddableSlots = safeSlots.filter(s => !s.assignedStaff && isRoleOrHigher(user?.role, s.roleRequired)).length;
                                         const filledSlots = safeSlots.filter(s => s.assignedStaff).length;
                                         const totalSlots = safeSlots.length;
+                                        const status = shift.status || 'Open';
 
                                         let bgColor = 'bg-gray-400 dark:bg-gray-600';
                                         if (shift.isUnavailability) bgColor = 'bg-red-400 dark:bg-red-700';
                                         else if (isMyShift) bgColor = 'bg-ams-blue';
                                         else if (biddableSlots > 0 && !isManager) bgColor = 'bg-green-500';
-                                        else if (shift.status === 'Open' && isManager) bgColor = 'bg-yellow-500';
-                                        else if (shift.status === 'Partially Assigned' && isManager) bgColor = 'bg-orange-500';
+                                        else if (status === 'Open' && isManager) bgColor = 'bg-yellow-500';
+                                        else if (status === 'Partially Assigned' && isManager) bgColor = 'bg-orange-500';
                                         
                                         const isClickable = isOnline && (isManager || isMyShift || biddableSlots > 0);
 

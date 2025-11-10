@@ -1,6 +1,6 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
-import type { EPRFForm, AuditEntry, MedicationAdministered } from '../types';
+import type { EPRFForm, AuditEntry, MedicationAdministered, User as AppUser } from '../types';
 import { addLedgerEntry } from './drugLedgerService';
 
 // Removes 'id' and any 'undefined' values before saving to Firestore.
@@ -85,13 +85,15 @@ export const getAllDraftsForUser = async (userId: string): Promise<EPRFForm[]> =
     const eprfsCol = firestore.collection(db, 'eprfs');
     const q = firestore.query(eprfsCol,
         firestore.where('createdBy.uid', '==', userId),
-        firestore.where('status', '==', 'Draft'),
-        firestore.orderBy('createdAt', 'desc'));
+        firestore.where('status', '==', 'Draft'));
      const snapshot = await firestore.getDocs(q);
     if (snapshot.empty) {
         return [];
     }
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
+    const drafts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EPRFForm));
+    // Sort client-side to avoid needing a composite index
+    drafts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    return drafts;
 }
 
 export const getEPRFById = async (eprfId: string): Promise<EPRFForm | null> => {
@@ -163,12 +165,31 @@ export const deleteEPRF = async (eprfId: string): Promise<void> => {
 };
 
 
-export const getEPRFsForPatient = async (patientId: string): Promise<EPRFForm[]> => {
+export const getEPRFsForPatient = async (patientId: string, user: AppUser): Promise<EPRFForm[]> => {
     const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, firestore.where('patientId', '==', patientId), firestore.orderBy('createdAt', 'desc'));
+    const isManager = user.role === 'Manager' || user.role === 'Admin';
+    let q;
+
+    if (isManager) {
+        // Managers can see all ePRFs for a patient. This query relies on rules allowing broad access for managers.
+        q = firestore.query(eprfsCol, firestore.where('patientId', '==', patientId));
+    } else {
+        // Non-managers can only see ePRFs for this patient that they created.
+        // This is a more secure query that works with the existing rules for all users.
+        q = firestore.query(eprfsCol, 
+            firestore.where('patientId', '==', patientId), 
+            firestore.where('createdBy.uid', '==', user.uid)
+        );
+    }
+
     const snapshot = await firestore.getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
-}
+    const eprfs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
+    
+    // Sort client-side to avoid needing composite indexes
+    eprfs.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    return eprfs;
+};
 
 export const getRecentEPRFsForUser = async (userId: string, limitCount: number = 5): Promise<EPRFForm[]> => {
     const eprfsCol = firestore.collection(db, 'eprfs');
@@ -184,9 +205,12 @@ export const getRecentEPRFsForUser = async (userId: string, limitCount: number =
 
 export const getPendingEPRFs = async (): Promise<EPRFForm[]> => {
     const eprfsCol = firestore.collection(db, 'eprfs');
-    const q = firestore.query(eprfsCol, firestore.where('status', '==', 'Pending Review'), firestore.orderBy('createdAt', 'desc'));
+    const q = firestore.query(eprfsCol, firestore.where('status', '==', 'Pending Review'));
     const snapshot = await firestore.getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
+    const reviews = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EPRFForm));
+    // Sort client-side to avoid needing a composite index
+    reviews.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    return reviews;
 };
 
 export const getAllFinalizedEPRFs = async (): Promise<EPRFForm[]> => {

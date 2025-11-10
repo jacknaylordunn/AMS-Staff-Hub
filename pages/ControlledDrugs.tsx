@@ -5,7 +5,7 @@ import type { ControlledDrugLedgerEntry, User } from '../types';
 import { SpinnerIcon, PlusIcon, PillIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import DrugLedgerModal from '../components/DrugLedgerModal';
-import { getUsers } from '../services/userService';
+import { getSeniorClinicians } from '../services/userService';
 
 const ControlledDrugs: React.FC = () => {
     const { user } = useAuth();
@@ -21,9 +21,8 @@ const ControlledDrugs: React.FC = () => {
             setLoading(false);
         });
 
-        getUsers().then(users => {
-            const seniorClinicians = users.filter(u => ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'].includes(u.role || ''));
-            setAllStaff(seniorClinicians);
+        getSeniorClinicians().then(users => {
+            setAllStaff(users);
         });
 
         return () => unsubscribe();

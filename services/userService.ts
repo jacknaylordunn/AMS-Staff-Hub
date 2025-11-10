@@ -1,5 +1,5 @@
 import * as firestore from 'firebase/firestore';
-import { db } from './firebase';
+import { db, functions } from './firebase';
 import type { User, ComplianceDocument } from '../types';
 
 // User Profile Functions
@@ -44,6 +44,20 @@ export const getUsers = async (): Promise<User[]> => {
     const usersCol = firestore.collection(db, 'users');
     const snapshot = await firestore.getDocs(firestore.query(usersCol, firestore.orderBy('lastName')));
     return snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as User));
+};
+
+export const getSeniorClinicians = async (): Promise<User[]> => {
+    const getSeniorCliniciansFn = functions.httpsCallable('getSeniorClinicians');
+    const result = await getSeniorCliniciansFn();
+    const data = result.data as { clinicians: User[] };
+    return data.clinicians;
+};
+
+export const getStaffListForKudos = async (): Promise<User[]> => {
+    const getStaffFn = functions.httpsCallable('getStaffListForKudos');
+    const result = await getStaffFn();
+    const data = result.data as { staff: User[] };
+    return data.staff;
 };
 
 export const listenToUsers = (callback: (users: User[]) => void): () => void => {

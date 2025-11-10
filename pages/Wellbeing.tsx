@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import type { Kudo, User, AnonymousFeedback } from '../types';
-import { getUsers } from '../services/userService';
+import { getStaffListForKudos } from '../services/userService';
 import { getKudos, addKudo, addAnonymousFeedback } from '../services/wellbeingService';
 import { SpinnerIcon, HeartIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
@@ -73,7 +73,7 @@ const KudosCorner: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [kudosList, staffList] = await Promise.all([getKudos(), getUsers()]);
+            const [kudosList, staffList] = await Promise.all([getKudos(), getStaffListForKudos()]);
             setKudos(kudosList);
             // Filter out the current user from the list of recipients
             setStaff(staffList.filter(s => s.uid !== user?.uid));

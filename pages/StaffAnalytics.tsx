@@ -58,7 +58,7 @@ const StaffAnalytics: React.FC = () => {
                 const durationHours = (shift.end.toMillis() - shift.start.toMillis()) / (1000 * 60 * 60);
 
                 // FIX: Iterate through slots to find assigned staff.
-                shift.slots.forEach(slot => {
+                (shift.slots || []).forEach(slot => {
                     if (slot.assignedStaff) {
                         const staff = slot.assignedStaff;
                         if (analytics[staff.uid]) {

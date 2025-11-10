@@ -1,4 +1,3 @@
-
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -10,7 +9,15 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+      return (
+          <div className="flex items-center justify-center h-screen bg-ams-blue dark:bg-gray-900">
+              <div className="text-white dark:text-gray-300 text-2xl animate-pulse">Loading Aegis Hub...</div>
+          </div>
+      );
+  }
 
   if (!user) {
     return <ReactRouterDOM.Navigate to="/login" replace />;

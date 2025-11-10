@@ -90,8 +90,8 @@ service cloud.firestore {
         allow read: if request.auth != null;
         // Managers can create any shift. Users can create their own unavailability.
         allow create: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.isUnavailability == true && request.auth.uid in request.resource.data.assignedStaffUids);
-        // Managers can update any shift. Users can update the 'bids' array to bid on shifts.
-        allow update: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bids']));
+        // Managers can update any shift. Bidding is now handled by Cloud Functions.
+        allow update: if isManagerOrAdmin(request.auth.uid);
         // Managers can delete shifts. Users can delete their own unavailability.
         allow delete: if isManagerOrAdmin(request.auth.uid) || (resource.data.isUnavailability == true && request.auth.uid in resource.data.assignedStaffUids);
     }

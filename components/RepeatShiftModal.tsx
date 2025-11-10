@@ -53,7 +53,7 @@ const RepeatShiftModal: React.FC<RepeatShiftModalProps> = ({ isOpen, onClose, sh
         const shiftDuration = shift.end.toMillis() - shift.start.toMillis();
 
         // FIX: Create new slots with cleared assignments and bids.
-        const newSlots = shift.slots.map(s => ({
+        const newSlots = (shift.slots || []).map(s => ({
             ...s,
             assignedStaff: null,
             bids: [],

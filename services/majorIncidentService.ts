@@ -14,9 +14,12 @@ export const getIncidents = async (): Promise<MajorIncident[]> => {
 
 export const getActiveIncidents = async (): Promise<MajorIncident[]> => {
     const incidentsCol = firestore.collection(db, 'majorIncidents');
-    const q = firestore.query(incidentsCol, firestore.where('status', '==', 'Active'), firestore.orderBy('declaredAt', 'desc'));
+    const q = firestore.query(incidentsCol, firestore.where('status', '==', 'Active'));
     const snapshot = await firestore.getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as MajorIncident));
+    const incidents = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as MajorIncident));
+    // Sort client-side to avoid needing a composite index
+    incidents.sort((a, b) => b.declaredAt.toMillis() - a.declaredAt.toMillis());
+    return incidents;
 }
 
 export const getIncidentById = async (incidentId: string): Promise<MajorIncident | null> => {

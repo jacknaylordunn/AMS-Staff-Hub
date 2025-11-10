@@ -119,8 +119,8 @@ const EventBrief: React.FC = () => {
     if (!shift) return <div className="text-center p-10">Shift not found.</div>;
 
     // FIX: Get user's role and colleagues from the shift's slots array.
-    const mySlot = shift?.slots.find(s => s.assignedStaff?.uid === user?.uid);
-    const colleagues = shift?.slots
+    const mySlot = (shift?.slots || []).find(s => s.assignedStaff?.uid === user?.uid);
+    const colleagues = (shift?.slots || [])
         .map(s => s.assignedStaff)
         .filter((s): s is { uid: string; name: string } => !!s && s.uid !== user?.uid) || [];
 

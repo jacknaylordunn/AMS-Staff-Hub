@@ -1,5 +1,5 @@
 import * as firestore from 'firebase/firestore';
-import { db } from './firebase';
+import { db, functions } from './firebase';
 import type { Shift, ShiftSlot, User } from '../types';
 import { createNotification } from './notificationService';
 import { showToast } from '../components/Toast';
@@ -101,35 +101,17 @@ export const deleteShift = async (shiftId: string): Promise<void> => {
     await firestore.deleteDoc(firestore.doc(db, 'shifts', shiftId));
 };
 
-export const bidOnShift = async (shiftId: string, slotId: string, user: { uid: string; name: string; }): Promise<void> => {
-    const shiftRef = firestore.doc(db, 'shifts', shiftId);
-    const shiftSnap = await firestore.getDoc(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("Shift not found");
-
-    const shiftData = shiftSnap.data() as Shift;
-    const slotIndex = shiftData.slots.findIndex(s => s.id === slotId);
-    if (slotIndex === -1) throw new Error("Slot not found");
-
-    shiftData.slots[slotIndex].bids.push({ ...user, timestamp: firestore.Timestamp.now() });
-
-    await firestore.updateDoc(shiftRef, { slots: shiftData.slots });
+export const bidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
+    const bidOnShiftFn = functions.httpsCallable('bidOnShift');
+    await bidOnShiftFn({ shiftId, slotId });
 };
 
-export const cancelBidOnShift = async (shiftId: string, slotId: string, userId: string): Promise<void> => {
-    const shiftRef = firestore.doc(db, 'shifts', shiftId);
-    const shiftSnap = await firestore.getDoc(shiftRef);
-    if (!shiftSnap.exists()) throw new Error("Shift not found");
-    
-    const shiftData = shiftSnap.data() as Shift;
-    const slotIndex = shiftData.slots.findIndex(s => s.id === slotId);
-    if (slotIndex === -1) throw new Error("Slot not found");
-
-    shiftData.slots[slotIndex].bids = shiftData.slots[slotIndex].bids.filter(bid => bid.uid !== userId);
-
-    await firestore.updateDoc(shiftRef, { slots: shiftData.slots });
+export const cancelBidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
+    const cancelBidOnShiftFn = functions.httpsCallable('cancelBidOnShift');
+    await cancelBidOnShiftFn({ shiftId, slotId });
 };
 
-export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; }) => {
+export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; } | null) => {
     const shiftRef = firestore.doc(db, 'shifts', shiftId);
     await firestore.runTransaction(db, async (transaction) => {
         const shiftSnap = await transaction.get(shiftRef);
@@ -139,9 +121,11 @@ export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: 
         const slotIndex = shiftData.slots.findIndex(s => s.id === slotId);
         if (slotIndex === -1) throw new Error("Slot not found");
 
-        // Assign staff and clear bids for the slot
+        // Assign staff (or null to unassign) and clear bids for the slot
         shiftData.slots[slotIndex].assignedStaff = staff;
-        shiftData.slots[slotIndex].bids = [];
+        if (staff) {
+            shiftData.slots[slotIndex].bids = [];
+        }
 
         // Recalculate top-level properties
         const allAssignedStaffUids = shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid);
@@ -155,9 +139,11 @@ export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: 
     });
 
     // Send notification outside the transaction
-    const shift = await getShiftById(shiftId);
-    if(shift) {
-        await createNotification(staff.uid, `You have been assigned to the shift: ${shift.eventName} on ${shift.start.toDate().toLocaleDateString()}`, `/brief/${shiftId}`);
+    if (staff) {
+        const shift = await getShiftById(shiftId);
+        if(shift) {
+            await createNotification(staff.uid, `You have been assigned to the shift: ${shift.eventName} on ${shift.start.toDate().toLocaleDateString()}`, `/brief/${shiftId}`);
+        }
     }
 };
 
