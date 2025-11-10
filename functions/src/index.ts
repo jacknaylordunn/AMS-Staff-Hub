@@ -317,8 +317,8 @@ export const handleUserUpdate = onDocumentUpdated("users/{userId}", async (event
     return null;
   });
 
-// FIX: Updated to onDocumentCreated v2 syntax.
-export const onKudoCreate = onDocumentCreated("kudos/{kudoId}", async (event) => {
+// FIX: Renamed function from onKudoCreate to handleKudoCreation to resolve deployment error.
+export const handleKudoCreation = onDocumentCreated("kudos/{kudoId}", async (event) => {
         const snap = event.data;
         if (!snap) return;
         const kudo = snap.data();
