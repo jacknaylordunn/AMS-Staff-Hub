@@ -309,8 +309,8 @@ export interface Shift {
   notes?: string;
   isUnavailability?: boolean;
   unavailabilityReason?: string;
-  assignedVehicleId?: string;
-  assignedVehicleName?: string;
+  assignedVehicleIds?: string[];
+  assignedVehicleNames?: string[];
   assignedKitIds?: string[];
   assignedKitNames?: string[];
 }

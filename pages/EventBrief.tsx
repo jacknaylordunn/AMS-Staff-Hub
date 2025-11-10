@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getShiftById } from '../services/rotaService';
@@ -29,11 +30,12 @@ const EventBrief: React.FC = () => {
     const { shiftId } = useParams<{ shiftId: string }>();
     const { user } = useAuth();
     const [shift, setShift] = useState<Shift | null>(null);
-    const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [kits, setKits] = useState<Kit[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [isVehicleCheckModalOpen, setVehicleCheckModalOpen] = useState(false);
+    const [selectedVehicleForCheck, setSelectedVehicleForCheck] = useState<Vehicle | null>(null);
     const [isKitCheckModalOpen, setKitCheckModalOpen] = useState(false);
     const [selectedKitForCheck, setSelectedKitForCheck] = useState<Kit | null>(null);
 
@@ -55,10 +57,11 @@ const EventBrief: React.FC = () => {
             setShift(shiftData);
 
             const promises: Promise<any>[] = [];
-            if (shiftData.assignedVehicleId) {
-                promises.push(getVehicleById(shiftData.assignedVehicleId));
+            if (shiftData.assignedVehicleIds && shiftData.assignedVehicleIds.length > 0) {
+                const vehiclePromises = shiftData.assignedVehicleIds.map(id => getVehicleById(id));
+                promises.push(Promise.all(vehiclePromises));
             } else {
-                promises.push(Promise.resolve(null));
+                promises.push(Promise.resolve([]));
             }
             if (shiftData.assignedKitIds && shiftData.assignedKitIds.length > 0) {
                 const kitPromises = shiftData.assignedKitIds.map(id => getKitById(id));
@@ -67,9 +70,9 @@ const EventBrief: React.FC = () => {
                 promises.push(Promise.resolve([]));
             }
 
-            const [vehicleData, kitsData] = await Promise.all(promises);
+            const [vehiclesData, kitsData] = await Promise.all(promises);
             
-            setVehicle(vehicleData as Vehicle | null);
+            setVehicles((vehiclesData as (Vehicle | null)[]).filter(Boolean) as Vehicle[]);
             setKits((kitsData as (Kit | null)[]).filter(Boolean) as Kit[]);
 
         } catch (err) {
@@ -85,15 +88,16 @@ const EventBrief: React.FC = () => {
     }, [shiftId]);
 
     const handleSaveVehicleCheck = async (checkData: Omit<VehicleCheck, 'id' | 'date'>) => {
-        if (!shift?.assignedVehicleId || !user) return;
+        if (!selectedVehicleForCheck?.id || !user) return;
         try {
-            await addVehicleCheck(shift.assignedVehicleId, checkData);
+            await addVehicleCheck(selectedVehicleForCheck.id, checkData);
             showToast("Vehicle check submitted successfully.", "success");
             fetchData(); // Refresh data
         } catch (e) {
             showToast("Failed to submit vehicle check.", "error");
         } finally {
             setVehicleCheckModalOpen(false);
+            setSelectedVehicleForCheck(null);
         }
     };
 
@@ -109,6 +113,11 @@ const EventBrief: React.FC = () => {
             setKitCheckModalOpen(false);
             setSelectedKitForCheck(null);
         }
+    };
+
+    const openVehicleCheckModal = (vehicle: Vehicle) => {
+        setSelectedVehicleForCheck(vehicle);
+        setVehicleCheckModalOpen(true);
     };
 
     const openKitCheckModal = (kit: Kit) => {
@@ -127,12 +136,12 @@ const EventBrief: React.FC = () => {
 
     return (
         <div>
-            {isVehicleCheckModalOpen && vehicle && user && (
+            {isVehicleCheckModalOpen && selectedVehicleForCheck && user && (
                 <VehicleCheckModal 
                     isOpen={isVehicleCheckModalOpen}
-                    onClose={() => setVehicleCheckModalOpen(false)}
+                    onClose={() => { setVehicleCheckModalOpen(false); setSelectedVehicleForCheck(null); }}
                     onSave={handleSaveVehicleCheck}
-                    vehicle={vehicle}
+                    vehicle={selectedVehicleForCheck}
                     user={user}
                 />
             )}
@@ -166,14 +175,18 @@ const EventBrief: React.FC = () => {
                         <p>You are the only staff member assigned to this shift.</p>
                     )}
                 </InfoCard>
-                <InfoCard title="Assigned Vehicle" icon={<AmbulanceIcon className="w-6 h-6" />}>
-                    {vehicle ? (
-                        <div className="flex justify-between items-center">
-                            <span>{vehicle.name} ({vehicle.registration})</span>
-                            <button onClick={() => setVehicleCheckModalOpen(true)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">Start Check</button>
-                        </div>
+                <InfoCard title="Assigned Vehicles" icon={<AmbulanceIcon className="w-6 h-6" />}>
+                    {vehicles.length > 0 ? (
+                        <ul className="space-y-2">
+                            {vehicles.map(v => (
+                                <li key={v.id} className="flex justify-between items-center">
+                                    <span>{v.name} ({v.registration})</span>
+                                    <button onClick={() => openVehicleCheckModal(v)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">Start Check</button>
+                                </li>
+                            ))}
+                        </ul>
                     ) : (
-                        <p>No vehicle assigned.</p>
+                        <p>No vehicles assigned.</p>
                     )}
                 </InfoCard>
                 <InfoCard title="Assigned Kits" icon={<BoxIcon className="w-6 h-6" />} className="lg:col-span-2">

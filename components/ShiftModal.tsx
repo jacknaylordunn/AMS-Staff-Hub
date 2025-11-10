@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 // FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp.
 import firebase from 'firebase/compat/app';
-// FIX: Replaced non-existent 'AppUser' with 'User' type.
 import type { Shift, ShiftSlot, User, Vehicle, Kit } from '../types';
 import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
@@ -39,11 +37,12 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         notes: '',
         isUnavailability: false,
         unavailabilityReason: '',
-        assignedVehicleId: '',
+        assignedVehicleIds: [] as string[],
         assignedKitIds: [] as string[],
-        slots: [] as ShiftSlot[],
     });
-    const [loading, setLoading] = useState(false);
+
+    const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isRepeatModalOpen, setRepeatModalOpen] = useState(false);
@@ -51,12 +50,29 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     const isManager = currentUser.role === 'Manager' || currentUser.role === 'Admin';
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) {
+            setCurrentShift(null); // Clear state when modal closes
+            return;
+        }
 
         const selectedDate = shift?.start.toDate() || date || new Date();
         const yyyyMMdd = selectedDate.toISOString().split('T')[0];
 
         if (shift) {
+            const deepCopiedShift = JSON.parse(JSON.stringify(shift)); // Deep copy to prevent mutation
+            
+            // Rehydrate Timestamps which are lost during JSON serialization.
+            deepCopiedShift.start = new firebase.firestore.Timestamp(deepCopiedShift.start.seconds, deepCopiedShift.start.nanoseconds);
+            deepCopiedShift.end = new firebase.firestore.Timestamp(deepCopiedShift.end.seconds, deepCopiedShift.end.nanoseconds);
+            deepCopiedShift.slots = (deepCopiedShift.slots || []).map((slot: any) => ({
+                ...slot,
+                bids: (slot.bids || []).map((bid: any) => ({
+                    ...bid,
+                    timestamp: new firebase.firestore.Timestamp(bid.timestamp.seconds, bid.timestamp.nanoseconds)
+                }))
+            }));
+            setCurrentShift(deepCopiedShift);
+
             setFormData({
                 eventName: shift.eventName,
                 location: shift.location,
@@ -65,37 +81,51 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 notes: shift.notes || '',
                 isUnavailability: shift.isUnavailability || false,
                 unavailabilityReason: shift.unavailabilityReason || '',
-                assignedVehicleId: shift.assignedVehicleId || '',
+                assignedVehicleIds: shift.assignedVehicleIds || [],
                 assignedKitIds: shift.assignedKitIds || [],
-                slots: JSON.parse(JSON.stringify(shift.slots || [])), // Deep copy
             });
         } else { // New Shift/Unavailability
             const defaultStart = type === 'unavailability' ? `${yyyyMMdd}T00:00` : `${yyyyMMdd}T09:00`;
             const defaultEnd = type === 'unavailability' ? `${yyyyMMdd}T23:59` : `${yyyyMMdd}T17:00`;
-            // FIX: Ensure role for unavailability is a valid ShiftSlot role.
             const nonClinicalRoles: Array<User['role']> = ['Admin', 'Manager', 'Pending'];
             const roleForUnavailability = (currentUser.role && !nonClinicalRoles.includes(currentUser.role))
                 ? currentUser.role as ShiftSlot['roleRequired']
-                : 'First Aider'; // Default for non-clinical roles
+                : 'First Aider';
 
             const initialSlots: ShiftSlot[] = type === 'unavailability' ?
                 [{ id: 'unavailability-slot', roleRequired: roleForUnavailability, assignedStaff: { uid: currentUser.uid, name: `${currentUser.firstName} ${currentUser.lastName}` }, bids: [] }] :
                 [{ id: Date.now().toString(), roleRequired: 'First Aider', assignedStaff: null, bids: [] }];
 
-            setFormData({
+            const newShiftData: Shift = {
                 eventName: '',
                 location: '',
-                start: defaultStart,
-                end: defaultEnd,
+                start: firebase.firestore.Timestamp.fromDate(new Date(defaultStart)),
+                end: firebase.firestore.Timestamp.fromDate(new Date(defaultEnd)),
                 notes: '',
                 isUnavailability: type === 'unavailability',
                 unavailabilityReason: '',
-                assignedVehicleId: '',
+                assignedVehicleIds: [],
                 assignedKitIds: [],
                 slots: initialSlots,
+                allAssignedStaffUids: type === 'unavailability' ? [currentUser.uid] : [],
+                status: 'Open',
+            };
+            setCurrentShift(newShiftData);
+
+            setFormData({
+                eventName: newShiftData.eventName,
+                location: newShiftData.location,
+                start: defaultStart,
+                end: defaultEnd,
+                notes: newShiftData.notes,
+                isUnavailability: newShiftData.isUnavailability,
+                unavailabilityReason: newShiftData.unavailabilityReason,
+                assignedVehicleIds: newShiftData.assignedVehicleIds || [],
+                assignedKitIds: newShiftData.assignedKitIds || [],
             });
         }
     }, [shift, date, type, currentUser, isOpen]);
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -116,11 +146,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         setFormData(newFormData);
     };
 
-    // Slot management functions for managers
-    const addSlot = () => setFormData(prev => ({ ...prev, slots: [...prev.slots, { id: Date.now().toString(), roleRequired: 'First Aider', assignedStaff: null, bids: [] }]}));
-    const removeSlot = (id: string) => setFormData(prev => ({ ...prev, slots: prev.slots.filter(s => s.id !== id) }));
+    const addSlot = () => setCurrentShift(prev => prev ? ({ ...prev, slots: [...prev.slots, { id: Date.now().toString(), roleRequired: 'First Aider', assignedStaff: null, bids: [] }]}) : null);
+    const removeSlot = (id: string) => setCurrentShift(prev => prev ? ({ ...prev, slots: prev.slots.filter(s => s.id !== id) }) : null);
     const handleSlotChange = (id: string, field: 'roleRequired', value: any) => {
-        setFormData(prev => ({ ...prev, slots: prev.slots.map(s => s.id === id ? { ...s, [field]: value } : s)}));
+        setCurrentShift(prev => prev ? ({ ...prev, slots: prev.slots.map(s => s.id === id ? { ...s, [field]: value } : s)}) : null);
     };
     
     const handleKitSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -128,29 +157,27 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         setFormData(prev => ({...prev, assignedKitIds: selectedIds}));
     };
 
+    const handleVehicleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedIds = Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value);
+        setFormData(prev => ({...prev, assignedVehicleIds: selectedIds}));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (type === 'shift' && formData.slots.length === 0) {
+        if (!currentShift || (type === 'shift' && currentShift.slots.length === 0)) {
             showToast("A shift must have at least one role slot.", "error");
             return;
         }
-        setLoading(true);
+        setIsProcessing(true);
         try {
             const shiftData: Omit<Shift, 'id'> = {
-                eventName: formData.eventName,
-                location: formData.location,
-                // FIX: Use compat 'Timestamp'.
+                ...currentShift,
+                ...formData,
                 start: firebase.firestore.Timestamp.fromDate(new Date(formData.start)),
                 end: firebase.firestore.Timestamp.fromDate(new Date(formData.end)),
-                notes: formData.notes,
-                isUnavailability: formData.isUnavailability,
-                unavailabilityReason: formData.unavailabilityReason,
-                slots: formData.slots,
                 allAssignedStaffUids: [], // will be calculated in service
                 status: 'Open', // will be calculated in service
-                assignedVehicleId: formData.assignedVehicleId || undefined,
-                assignedVehicleName: vehicles.find(v => v.id === formData.assignedVehicleId)?.name || undefined,
-                assignedKitIds: formData.assignedKitIds,
+                assignedVehicleNames: formData.assignedVehicleIds.map(id => vehicles.find(v => v.id === id)?.name || 'Unknown'),
                 assignedKitNames: formData.assignedKitIds.map(id => kits.find(k => k.id === id)?.name || 'Unknown'),
             };
             await onSave(shiftData);
@@ -159,19 +186,19 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             console.error("Failed to save shift:", error);
             showToast('Failed to save shift.', 'error');
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
 
     const handleDeleteConfirm = async () => {
-        if (!shift) return;
+        if (!currentShift) return;
         setIsDeleting(true);
         try {
-            await onDelete(shift.id!);
-            showToast(shift.isUnavailability ? "Unavailability removed." : "Shift deleted successfully.", "success");
+            await onDelete(currentShift.id!);
+            showToast(currentShift.isUnavailability ? "Unavailability removed." : "Shift deleted successfully.", "success");
             onClose();
         } catch (error) {
-            showToast(shift.isUnavailability ? "Failed to remove unavailability." : "Failed to delete shift.", "error");
+            showToast(currentShift.isUnavailability ? "Failed to remove unavailability." : "Failed to delete shift.", "error");
         } finally {
             setIsDeleting(false);
             setDeleteModalOpen(false);
@@ -179,69 +206,116 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     };
     
     const handleBid = async (slotId: string) => {
-        if (!shift?.id) return;
-        setLoading(true);
+        if (!currentShift?.id) return;
+        setIsProcessing(true);
         try {
-            await bidOnShift(shift.id, slotId);
+            await bidOnShift(currentShift.id, slotId);
             showToast("You have bid on this shift.", "success");
+            
+            setCurrentShift(prevShift => {
+                if (!prevShift) return null;
+                const newSlots = prevShift.slots.map(slot => {
+                    if (slot.id === slotId) {
+                        return {
+                            ...slot,
+                            bids: [
+                                ...(slot.bids || []), 
+                                { 
+                                    uid: currentUser.uid, 
+                                    name: `${currentUser.firstName} ${currentUser.lastName}`,
+                                    timestamp: firebase.firestore.Timestamp.now()
+                                }
+                            ]
+                        };
+                    }
+                    return slot;
+                });
+                return { ...prevShift, slots: newSlots };
+            });
             await refreshShifts();
-            onClose();
         } catch (e: any) {
             console.error(e);
             showToast(e.message || "Failed to process bid.", "error");
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
 
     const handleCancelBid = async (slotId: string) => {
-        if (!shift?.id) return;
-        setLoading(true);
+        if (!currentShift?.id) return;
+        setIsProcessing(true);
         try {
-            await cancelBidOnShift(shift.id, slotId);
+            await cancelBidOnShift(currentShift.id, slotId);
             showToast("Bid withdrawn.", "success");
+
+            setCurrentShift(prevShift => {
+                 if (!prevShift) return null;
+                 const newSlots = prevShift.slots.map(slot => {
+                     if (slot.id === slotId) {
+                         return {
+                             ...slot,
+                             bids: (slot.bids || []).filter(bid => bid.uid !== currentUser.uid)
+                         };
+                     }
+                     return slot;
+                 });
+                 return { ...prevShift, slots: newSlots };
+            });
             await refreshShifts();
-            onClose();
         } catch (e: any) {
             console.error(e);
             showToast(e.message || "Failed to withdraw bid.", "error");
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
 
     const handleAssign = async (slotId: string, staffMember: { uid: string, name: string }) => {
-        if (!shift?.id) return;
-        setLoading(true);
+        if (!currentShift?.id) return;
+        setIsProcessing(true);
         try {
-            await assignStaffToSlot(shift.id, slotId, staffMember);
+            await assignStaffToSlot(currentShift.id, slotId, staffMember);
             showToast(`${staffMember.name} has been assigned to the slot.`, "success");
+            
+            setCurrentShift(prev => {
+                if (!prev) return null;
+                const newSlots = prev.slots.map(s => {
+                    if (s.id === slotId) {
+                        return { ...s, assignedStaff: staffMember, bids: [] };
+                    }
+                    return s;
+                });
+                return { ...prev, slots: newSlots };
+            });
             await refreshShifts();
-            onClose();
         } catch (e) {
             showToast("Failed to assign staff.", "error");
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
     
     const handleUnassign = async (slotId: string) => {
-        if (!shift?.id) return;
-        setLoading(true);
+        if (!currentShift?.id) return;
+        setIsProcessing(true);
         try {
-            await assignStaffToSlot(shift.id, slotId, null);
+            await assignStaffToSlot(currentShift.id, slotId, null);
             showToast(`Slot has been unassigned.`, "success");
+            
+            setCurrentShift(prev => {
+                if (!prev) return null;
+                const newSlots = prev.slots.map(s => s.id === slotId ? { ...s, assignedStaff: null } : s);
+                return { ...prev, slots: newSlots };
+            });
             await refreshShifts();
-            onClose();
         } catch (e) {
             showToast("Failed to unassign staff.", "error");
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
 
-
-    if (!isOpen) return null;
+    if (!isOpen || !currentShift) return null;
 
     const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ams-light-blue focus:border-ams-light-blue sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
     const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300";
@@ -250,11 +324,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         if (type === 'unavailability') {
             return shift ? 'Edit Unavailability' : 'Add Unavailability';
         }
-        // type is 'shift'
         if (isManager) {
             return shift ? 'Edit Shift' : 'Create New Shift';
         }
-        // For non-managers, it's a view/bid modal
         return 'View Shift';
     };
     const title = getTitle();
@@ -283,9 +355,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             <div className="mt-6 pt-4 border-t dark:border-gray-600">
                 <label className={labelClasses}>Role Slots & Assignments</label>
                 <div className="space-y-4 mt-1 p-2 border rounded-md dark:border-gray-600 max-h-64 overflow-y-auto">
-                    {formData.slots.map((slot) => {
-                        const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !formData.slots.some(sl => sl.assignedStaff?.uid === s.uid));
-                        const slotBids = shift?.slots.find(s => s.id === slot.id)?.bids || [];
+                    {currentShift.slots.map((slot) => {
+                        const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !currentShift.slots.some(sl => sl.assignedStaff?.uid === s.uid));
                         return (
                         <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                             <div className="flex items-center gap-2 justify-between">
@@ -297,22 +368,22 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                             {slot.assignedStaff ? (
                                 <div className="mt-2 flex justify-between items-center">
                                     <p className="font-semibold text-green-600">Assigned: {slot.assignedStaff.name}</p>
-                                    <button onClick={() => handleUnassign(slot.id)} disabled={loading} className="px-2 py-0.5 text-xs bg-gray-400 text-white rounded hover:bg-gray-500">Unassign</button>
+                                    <button onClick={() => handleUnassign(slot.id)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-gray-400 text-white rounded hover:bg-gray-500">Unassign</button>
                                 </div>
                             ) : (
                                 <div className="mt-2">
                                     <select onChange={(e) => handleAssign(slot.id, JSON.parse(e.target.value))} className={`${inputClasses} text-sm`} defaultValue="">
                                         <option value="">-- Assign Staff --</option>
-                                        {eligibleStaff.map(s => <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>{s.firstName} {s.lastName}</option>)}
+                                        {eligibleStaff.map(s => <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>{s.firstName} {s.lastName} ({s.role})</option>)}
                                     </select>
-                                    {slotBids.length > 0 && (
+                                    {slot.bids.length > 0 && (
                                         <div className="mt-2 pt-2 border-t dark:border-gray-600">
-                                            <h4 className="text-xs font-bold text-gray-500">BIDS ({slotBids.length})</h4>
+                                            <h4 className="text-xs font-bold text-gray-500">BIDS ({slot.bids.length})</h4>
                                             <ul className="mt-1 space-y-1">
-                                                {slotBids.map(bid => (
+                                                {slot.bids.map(bid => (
                                                     <li key={bid.uid} className="flex justify-between items-center text-sm">
                                                         <span>{bid.name}</span>
-                                                        <button type="button" onClick={() => handleAssign(slot.id, bid)} disabled={loading} className="px-2 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Assign</button>
+                                                        <button type="button" onClick={() => handleAssign(slot.id, bid)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Assign</button>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -328,9 +399,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                  <div>
-                    <label className={labelClasses}>Assigned Vehicle</label>
-                    <select name="assignedVehicleId" value={formData.assignedVehicleId} onChange={handleChange} className={inputClasses}>
-                        <option value="">-- None --</option>
+                    <label className={labelClasses}>Assigned Vehicle(s)</label>
+                    <select multiple name="assignedVehicleIds" value={formData.assignedVehicleIds} onChange={handleVehicleSelect} className={`${inputClasses} h-24`}>
                         {vehicles.map(v => <option key={v.id!} value={v.id!}>{v.name} ({v.registration})</option>)}
                     </select>
                 </div>
@@ -353,7 +423,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 </div>
                 <div className="flex gap-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md">Cancel</button>
-                    <button type="submit" disabled={loading} className="px-4 py-2 bg-ams-blue text-white rounded-md flex items-center">{loading && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
+                    <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-ams-blue text-white rounded-md flex items-center">{isProcessing && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
                 </div>
             </div>
         </form>
@@ -374,39 +444,38 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                         </div>
                         <div className="flex gap-4">
                             <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md">Cancel</button>
-                            <button type="submit" disabled={loading} className="px-4 py-2 bg-ams-blue text-white rounded-md flex items-center">{loading && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
+                            <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-ams-blue text-white rounded-md flex items-center">{isProcessing && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
                         </div>
                     </div>
                 </form>
             );
         }
         
-        // Bidding view for shifts
-        const biddableSlots = (shift?.slots || []).filter(s => !s.assignedStaff && isRoleOrHigher(currentUser.role, s.roleRequired)) || [];
+        const biddableSlots = (currentShift.slots || []).filter(s => !s.assignedStaff && isRoleOrHigher(currentUser.role, s.roleRequired)) || [];
         
         return (
             <div>
-                 <h3 className="text-lg font-bold">{shift?.eventName}</h3>
-                 <p>{shift?.start.toDate().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}</p>
-                 <p className="mt-2 text-gray-600 dark:text-gray-400">{shift?.location}</p>
-                 {shift?.notes && <p className="mt-2 text-sm italic">"{shift?.notes}"</p>}
+                 <h3 className="text-lg font-bold">{currentShift.eventName}</h3>
+                 <p>{currentShift.start.toDate().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}</p>
+                 <p className="mt-2 text-gray-600 dark:text-gray-400">{currentShift.location}</p>
+                 {currentShift.notes && <p className="mt-2 text-sm italic">"{currentShift.notes}"</p>}
                  
                  <div className="mt-6 pt-4 border-t dark:border-gray-600">
                     <h4 className="font-semibold mb-2">Available Slots to Bid On</h4>
                     {biddableSlots.length > 0 ? (
                         <div className="space-y-2">
                         {biddableSlots.map(slot => {
-                            const myBid = (shift?.slots.find(s => s.id === slot.id)?.bids || []).find(b => b.uid === currentUser.uid);
+                            const myBid = (slot.bids || []).find(b => b.uid === currentUser.uid);
                             return (
                                 <div key={slot.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
                                     <span className="font-medium text-gray-800 dark:text-gray-200">{slot.roleRequired}</span>
                                     {myBid ? (
-                                        <button onClick={() => handleCancelBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-400">
-                                            {loading ? <SpinnerIcon className="w-4 h-4" /> : 'Withdraw Bid'}
+                                        <button onClick={() => handleCancelBid(slot.id)} disabled={isProcessing} className="px-3 py-1 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-400">
+                                            {isProcessing ? <SpinnerIcon className="w-4 h-4" /> : 'Withdraw Bid'}
                                         </button>
                                     ) : (
-                                        <button onClick={() => handleBid(slot.id)} disabled={loading} className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400">
-                                            {loading ? <SpinnerIcon className="w-4 h-4" /> : 'Bid'}
+                                        <button onClick={() => handleBid(slot.id)} disabled={isProcessing} className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400">
+                                            {isProcessing ? <SpinnerIcon className="w-4 h-4" /> : 'Bid'}
                                         </button>
                                     )}
                                 </div>

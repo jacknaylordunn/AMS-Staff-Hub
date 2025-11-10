@@ -88,12 +88,12 @@ service cloud.firestore {
     // Shifts Collection
     match /shifts/{shiftId} {
         allow read: if request.auth != null;
-        // Managers can create any shift. Users can create their own unavailability.
-        allow create: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.isUnavailability == true && request.auth.uid in request.resource.data.assignedStaffUids);
-        // Managers can update any shift. Bidding is now handled by Cloud Functions.
+        // Managers can create shifts. Users can create their own unavailability.
+        allow create: if isManagerOrAdmin(request.auth.uid) || (request.resource.data.isUnavailability == true && request.auth.uid in request.resource.data.allAssignedStaffUids);
+        // Only managers can update shifts directly. Bidding/assignment for users is handled by secure Cloud Functions which bypass these rules.
         allow update: if isManagerOrAdmin(request.auth.uid);
         // Managers can delete shifts. Users can delete their own unavailability.
-        allow delete: if isManagerOrAdmin(request.auth.uid) || (resource.data.isUnavailability == true && request.auth.uid in resource.data.assignedStaffUids);
+        allow delete: if isManagerOrAdmin(request.auth.uid) || (resource.data.isUnavailability == true && request.auth.uid in resource.data.allAssignedStaffUids);
     }
     
     // Vehicle & Vehicle Checks

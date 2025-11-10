@@ -121,41 +121,8 @@ export const cancelBidOnShift = async (shiftId: string, slotId: string): Promise
 };
 
 export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; } | null) => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
-    const shiftRef = db.doc(`shifts/${shiftId}`);
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
-    await db.runTransaction(async (transaction) => {
-        const shiftSnap = await transaction.get(shiftRef);
-        if (!shiftSnap.exists) throw new Error("Shift not found");
-
-        const shiftData = shiftSnap.data() as Shift;
-        const slotIndex = shiftData.slots.findIndex(s => s.id === slotId);
-        if (slotIndex === -1) throw new Error("Slot not found");
-
-        // Assign staff (or null to unassign) and clear bids for the slot
-        shiftData.slots[slotIndex].assignedStaff = staff;
-        if (staff) {
-            shiftData.slots[slotIndex].bids = [];
-        }
-
-        // Recalculate top-level properties
-        const allAssignedStaffUids = shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid);
-        const status = getShiftStatus(shiftData.slots);
-        
-        transaction.update(shiftRef, { 
-            slots: shiftData.slots,
-            allAssignedStaffUids,
-            status 
-        });
-    });
-
-    // Send notification outside the transaction
-    if (staff) {
-        const shift = await getShiftById(shiftId);
-        if(shift) {
-            await createNotification(staff.uid, `You have been assigned to the shift: ${shift.eventName} on ${shift.start.toDate().toLocaleDateString()}`, `/brief/${shiftId}`);
-        }
-    }
+    const assignStaffFn = functions.httpsCallable('assignStaffToShiftSlot');
+    await assignStaffFn({ shiftId, slotId, staff });
 };
 
 

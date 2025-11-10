@@ -562,3 +562,86 @@ export const cancelBidOnShift = onCall(async (request) => {
         throw new HttpsError("internal", "Could not withdraw bid due to a server error.");
     }
 });
+
+export const assignStaffToShiftSlot = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication is required.");
+    }
+    const { uid } = request.auth;
+    const { shiftId, slotId, staff } = request.data; // staff is { uid, name } or null
+
+    if (typeof shiftId !== "string" || typeof slotId !== "string") {
+        throw new HttpsError("invalid-argument", "'shiftId' and 'slotId' must be strings.");
+    }
+
+    // Check for manager/admin role
+    const userDoc = await admin.firestore().collection("users").doc(uid).get();
+    const userData = userDoc.data();
+    if (!userData || !['Manager', 'Admin'].includes(userData.role)) {
+        throw new HttpsError("permission-denied", "User must be a Manager or Admin to assign staff.");
+    }
+
+    const shiftRef = admin.firestore().collection("shifts").doc(shiftId);
+
+    try {
+        await admin.firestore().runTransaction(async (transaction) => {
+            const shiftDoc = await transaction.get(shiftRef);
+            if (!shiftDoc.exists) {
+                throw new HttpsError("not-found", "Shift does not exist.");
+            }
+
+            const shiftData = shiftDoc.data()!;
+            const slots = (shiftData.slots || []) as any[];
+            const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
+
+            if (slotIndex === -1) {
+                throw new HttpsError("not-found", "The specified slot does not exist.");
+            }
+
+            // Assign staff (or null to unassign) and clear bids for the slot
+            slots[slotIndex].assignedStaff = staff;
+            if (staff) {
+                slots[slotIndex].bids = [];
+            }
+            
+            const getShiftStatus = (slotsArr: any[]) => {
+                const totalSlots = slotsArr.length;
+                const filledSlots = slotsArr.filter(s => s.assignedStaff).length;
+                if (filledSlots === 0) return 'Open';
+                if (filledSlots < totalSlots) return 'Partially Assigned';
+                return 'Fully Assigned';
+            };
+
+            const allAssignedStaffUids = slots.map(s => s.assignedStaff?.uid).filter(Boolean);
+            const status = getShiftStatus(slots);
+
+            transaction.update(shiftRef, { 
+                slots: slots,
+                allAssignedStaffUids: allAssignedStaffUids,
+                status: status
+            });
+        });
+        
+        // Handle notifications outside the transaction
+        if (staff) {
+            const shift = (await shiftRef.get()).data();
+            if (shift) {
+                await admin.firestore().collection("notifications").add({
+                    userId: staff.uid,
+                    message: `You have been assigned to the shift: ${shift.eventName} on ${new Date(shift.start.toDate()).toLocaleDateString()}`,
+                    link: `/brief/${shiftId}`,
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+        }
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error("Transaction failed: assignStaffToShiftSlot", error);
+        if (error.code) { // It's already an HttpsError
+            throw error;
+        }
+        throw new HttpsError("internal", "Could not assign staff due to a server error.");
+    }
+});
