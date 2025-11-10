@@ -28,8 +28,9 @@ const getShiftStatus = (slotsArr: any[]): string => {
 };
 
 
-// FIX: Updated to onCall v2 syntax.
+// FIX: Updated to onCall v2 syntax and granted access to the API_KEY secret.
 export const askClinicalAssistant = onCall(
+  { secrets: ["API_KEY"] },
   async (request) => {
     // Check if the user is authenticated.
     if (!request.auth) {
