@@ -89,7 +89,7 @@ const Rota: React.FC = () => {
     
     const sortedShiftsForMonth = useMemo(() => {
         if (!user) return [];
-        return shifts.filter(s => !s.isUnavailability && s.allAssignedStaffUids.includes(user.uid)).sort((a,b) => a.start.toMillis() - b.start.toMillis());
+        return shifts.filter(s => !s.isUnavailability && (s.allAssignedStaffUids || []).includes(user.uid)).sort((a,b) => a.start.toMillis() - b.start.toMillis());
     }, [shifts, user]);
 
     const changeMonth = (offset: number) => {
@@ -229,7 +229,7 @@ const Rota: React.FC = () => {
                                 </div>
                                 <div className="space-y-1 overflow-y-auto max-h-28">
                                     {dayShifts.map(shift => {
-                                        const isMyShift = user ? shift.allAssignedStaffUids.includes(user.uid) : false;
+                                        const isMyShift = user ? (shift.allAssignedStaffUids || []).includes(user.uid) : false;
                                         const biddableSlots = shift.slots.filter(s => !s.assignedStaff && isRoleOrHigher(user?.role, s.roleRequired)).length;
                                         const filledSlots = shift.slots.filter(s => s.assignedStaff).length;
                                         const totalSlots = shift.slots.length;
