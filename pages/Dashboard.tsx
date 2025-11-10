@@ -218,7 +218,9 @@ const Dashboard: React.FC = () => {
                     />
                     <ActionCard to="/rota" icon={<RotaIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Rota" description="View upcoming shifts." />
                     <ActionCard to="/patients" icon={<PatientsIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Patients" description="Search patient records." />
-                    <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
+                    {isManager && (
+                         <ActionCard to="/reports" icon={<ChartIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Reporting" description="View clinical analytics." />
+                    )}
                     <ActionCard to="/inventory" icon={<AmbulanceIcon className="w-10 h-10 text-ams-blue dark:text-ams-light-blue" />} title="Inventory" description="Manage vehicles & kits." />
                 </div>
                 <div className="lg:col-span-1 space-y-6">

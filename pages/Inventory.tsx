@@ -5,11 +5,12 @@ import { listenToVehicles, addVehicle, updateVehicle, deleteVehicle } from '../s
 import { listenToKits, addKit, updateKit, deleteKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, TrashIcon, AmbulanceIcon, BoxIcon, RefreshIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, TrashIcon, AmbulanceIcon, BoxIcon, RefreshIcon, QrCodeIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import VehicleModal from '../components/VehicleModal';
 import KitModal from '../components/KitModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import QrScannerModal from '../components/QrScannerModal';
 
 const Inventory: React.FC = () => {
     const { isManager } = useAuth();
@@ -31,8 +32,13 @@ const Inventory: React.FC = () => {
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'vehicle' | 'kit' } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isScannerOpen, setScannerOpen] = useState(false);
     
     useEffect(() => {
+        if (!isManager) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         
         const unsubVehicles = listenToVehicles((vehicleList) => {
@@ -49,7 +55,7 @@ const Inventory: React.FC = () => {
             unsubVehicles();
             unsubKits();
         };
-    }, []);
+    }, [isManager]);
 
     const handleOpenVehicleModal = (vehicle: Vehicle | null) => { setSelectedVehicle(vehicle); setVehicleModalOpen(true); };
     const handleOpenKitModal = (kit: Kit | null) => { setSelectedKit(kit); setKitModalOpen(true); };
@@ -83,6 +89,17 @@ const Inventory: React.FC = () => {
     const openDeleteModal = (item: Vehicle | Kit, type: 'vehicle' | 'kit') => {
         setItemToDelete({ id: item.id!, name: item.name, type });
         setDeleteModalOpen(true);
+    };
+    
+    const handleQrScan = (qrValue: string) => {
+        setScannerOpen(false);
+        if (qrValue.startsWith('aegis-vehicle-qr:')) {
+            navigate(`/inventory/vehicle/${qrValue.split(':')[1]}`);
+        } else if (qrValue.startsWith('aegis-kit-qr:')) {
+            navigate(`/inventory/kit/${qrValue.split(':')[1]}`);
+        } else {
+            showToast('Not a valid Aegis QR code.', 'error');
+        }
     };
 
     const handleDeleteConfirm = async () => {
@@ -192,6 +209,26 @@ const Inventory: React.FC = () => {
         }
         return null;
     };
+
+    if (!isManager) {
+        return (
+            <div>
+                <QrScannerModal isOpen={isScannerOpen} onClose={() => setScannerOpen(false)} onScan={handleQrScan} />
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">Inventory</h1>
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow text-center">
+                    <QrCodeIcon className="w-16 h-16 mx-auto text-gray-400" />
+                    <h2 className="mt-4 text-xl font-bold text-gray-800 dark:text-gray-200">Asset Checks</h2>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">To perform a check on a vehicle or kit, please scan its QR code.</p>
+                    <button
+                        onClick={() => setScannerOpen(true)}
+                        className="mt-6 flex items-center justify-center mx-auto px-6 py-3 bg-ams-blue text-white font-bold rounded-lg shadow-md hover:bg-opacity-90"
+                    >
+                        <QrCodeIcon className="w-6 h-6 mr-2" /> Scan Asset QR Code
+                    </button>
+                </div>
+            </div>
+        );
+    }
     
     return (
         <div>

@@ -5,7 +5,7 @@ import { getEventById } from '../services/eventService';
 import { getVehicleById, addVehicleCheck } from '../services/assetService';
 import { getKitById, addKitCheck } from '../services/inventoryService';
 import type { Shift, EventLog, Vehicle, Kit, VehicleCheck, KitCheck } from '../types';
-import { SpinnerIcon, RotaIcon, ClockIcon, PatientsIcon, AmbulanceIcon, BoxIcon } from '../components/icons';
+import { SpinnerIcon, RotaIcon, ClockIcon, PatientsIcon, AmbulanceIcon, BoxIcon, CheckIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import VehicleCheckModal from '../components/VehicleCheckModal';
@@ -175,12 +175,30 @@ const EventBrief: React.FC = () => {
                 <InfoCard title="Assigned Kits" icon={<BoxIcon className="w-6 h-6" />} className="lg:col-span-2">
                     {kits.length > 0 ? (
                         <ul className="space-y-2">
-                            {kits.map(k => (
+                            {kits.map(k => {
+                                const kitIsWithMe = k.status === 'With Crew' && k.assignedTo?.uid === user?.uid;
+                                const kitIsWithOther = k.status === 'With Crew' && k.assignedTo?.uid !== user?.uid;
+                                return (
                                 <li key={k.id} className="flex justify-between items-center">
                                     <span>{k.name} ({k.type})</span>
-                                    <button onClick={() => openKitCheckModal(k)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">Start Check</button>
+                                    <div>
+                                    {kitIsWithMe ? (
+                                        <span className="px-3 py-1 text-sm font-semibold rounded-md bg-green-100 text-green-700 flex items-center gap-2">
+                                            <CheckIcon className="w-4 h-4" /> Check Complete
+                                        </span>
+                                    ) : kitIsWithOther ? (
+                                        <span className="px-3 py-1 text-sm font-semibold rounded-md bg-yellow-100 text-yellow-700">
+                                            With: {k.assignedTo?.name}
+                                        </span>
+                                    ) : (
+                                        <button onClick={() => openKitCheckModal(k)} className="px-3 py-1 bg-ams-light-blue text-white text-sm font-semibold rounded-md hover:bg-opacity-90">
+                                            Start Check
+                                        </button>
+                                    )}
+                                    </div>
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
                     ) : (
                         <p>No kits assigned to this shift.</p>

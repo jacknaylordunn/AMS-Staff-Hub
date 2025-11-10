@@ -120,42 +120,42 @@ const VehicleDetail: React.FC = () => {
                                 <p className={`font-bold ${vehicle.lastCheck.status === 'Pass' ? 'text-green-600' : 'text-yellow-600'}`}>{vehicle.lastCheck.status}</p>
                             </div>
                         )}
-                        <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                            <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
-                            {vehicle.qrCodeValue ? (
-                                <>
-                                    <div className="flex justify-center">
-                                        <img 
-                                            id="qr-code-img" 
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vehicle.qrCodeValue)}`} 
-                                            alt="Vehicle QR Code"
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-center gap-1 mt-2">
-                                        <p className="text-xs text-gray-500 font-mono break-all">{vehicle.qrCodeValue}</p>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(vehicle.qrCodeValue!);
-                                                showToast('QR Value Copied!', 'success');
-                                            }}
-                                            className="p-1 text-gray-400 hover:text-ams-blue"
-                                            title="Copy QR Value"
-                                        >
-                                            <CopyIcon className="w-4 h-4" />
+                        {isManager && (
+                            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <h4 className="font-semibold text-sm uppercase text-gray-500 dark:text-gray-400 mb-2">Asset QR Code</h4>
+                                {vehicle.qrCodeValue ? (
+                                    <>
+                                        <div className="flex justify-center">
+                                            <img 
+                                                id="qr-code-img" 
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vehicle.qrCodeValue)}`} 
+                                                alt="Vehicle QR Code"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-center gap-1 mt-2">
+                                            <p className="text-xs text-gray-500 font-mono break-all">{vehicle.qrCodeValue}</p>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(vehicle.qrCodeValue!);
+                                                    showToast('QR Value Copied!', 'success');
+                                                }}
+                                                className="p-1 text-gray-400 hover:text-ams-blue"
+                                                title="Copy QR Value"
+                                            >
+                                                <CopyIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
+                                            Print
                                         </button>
-                                    </div>
-                                    <button onClick={handlePrintQr} className="mt-2 w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-sm font-semibold rounded-md hover:bg-gray-300">
-                                        Print
+                                    </>
+                                ) : (
+                                    <button onClick={handleGenerateQr} className="w-full px-4 py-2 bg-ams-blue text-white rounded-md">
+                                        Generate QR Code
                                     </button>
-                                </>
-                            ) : isManager ? (
-                                <button onClick={handleGenerateQr} className="w-full px-4 py-2 bg-ams-blue text-white rounded-md">
-                                    Generate QR Code
-                                </button>
-                            ) : (
-                                <p className="text-sm text-gray-500">No QR code assigned.</p>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
                  <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
