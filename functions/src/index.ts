@@ -258,8 +258,8 @@ export const sendAnnouncement = onCall(
 );
 
 
-// FIX: Updated to onDocumentUpdated v2 syntax.
-export const handleUserUpdate = onDocumentUpdated("users/{userId}", async (event) => {
+// FIX: Renamed function to avoid deployment conflict when changing trigger type.
+export const handleUserUpdates = onDocumentUpdated("users/{userId}", async (event) => {
     if (!event.data) return null;
 
     const before = event.data.before.data();
