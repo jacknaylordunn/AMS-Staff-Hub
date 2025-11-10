@@ -335,8 +335,8 @@ export const handleKudoCreation = onDocumentCreated("kudos/{kudoId}", async (eve
         });
     });
 
-// FIX: Updated to onDocumentUpdated v2 syntax.
-export const onEprfUpdate = onDocumentUpdated("eprfs/{eprfId}", async (event) => {
+// FIX: Renamed function from onEprfUpdate to handleEprfUpdate to resolve deployment error.
+export const handleEprfUpdate = onDocumentUpdated("eprfs/{eprfId}", async (event) => {
     if (!event.data) return;
     const before = event.data.before.data();
     const after = event.data.after.data();
