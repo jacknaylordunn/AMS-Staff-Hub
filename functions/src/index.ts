@@ -2,7 +2,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/genai";
 
 admin.initializeApp();
 
@@ -48,15 +48,21 @@ export const askClinicalAssistant = onCall(
     }
 
     try {
-        const result = await ai.models.generateContent({
+        // 1. Get the generative model
+        const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
-            contents: query,
-            config: {
-                systemInstruction: `You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.`,
-            }
+            systemInstruction: `You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.`,
         });
 
-      return { response: result.text };
+        // 2. Generate content
+        const result = await model.generateContent(query);
+        const response = result.response;
+
+        // 3. Get the text from the response
+        const text = response.text();
+
+        return { response: text };
+
     } catch (error) {
       console.error("Gemini API call failed:", error);
       throw new HttpsError(
