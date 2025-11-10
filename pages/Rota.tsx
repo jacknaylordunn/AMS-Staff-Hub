@@ -89,7 +89,9 @@ const Rota: React.FC = () => {
     
     const sortedShiftsForMonth = useMemo(() => {
         if (!user) return [];
-        return shifts.filter(s => !s.isUnavailability && (s.allAssignedStaffUids || []).includes(user.uid)).sort((a,b) => a.start.toMillis() - b.start.toMillis());
+        return shifts
+            .filter(s => !s.isUnavailability && (s.allAssignedStaffUids || []).includes(user.uid))
+            .sort((a,b) => (a.start?.toMillis() || 0) - (b.start?.toMillis() || 0));
     }, [shifts, user]);
 
     const changeMonth = (offset: number) => {
@@ -124,7 +126,8 @@ const Rota: React.FC = () => {
 
     const shiftsForDay = (date: Date) => {
         return shifts.filter(shift => {
-            const shiftDate = shift.start.toDate();
+            const shiftDate = shift.start?.toDate();
+            if (!shiftDate) return false;
             return shiftDate.getFullYear() === date.getFullYear() &&
                    shiftDate.getMonth() === date.getMonth() &&
                    shiftDate.getDate() === date.getDate();
@@ -182,8 +185,8 @@ const Rota: React.FC = () => {
                 <>
                  <div className="md:hidden space-y-4">
                     {sortedShiftsForMonth.length > 0 ? sortedShiftsForMonth.map(shift => {
-                        const mySlot = shift.slots.find(s => s.assignedStaff?.uid === user!.uid);
-                        const colleagues = shift.slots
+                        const mySlot = (shift.slots || []).find(s => s.assignedStaff?.uid === user!.uid);
+                        const colleagues = (shift.slots || [])
                             .filter(s => s.assignedStaff && s.assignedStaff.uid !== user!.uid)
                             .map(s => s.assignedStaff!.name)
                             .join(', ');
@@ -191,8 +194,8 @@ const Rota: React.FC = () => {
                         return (
                          <div key={shift.id} onClick={() => navigate(`/brief/${shift.id}`)} className="p-4 rounded-lg shadow text-white cursor-pointer bg-ams-blue">
                              <div className="font-bold text-lg">{shift.eventName}</div>
-                             <div className="text-gray-200">{shift.start.toDate().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-                             <div className="mt-2">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                             <div className="text-gray-200">{shift.start?.toDate().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                             <div className="mt-2">{shift.start?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                              {mySlot && <div className="text-sm mt-1 text-ams-light-blue font-semibold">{mySlot.roleRequired}</div>}
                              {colleagues && (
                                 <div className="text-sm mt-2 pt-2 border-t border-white/20">
@@ -230,9 +233,10 @@ const Rota: React.FC = () => {
                                 <div className="space-y-1 overflow-y-auto max-h-28">
                                     {dayShifts.map(shift => {
                                         const isMyShift = user ? (shift.allAssignedStaffUids || []).includes(user.uid) : false;
-                                        const biddableSlots = shift.slots.filter(s => !s.assignedStaff && isRoleOrHigher(user?.role, s.roleRequired)).length;
-                                        const filledSlots = shift.slots.filter(s => s.assignedStaff).length;
-                                        const totalSlots = shift.slots.length;
+                                        const safeSlots = shift.slots || [];
+                                        const biddableSlots = safeSlots.filter(s => !s.assignedStaff && isRoleOrHigher(user?.role, s.roleRequired)).length;
+                                        const filledSlots = safeSlots.filter(s => s.assignedStaff).length;
+                                        const totalSlots = safeSlots.length;
 
                                         let bgColor = 'bg-gray-400 dark:bg-gray-600';
                                         if (shift.isUnavailability) bgColor = 'bg-red-400 dark:bg-red-700';
@@ -252,7 +256,7 @@ const Rota: React.FC = () => {
                                             ) : (
                                                 <>
                                                     <p className="font-semibold truncate">{shift.eventName}</p>
-                                                    <p className="truncate">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                                    <p className="truncate">{shift.start?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                                     <p className="text-xs truncate text-gray-200 dark:text-gray-300 font-bold">{filledSlots}/{totalSlots} Filled</p>
                                                 </>
                                             )}
