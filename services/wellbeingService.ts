@@ -1,7 +1,6 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { Kudo, AnonymousFeedback } from '../types';
-import { createNotification } from './notificationService';
 
 export const getKudos = async (limitCount: number = 20): Promise<Kudo[]> => {
     const kudosCol = firestore.collection(db, 'kudos');
@@ -15,12 +14,7 @@ export const addKudo = async (kudoData: Omit<Kudo, 'id' | 'createdAt'>): Promise
         ...kudoData,
         createdAt: firestore.Timestamp.now(),
     });
-    // Notify the recipient
-    await createNotification(
-        kudoData.to.uid,
-        `${kudoData.from.name} sent you kudos!`,
-        '/wellbeing'
-    );
+    // Notification is now handled by a cloud function.
 };
 
 export const getAnonymousFeedback = async (): Promise<AnonymousFeedback[]> => {

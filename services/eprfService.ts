@@ -1,7 +1,6 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { EPRFForm, AuditEntry, MedicationAdministered } from '../types';
-import { createNotification } from './notificationService';
 import { addLedgerEntry } from './drugLedgerService';
 
 // Removes 'id' and any 'undefined' values before saving to Firestore.
@@ -225,11 +224,7 @@ export const returnEPRFToDraft = async (eprfId: string, eprfData: EPRFForm, mana
         reviewNotes: reason,
         auditLog: firestore.arrayUnion(auditEntry)
     });
-    await createNotification(
-        eprfData.createdBy.uid,
-        `Your ePRF for ${eprfData.patientName} was returned for correction.`,
-        `/patients/${eprfData.patientId}`
-    );
+    // Notification is now handled by a cloud function.
 }
 
 export const getEPRFsToSyncSignatures = async (userId: string): Promise<EPRFForm[]> => {

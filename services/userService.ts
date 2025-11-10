@@ -1,7 +1,6 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { User, ComplianceDocument } from '../types';
-import { createNotification } from './notificationService';
 
 // User Profile Functions
 export const createUserProfile = async (uid: string, data: { email: string; firstName: string; lastName: string; registrationNumber?: string }) => {
@@ -58,19 +57,7 @@ export const listenToUsers = (callback: (users: User[]) => void): () => void => 
 export const requestRoleChange = async (uid: string, newRole: User['role']) => {
     const userRef = firestore.doc(db, 'users', uid);
     await firestore.updateDoc(userRef, { pendingRole: newRole });
-    
-    // Notify managers
-    const users = await getUsers();
-    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin');
-    const currentUser = users.find(u => u.uid === uid);
-
-    for (const manager of managers) {
-        await createNotification(
-            manager.uid,
-            `${currentUser?.firstName} ${currentUser?.lastName} has requested a role change to ${newRole}.`,
-            '/staff'
-        );
-    }
+    // Notifications are now handled by a cloud function.
 };
 
 export const approveRoleChange = async (uid: string, newRole: User['role']) => {
@@ -79,7 +66,7 @@ export const approveRoleChange = async (uid: string, newRole: User['role']) => {
         role: newRole,
         pendingRole: firestore.deleteField()
     });
-    await createNotification(uid, `Your role has been updated to ${newRole}.`, '/profile');
+    // Notification is now handled by a cloud function.
 };
 
 export const rejectRoleChange = async (uid: string) => {
@@ -87,5 +74,5 @@ export const rejectRoleChange = async (uid: string) => {
     await firestore.updateDoc(userRef, {
         pendingRole: firestore.deleteField()
     });
-     await createNotification(uid, `Your recent role change request was not approved.`, '/profile');
+    // Notification is now handled by a cloud function.
 };

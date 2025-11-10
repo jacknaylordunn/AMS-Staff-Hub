@@ -1,8 +1,11 @@
 import * as firestore from 'firebase/firestore';
-import { db } from './firebase';
+import { db, functions } from './firebase';
 import type { Announcement } from '../types';
-import { getUsers } from './userService';
-import { createNotification } from './notificationService';
+
+export type AnnouncementTarget =
+    | { type: 'all' }
+    | { type: 'roles', roles: string[] }
+    | { type: 'event', eventId: string };
 
 // Announcement Functions
 export const getAnnouncements = async (): Promise<Announcement[]> => {
@@ -10,40 +13,10 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
 }
 
-export const sendAnnouncementToAllUsers = async (message: string, sender: { uid: string; name: string; }, link?: string): Promise<void> => {
-    const announcementData = {
-        message,
-        sentBy: sender,
-        createdAt: firestore.Timestamp.now(),
-    };
-    // 1. Save the announcement to its own collection for history
-    await firestore.addDoc(firestore.collection(db, 'announcements'), announcementData);
-
-    // 2. Create notifications for all users
-    const users = await getUsers();
-    
-    // Create notifications in batches to avoid overwhelming Firestore
-    const promises = [];
-    for (let i = 0; i < users.length; i += 500) {
-        const batch = firestore.writeBatch(db);
-        const userChunk = users.slice(i, i + 500);
-        userChunk.forEach(user => {
-            const notificationsRef = firestore.collection(db, 'notifications');
-            const truncatedMessage = message.substring(0, 50) + (message.length > 50 ? '...' : '');
-            // Create a new doc with a random ID
-            const newNotifRef = firestore.doc(notificationsRef);
-            batch.set(newNotifRef, {
-                userId: user.uid,
-                message: `New Hub Announcement: "${truncatedMessage}"`,
-                read: false,
-                createdAt: firestore.Timestamp.now(),
-                link: link || '/dashboard'
-            });
-        });
-        promises.push(batch.commit());
-    }
-    
-    await Promise.all(promises);
+export const sendAnnouncement = async (message: string, target: AnnouncementTarget, link?: string): Promise<void> => {
+    // This now calls the cloud function with targeting information. The sender is determined by the authenticated user in the cloud function context.
+    const sendAnnouncementFn = functions.httpsCallable('sendAnnouncement');
+    await sendAnnouncementFn({ message, target, link });
 }
 
 export const deleteAnnouncement = async (announcementId: string): Promise<void> => {

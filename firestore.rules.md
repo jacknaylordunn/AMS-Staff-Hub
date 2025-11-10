@@ -136,11 +136,11 @@ service cloud.firestore {
 
     // Notifications
     // - Users can read and update their own notifications (e.g., mark as read).
-    // - Notifications are created by the system (any authenticated user acting on its behalf).
+    // - Notifications are now created only by secure Cloud Functions.
     // - Users cannot delete notifications.
     match /notifications/{notificationId} {
         allow read, update: if request.auth.uid == resource.data.userId;
-        allow create: if request.auth != null;
+        allow create: if false; // All notifications created via Cloud Functions
         allow delete: if false;
     }
 

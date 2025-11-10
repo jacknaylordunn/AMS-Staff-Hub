@@ -1,7 +1,7 @@
 import * as firestore from 'firebase/firestore';
 import { db } from './firebase';
 import type { MajorIncident, METHANEreport, StaffCheckin, User } from '../types';
-import { sendAnnouncementToAllUsers } from './announcementService';
+import { sendAnnouncement } from './announcementService';
 
 // --- Incident Management ---
 
@@ -36,9 +36,9 @@ export const declareMajorIncident = async (data: { name: string, location: strin
     const docRef = await firestore.addDoc(firestore.collection(db, 'majorIncidents'), incidentData);
     
     // Send notification to all users
-    await sendAnnouncementToAllUsers(
+    await sendAnnouncement(
         `MAJOR INCIDENT DECLARED: ${data.name}. All staff check status on the Aegis Hub.`,
-        declarer,
+        { type: 'all' },
         `/major-incidents/${docRef.id}`
     );
 
