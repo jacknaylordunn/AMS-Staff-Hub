@@ -1,11 +1,11 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
 
     // Helper function to get a user's data from Firestore
     function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+      # FIX: Use 'firestore.get' instead of 'get'
+      return firestore.get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
     // Helper function to check if a user is a Manager or Admin
@@ -34,7 +34,8 @@ service firebase.storage {
     // ePRF signatures and attachments.
     // The rules need to read the corresponding ePRF document from Firestore to verify ownership.
     function getEprfData(eprfId) {
-        return get(/databases/$(database)/documents/eprfs/$(eprfId)).data;
+        # FIX: Use 'firestore.get' instead of 'get'
+        return firestore.get(/databases/$(database)/documents/eprfs/$(eprfId)).data;
     }
     match /signatures/{eprfId}/{fileName} {
         // Only the creator of the ePRF or a manager can upload/read signatures for it.

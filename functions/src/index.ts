@@ -1,4 +1,4 @@
-// FIX: Updated to Firebase Functions v2 syntax.
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
