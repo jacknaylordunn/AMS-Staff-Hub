@@ -285,8 +285,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 });
                 return { ...prev, slots: newSlots };
             });
-        } catch (e) {
-            showToast("Failed to assign staff.", "error");
+        } catch (e: any) {
+            console.error("Failed to assign staff:", e);
+            showToast(e.message || "Failed to assign staff.", "error");
         } finally {
             setIsProcessing(false);
         }
@@ -304,8 +305,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 const newSlots = prev.slots.map(s => s.id === slotId ? { ...s, assignedStaff: null } : s);
                 return { ...prev, slots: newSlots };
             });
-        } catch (e) {
-            showToast("Failed to unassign staff.", "error");
+        } catch (e: any) {
+            console.error("Failed to unassign staff:", e);
+            showToast(e.message || "Failed to unassign staff.", "error");
         } finally {
             setIsProcessing(false);
         }

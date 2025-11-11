@@ -25,7 +25,8 @@ const ai = new GoogleGenAI({ apiKey: API_KEY! });
 // Helper function to determine shift status based on filled slots
 const getShiftStatus = (slotsArr: any[]): string => {
     const totalSlots = slotsArr.length;
-    const filledSlots = slotsArr.filter((s: any) => s.assignedStaff).length;
+    // FIX: Add check for `s` to prevent error if an element is null.
+    const filledSlots = slotsArr.filter((s: any) => s && s.assignedStaff).length;
     if (filledSlots === 0) return 'Open';
     if (filledSlots < totalSlots) return 'Partially Assigned';
     return 'Fully Assigned';
@@ -603,7 +604,7 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
             }
 
             const shiftData = shiftDoc.data()!;
-            const slots = (shiftData.slots || []) as any[];
+            const slots = Array.isArray(shiftData.slots) ? shiftData.slots : [];
             const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
             if (slotIndex === -1) {
@@ -616,7 +617,7 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
                 slots[slotIndex].bids = [];
             }
             
-            const allAssignedStaffUids = slots.map((s: any) => s.assignedStaff?.uid).filter(Boolean);
+            const allAssignedStaffUids = slots.map((s: any) => s && s.assignedStaff?.uid).filter(Boolean);
             const status = getShiftStatus(slots);
 
             transaction.update(shiftRef, { 
@@ -646,7 +647,7 @@ export const onShiftCreate = onDocumentCreated("shifts/{shiftId}", async (event)
     const db = admin.firestore();
     const batch = db.batch();
 
-    const assignedSlots = (shift.slots as any[]).filter(s => s.assignedStaff);
+    const assignedSlots = (shift.slots as any[]).filter(s => s && s.assignedStaff);
     if (assignedSlots.length === 0) return;
 
     for (const slot of assignedSlots) {
@@ -671,8 +672,11 @@ export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event)
 
     if (!before || !after) return;
     
-    const beforeStaff = (before.slots as any[]).map(s => s.assignedStaff?.uid).filter(Boolean);
-    const afterStaff = (after.slots as any[]).map(s => s.assignedStaff?.uid).filter(Boolean);
+    const beforeSlots = Array.isArray(before.slots) ? before.slots : [];
+    const afterSlots = Array.isArray(after.slots) ? after.slots : [];
+
+    const beforeStaff = beforeSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean);
+    const afterStaff = afterSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean);
 
     const newAssignments = afterStaff.filter(uid => !beforeStaff.includes(uid));
 
