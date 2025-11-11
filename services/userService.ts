@@ -1,5 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import type { User, ComplianceDocument } from '../types';
 
 // User Profile Functions
@@ -53,14 +54,14 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const getSeniorClinicians = async (): Promise<User[]> => {
-    const getSeniorCliniciansFn = functions.httpsCallable('getSeniorClinicians');
+    const getSeniorCliniciansFn = httpsCallable(functions, 'getSeniorClinicians');
     const result = await getSeniorCliniciansFn();
     const data = result.data as { clinicians: User[] };
     return data.clinicians;
 };
 
 export const getStaffListForKudos = async (): Promise<User[]> => {
-    const getStaffFn = functions.httpsCallable('getStaffListForKudos');
+    const getStaffFn = httpsCallable(functions, 'getStaffListForKudos');
     const result = await getStaffFn();
     const data = result.data as { staff: User[] };
     return data.staff;

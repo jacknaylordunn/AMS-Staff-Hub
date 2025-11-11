@@ -1,4 +1,5 @@
 import { db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import type { Announcement } from '../types';
 
 // FIX: Changed 'eventId' to 'eventName' to match the cloud function's expectation for event-based targeting.
@@ -16,7 +17,7 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
 
 export const sendAnnouncement = async (message: string, target: AnnouncementTarget, link?: string): Promise<void> => {
     // This now calls the cloud function with targeting information. The sender is determined by the authenticated user in the cloud function context.
-    const sendAnnouncementFn = functions.httpsCallable('sendAnnouncement');
+    const sendAnnouncementFn = httpsCallable(functions, 'sendAnnouncement');
     await sendAnnouncementFn({ message, target, link });
 }
 

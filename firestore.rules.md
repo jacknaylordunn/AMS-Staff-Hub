@@ -26,8 +26,16 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
+      // Any authenticated user can read their own profile, managers can read any profile.
+      allow get: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
+
+      // Only managers can list all users.
+      allow list: if isManagerOrAdmin(request.auth.uid);
+
+      // A user can create their own profile upon registration.
       allow create: if request.auth.uid == userId;
+      
+      // Only managers can delete users.
       allow delete: if isManagerOrAdmin(request.auth.uid);
       
       // A manager or admin can update any user's profile.

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 // FIX: Removed modular import for httpsCallable.
 import { functions } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { SpinnerIcon, SparklesIcon, QuestionMarkCircleIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -18,7 +19,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [showHelp, setShowHelp] = useState(false);
 
     // FIX: Use compat httpsCallable syntax.
-    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
+    const askClinicalAssistant = httpsCallable(functions, 'askClinicalAssistant');
 
 
     const handleQuery = async (e: React.FormEvent) => {

@@ -4,9 +4,10 @@ import type { Vehicle, VehicleCheck } from '../types';
 import { getVehicleById, getVehicleChecks, addVehicleCheck, updateVehicle } from '../services/assetService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon, ChevronRightIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import VehicleCheckModal from '../components/VehicleCheckModal';
+import VehicleCheckViewModal from '../components/VehicleCheckViewModal';
 
 const VehicleDetail: React.FC = () => {
     const { vehicleId } = ReactRouterDOM.useParams<{ vehicleId: string }>();
@@ -17,6 +18,8 @@ const VehicleDetail: React.FC = () => {
     const [checks, setChecks] = useState<VehicleCheck[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCheckModalOpen, setCheckModalOpen] = useState(false);
+    const [isViewModalOpen, setViewModalOpen] = useState(false);
+    const [selectedCheck, setSelectedCheck] = useState<VehicleCheck | null>(null);
 
     const fetchData = async () => {
         if (!vehicleId) return;
@@ -53,6 +56,11 @@ const VehicleDetail: React.FC = () => {
             setCheckModalOpen(false);
         }
     }
+
+    const handleViewCheck = (check: VehicleCheck) => {
+        setSelectedCheck(check);
+        setViewModalOpen(true);
+    };
 
     const handlePrintQr = () => {
         if (vehicle) {
@@ -97,6 +105,13 @@ const VehicleDetail: React.FC = () => {
                     onSave={handleSaveCheck}
                     vehicle={vehicle}
                     user={user}
+                />
+            )}
+            {isViewModalOpen && selectedCheck && (
+                <VehicleCheckViewModal
+                    isOpen={isViewModalOpen}
+                    onClose={() => setViewModalOpen(false)}
+                    check={selectedCheck}
                 />
             )}
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
@@ -170,6 +185,9 @@ const VehicleDetail: React.FC = () => {
                                             <p className="text-sm text-gray-600 dark:text-gray-400">by {check.user.name}</p>
                                             <p className="text-sm text-gray-600 dark:text-gray-400">Mileage: {check.mileage} | Fuel: {check.fuelLevel}</p>
                                             {check.notes && <p className="text-sm mt-2 pt-2 border-t dark:border-gray-600 italic">"{check.notes}"</p>}
+                                            <button onClick={() => handleViewCheck(check)} className="mt-2 text-sm font-semibold text-ams-light-blue hover:underline flex items-center">
+                                                View Details <ChevronRightIcon className="w-4 h-4 ml-1" />
+                                            </button>
                                         </div>
                                         <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${check.overallStatus === 'Pass' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
                                              {check.overallStatus === 'Pass' && <CheckIcon className="w-4 h-4"/>}

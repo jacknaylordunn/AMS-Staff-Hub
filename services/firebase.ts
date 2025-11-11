@@ -5,7 +5,7 @@ import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 // FIX: Using compat imports for storage and functions to resolve module errors.
 import 'firebase/compat/storage';
-import 'firebase/compat/functions';
+import { getFunctions } from 'firebase/functions';
 import 'firebase/compat/messaging';
 
 // FIX: Removed modular auth import.
@@ -35,7 +35,7 @@ export const auth = firebase.auth();
 // FIX: Use compat version of firestore.
 export const db = firebase.firestore();
 export const storage = firebase.storage();
-export const functions = firebase.functions();
+export const functions = getFunctions(app);
 export const messaging = firebase.messaging.isSupported() ? firebase.messaging() : null;
 
 

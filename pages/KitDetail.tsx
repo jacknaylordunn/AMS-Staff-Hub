@@ -4,10 +4,11 @@ import type { Kit, KitCheck, KitChecklistItem } from '../types';
 import { getKitById, getKitChecks, addKitCheck, updateKit } from '../services/inventoryService';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon, PencilIcon } from '../components/icons';
+import { SpinnerIcon, PlusIcon, CheckIcon, QrCodeIcon, CopyIcon, PencilIcon, ChevronRightIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
 import KitCheckModal from '../components/KitCheckModal';
 import KitChecklistEditModal from '../components/KitChecklistEditModal';
+import KitCheckViewModal from '../components/KitCheckViewModal';
 
 const getExpiryColor = (expiryDate?: string): string => {
     if (!expiryDate) return 'text-gray-500 dark:text-gray-400';
@@ -35,6 +36,8 @@ const KitDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isCheckModalOpen, setCheckModalOpen] = useState(false);
     const [isChecklistEditModalOpen, setChecklistEditModalOpen] = useState(false);
+    const [isViewModalOpen, setViewModalOpen] = useState(false);
+    const [selectedCheck, setSelectedCheck] = useState<KitCheck | null>(null);
     const [checkType, setCheckType] = useState<'Sign Out' | 'Sign In'>('Sign Out');
 
     const fetchData = async () => {
@@ -91,6 +94,11 @@ const KitDetail: React.FC = () => {
         setCheckModalOpen(true);
     };
 
+    const handleViewCheck = (check: KitCheck) => {
+        setSelectedCheck(check);
+        setViewModalOpen(true);
+    };
+
     const handlePrintQr = () => {
         if (kit) {
             navigate(`/print/kit/${kit.id}`);
@@ -144,6 +152,13 @@ const KitDetail: React.FC = () => {
                     kit={kit}
                     user={user}
                     type={checkType}
+                />
+            )}
+             {isViewModalOpen && selectedCheck && (
+                <KitCheckViewModal 
+                    isOpen={isViewModalOpen}
+                    onClose={() => setViewModalOpen(false)}
+                    check={selectedCheck}
                 />
             )}
             {isChecklistEditModalOpen && kit && isManager && (
@@ -251,6 +266,9 @@ const KitDetail: React.FC = () => {
                                                 <p className="text-sm text-gray-600 dark:text-gray-400">by {check.user.name} - <span className="font-medium">{check.type}</span></p>
                                                 {check.itemsUsed && check.itemsUsed.length > 0 && <p className="text-sm mt-1">Used: {check.itemsUsed.map(i => `${i.itemName} (x${i.quantity})`).join(', ')}</p>}
                                                 {check.notes && <p className="text-sm mt-2 pt-2 border-t dark:border-gray-600 italic">"{check.notes}"</p>}
+                                                <button onClick={() => handleViewCheck(check)} className="mt-2 text-sm font-semibold text-ams-light-blue hover:underline flex items-center">
+                                                    View Details <ChevronRightIcon className="w-4 h-4 ml-1" />
+                                                </button>
                                             </div>
                                             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${check.overallStatus === 'Pass' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
                                                 {check.overallStatus === 'Pass' && <CheckIcon className="w-4 h-4"/>}

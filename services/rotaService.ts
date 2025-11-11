@@ -1,5 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import type { Shift, ShiftSlot, User } from '../types';
 import { showToast } from '../components/Toast';
 
@@ -104,17 +105,17 @@ export const deleteShift = async (shiftId: string): Promise<void> => {
 };
 
 export const bidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
-    const bidOnShiftFn = functions.httpsCallable('bidOnShift');
+    const bidOnShiftFn = httpsCallable(functions, 'bidOnShift');
     await bidOnShiftFn({ shiftId, slotId });
 };
 
 export const cancelBidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
-    const cancelBidOnShiftFn = functions.httpsCallable('cancelBidOnShift');
+    const cancelBidOnShiftFn = httpsCallable(functions, 'cancelBidOnShift');
     await cancelBidOnShiftFn({ shiftId, slotId });
 };
 
 export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; } | null) => {
-    const assignStaffFn = functions.httpsCallable('assignStaffToShiftSlot');
+    const assignStaffFn = httpsCallable(functions, 'assignStaffToShiftSlot');
     await assignStaffFn({ shiftId, slotId, staff });
 };
 

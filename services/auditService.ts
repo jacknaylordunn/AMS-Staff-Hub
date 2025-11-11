@@ -4,6 +4,7 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import { db, functions } from './firebase';
+import { httpsCallable } from 'firebase/functions';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
 
@@ -40,7 +41,7 @@ const getJRCALCGuidelines = () => {
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
     // FIX: Use compat httpsCallable
-    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
+    const askClinicalAssistant = httpsCallable(functions, 'askClinicalAssistant');
 
     // 1. Fetch associated patient data
     // FIX: Use compat 'get' and 'doc' functions.
