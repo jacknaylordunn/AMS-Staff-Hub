@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -37,7 +38,8 @@ import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
 import EventBrief from './pages/EventBrief';
 import LiveAssetDashboard from './pages/LiveAssetDashboard';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 import { auth, messaging } from './services/firebase';
 import { showToast } from './components/Toast';
 import { SpinnerIcon } from './components/icons';
@@ -49,7 +51,8 @@ const PendingApproval: React.FC = () => {
     const navigate = ReactRouterDOM.useNavigate();
     const handleLogout = async () => {
         try {
-            await firebaseAuth.signOut(auth);
+            // FIX: Use compat auth syntax for signOut.
+            await auth.signOut();
             navigate('/login');
         } catch (error) {
             console.error('Error signing out: ', error);

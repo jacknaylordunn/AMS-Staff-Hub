@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { requestRoleChange, updateUserProfile } from '../services/userService';
 import { showToast } from '../components/Toast';
@@ -44,7 +45,8 @@ const Profile: React.FC = () => {
     const handlePasswordReset = async () => {
         if (user && user.email) {
             try {
-                await firebaseAuth.sendPasswordResetEmail(auth, user.email);
+                // FIX: Use compat auth syntax.
+                await auth.sendPasswordResetEmail(user.email);
                 showToast("Password reset email sent. Please check your inbox.", 'success');
             } catch (error) {
                 showToast("Failed to send password reset email.", 'error');
@@ -66,7 +68,8 @@ const Profile: React.FC = () => {
                 const newDisplayName = `${firstName} ${lastName}`.trim();
                 // Update Firebase Auth profile
                 if(auth.currentUser.displayName !== newDisplayName) {
-                    await firebaseAuth.updateProfile(auth.currentUser, { displayName: newDisplayName });
+                    // FIX: Use compat auth syntax.
+                    await auth.currentUser.updateProfile({ displayName: newDisplayName });
                 }
                 
                 // Update Firestore profile (non-role fields)

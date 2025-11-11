@@ -232,7 +232,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 });
                 return { ...prevShift, slots: newSlots };
             });
-            await refreshShifts();
         } catch (e: any) {
             console.error(e);
             showToast(e.message || "Failed to process bid.", "error");
@@ -261,7 +260,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                  });
                  return { ...prevShift, slots: newSlots };
             });
-            await refreshShifts();
         } catch (e: any) {
             console.error(e);
             showToast(e.message || "Failed to withdraw bid.", "error");
@@ -287,7 +285,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 });
                 return { ...prev, slots: newSlots };
             });
-            await refreshShifts();
         } catch (e) {
             showToast("Failed to assign staff.", "error");
         } finally {
@@ -307,7 +304,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 const newSlots = prev.slots.map(s => s.id === slotId ? { ...s, assignedStaff: null } : s);
                 return { ...prev, slots: newSlots };
             });
-            await refreshShifts();
         } catch (e) {
             showToast("Failed to unassign staff.", "error");
         } finally {

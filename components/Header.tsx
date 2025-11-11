@@ -1,6 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
@@ -80,7 +82,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isVisible }) => {
 
   const handleLogout = async () => {
     try {
-      await firebaseAuth.signOut(auth);
+      // FIX: Use compat auth syntax for signOut.
+      await auth.signOut();
       clearLocalSession();
       navigate('/login');
     } catch (error) {

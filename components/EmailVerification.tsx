@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { showToast } from './Toast';
 import { SpinnerIcon } from './icons';
@@ -12,7 +13,8 @@ const EmailVerification: React.FC = () => {
 
     const handleLogout = async () => {
         try {
-            await firebaseAuth.signOut(auth);
+            // FIX: Use compat auth syntax.
+            await auth.signOut();
             navigate('/login');
         } catch (error) {
             showToast('Error signing out.', 'error');
@@ -23,7 +25,8 @@ const EmailVerification: React.FC = () => {
         if (auth.currentUser) {
             setSending(true);
             try {
-                await firebaseAuth.sendEmailVerification(auth.currentUser);
+                // FIX: Use compat auth syntax.
+                await auth.currentUser.sendEmailVerification();
                 showToast('Verification email sent! Please check your inbox.', 'success');
             } catch (error) {
                 showToast('Failed to send verification email.', 'error');

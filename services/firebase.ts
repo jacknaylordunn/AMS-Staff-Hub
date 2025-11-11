@@ -8,7 +8,8 @@ import 'firebase/compat/storage';
 import 'firebase/compat/functions';
 import 'firebase/compat/messaging';
 
-import { getAuth } from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import { getAuth } from 'firebase/auth';
 // FIX: Removed modular firestore imports.
 // import { enableIndexedDbPersistence, getFirestore } from 'firebase/firestore';
 
@@ -28,8 +29,9 @@ export const VAPID_KEY = 'BDSG-vA0Z6i_8qE2yJVh5Q-3p2N8yFw049xtuBwLqL9e3bY7c3X7z5
 // Initialize Firebase using compat
 const app = firebase.initializeApp(firebaseConfig);
 
-// Initialize services using modular v9 functions for some, and compat for others.
-export const auth = getAuth(app);
+// Initialize services using compat syntax.
+// FIX: Use compat auth.
+export const auth = firebase.auth();
 // FIX: Use compat version of firestore.
 export const db = firebase.firestore();
 export const storage = firebase.storage();

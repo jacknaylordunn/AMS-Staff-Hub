@@ -1,5 +1,7 @@
+
 import React, { useState, FormEvent } from 'react';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserProfile } from '../services/userService';
 import { SpinnerIcon } from '../components/icons';
@@ -46,7 +48,8 @@ const Login: React.FC = () => {
     setError('');
     setMessage('');
     try {
-        await firebaseAuth.sendPasswordResetEmail(auth, email);
+        // FIX: Use compat auth syntax.
+        await auth.sendPasswordResetEmail(email);
         setMessage('Password reset email sent. Please check your inbox.');
     } catch (err: any) {
         if (err.code === 'auth/user-not-found') {
@@ -75,7 +78,8 @@ const Login: React.FC = () => {
 
     if (isLogin) {
         try {
-            await firebaseAuth.signInWithEmailAndPassword(auth, email, password);
+            // FIX: Use compat auth syntax.
+            await auth.signInWithEmailAndPassword(email, password);
             // Navigation is now handled by AppRoutes based on auth state
         } catch (err: any) {
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -103,10 +107,16 @@ const Login: React.FC = () => {
         }
 
         try {
-            const userCredential = await firebaseAuth.createUserWithEmailAndPassword(auth, email, password);
+            // FIX: Use compat auth syntax.
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
+            
+            if (!user) {
+                throw new Error("User creation failed.");
+            }
 
-            await firebaseAuth.updateProfile(user, {
+            // FIX: Use compat auth syntax.
+            await user.updateProfile({
                 displayName: `${firstName} ${lastName}`.trim()
             });
 
@@ -117,10 +127,12 @@ const Login: React.FC = () => {
                 registrationNumber,
             });
 
-            await firebaseAuth.sendEmailVerification(user);
+            // FIX: Use compat auth syntax.
+            await user.sendEmailVerification();
 
             // Sign out the user immediately after registration
-            await firebaseAuth.signOut(auth);
+            // FIX: Use compat auth syntax.
+            await auth.signOut();
             
             setMessage('Registration successful! A verification email has been sent to you. Please verify your email, then await manager approval before logging in.');
             setIsLogin(true); // Switch to login view

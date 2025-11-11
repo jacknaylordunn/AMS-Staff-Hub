@@ -1,7 +1,9 @@
 
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import * as firebaseAuth from 'firebase/auth';
+// FIX: Import firebase compat for types.
+import firebase from 'firebase/compat/app';
+// FIX: Removed modular auth import.
+// import * as firebaseAuth from 'firebase/auth';
 // FIX: Use named imports for modular Firestore SDK.
 import { auth, db } from '../services/firebase';
 import type { User } from '../types';
@@ -27,7 +29,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let unsubscribeFirestore: () => void | undefined;
 
-    const unsubscribeAuth = firebaseAuth.onAuthStateChanged(auth, (firebaseUser: firebaseAuth.User | null) => {
+    // FIX: Use compat onAuthStateChanged method and firebase.User type.
+    const unsubscribeAuth = auth.onAuthStateChanged((firebaseUser: firebase.User | null) => {
       // Clean up previous Firestore listener if user changes
       if (unsubscribeFirestore) unsubscribeFirestore();
 
