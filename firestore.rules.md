@@ -1,7 +1,3 @@
-# Aegis Hub Firestore Security Rules
-
-This document outlines the recommended security rules for the Firestore database to ensure data integrity and security based on user roles. These should be deployed to your Firebase project.
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

@@ -1,6 +1,3 @@
-# Aegis Hub Firebase Storage Security Rules
-# These rules should be deployed to your Firebase project's Storage section.
-
 rules_version = '2';
 
 service firebase.storage {
