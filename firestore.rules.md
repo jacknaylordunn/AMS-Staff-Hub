@@ -137,7 +137,7 @@ service cloud.firestore {
     
     // Announcements
     match /announcements/{announcementId} {
-        allow read: if isAuthenticated(); // 'list' is implied by 'read' here in the template, but let's be explicit
+        allow read: if isAuthenticated();
         allow list: if isAuthenticated();
         allow create: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
         allow update: if false;
