@@ -31,8 +31,10 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      // A user can get their own document, and managers can get any user document.
-      allow get: if isAuthenticated() && (request.auth.uid == userId || isManagerOrAdmin(request.auth.uid));
+      // A user can get their own document.
+      allow get: if isAuthenticated() && request.auth.uid == userId;
+      // A manager can also get any user document.
+      allow get: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
 
       // Only managers can list multiple user documents (e.g., for the Staff page).
       allow list: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
