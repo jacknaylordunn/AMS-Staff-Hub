@@ -2,7 +2,6 @@ import { db, functions } from './firebase';
 import { httpsCallable } from 'firebase/functions';
 import type { Announcement } from '../types';
 
-// FIX: Changed 'eventId' to 'eventName' to match the cloud function's expectation for event-based targeting.
 export type AnnouncementTarget =
     | { type: 'all' }
     | { type: 'roles', roles: string[] }

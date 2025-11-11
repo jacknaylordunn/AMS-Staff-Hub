@@ -1,10 +1,8 @@
-
-
 import React, { useState, useEffect } from 'react';
 // FIX: Use compat firestore types.
 import firebase from 'firebase/compat/app';
 import type { Shift, ShiftSlot, User, Vehicle, Kit } from '../types';
-import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon } from './icons';
+import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon, ProfileIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
 import { bidOnShift, cancelBidOnShift, assignStaffToSlot } from '../services/rotaService';
@@ -24,11 +22,12 @@ interface ShiftModalProps {
     type: 'shift' | 'unavailability';
     currentUser: User;
     refreshShifts: () => Promise<void>;
+    allShifts: Shift[];
 }
 
 const CLINICAL_ROLES = ALL_ROLES.filter(r => !['Pending', 'Admin', 'Manager'].includes(r!));
 
-const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, staff, vehicles, kits, type, currentUser, refreshShifts }) => {
+const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, staff, vehicles, kits, type, currentUser, refreshShifts, allShifts }) => {
     const [formData, setFormData] = useState({
         eventName: '',
         location: '',
@@ -46,12 +45,15 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isRepeatModalOpen, setRepeatModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'details' | 'assignments' | 'assets'>('details');
+    const [conflict, setConflict] = useState<{ slotId: string; staff: { uid: string; name: string; }; conflictingShift: Shift; } | null>(null);
     
     const isManager = currentUser.role === 'Manager' || currentUser.role === 'Admin';
 
     useEffect(() => {
         if (!isOpen) {
             setCurrentShift(null); // Clear state when modal closes
+            setActiveTab('details');
             return;
         }
 
@@ -267,8 +269,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             setIsProcessing(false);
         }
     };
-
-    const handleAssign = async (slotId: string, staffMember: { uid: string, name: string }) => {
+    
+    const executeAssign = async (slotId: string, staffMember: { uid: string, name: string }) => {
         if (!currentShift?.id) return;
         setIsProcessing(true);
         try {
@@ -292,7 +294,28 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             setIsProcessing(false);
         }
     };
-    
+
+    const initiateAssign = (slotId: string, staffMember: { uid: string, name: string }) => {
+        const shiftStart = new Date(formData.start);
+        const shiftEnd = new Date(formData.end);
+
+        const conflictingShift = allShifts.find(s => {
+            if (s.id === currentShift?.id) return false;
+            if (!s.allAssignedStaffUids.includes(staffMember.uid)) return false;
+
+            const sStart = s.start.toDate();
+            const sEnd = s.end.toDate();
+            
+            return shiftStart < sEnd && shiftEnd > sStart;
+        });
+
+        if (conflictingShift) {
+            setConflict({ slotId, staff: staffMember, conflictingShift });
+        } else {
+            executeAssign(slotId, staffMember);
+        }
+    };
+
     const handleUnassign = async (slotId: string) => {
         if (!currentShift?.id) return;
         setIsProcessing(true);
@@ -329,90 +352,120 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
     };
     const title = getTitle();
 
+    const TabButton: React.FC<{ tab: typeof activeTab, label: string }> = ({ tab, label }) => (
+        <button
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg ${activeTab === tab ? 'bg-white dark:bg-gray-800 border-x border-t dark:border-gray-600' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200'}`}
+        >
+            {label}
+        </button>
+    );
+
     const renderManagerContent = () => (
          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className={labelClasses}>Event Name</label>
-                    <input type="text" name="eventName" value={formData.eventName} onChange={handleChange} required className={inputClasses} />
-                </div>
-                <div>
-                    <label className={labelClasses}>Location</label>
-                    <input type="text" name="location" value={formData.location} onChange={handleChange} required className={inputClasses} />
-                </div>
-                 <div>
-                    <label className={labelClasses}>Start Time</label>
-                    <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses} />
-                </div>
-                <div>
-                    <label className={labelClasses}>End Time</label>
-                    <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses} />
+            <div className="border-b dark:border-gray-600 -mx-8 px-8">
+                <div className="flex space-x-2">
+                    <TabButton tab="details" label="Shift Details" />
+                    <TabButton tab="assignments" label="Assignments" />
+                    <TabButton tab="assets" label="Assets" />
                 </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t dark:border-gray-600">
-                <label className={labelClasses}>Role Slots & Assignments</label>
-                <div className="space-y-4 mt-1 p-2 border rounded-md dark:border-gray-600 max-h-64 overflow-y-auto">
-                    {currentShift.slots.map((slot) => {
-                        const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !currentShift.slots.some(sl => sl.assignedStaff?.uid === s.uid));
-                        return (
-                        <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                            <div className="flex items-center gap-2 justify-between">
-                                <select value={slot.roleRequired} onChange={(e) => handleSlotChange(slot.id, 'roleRequired', e.target.value)} className={inputClasses}>
-                                    {CLINICAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                                <button type="button" onClick={() => removeSlot(slot.id)} className="p-2 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+            <div className="mt-6">
+                {activeTab === 'details' && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClasses}>Event Name</label>
+                                <input type="text" name="eventName" value={formData.eventName} onChange={handleChange} required className={inputClasses} />
                             </div>
-                            {slot.assignedStaff ? (
-                                <div className="mt-2 flex justify-between items-center">
-                                    <p className="font-semibold text-green-600">Assigned: {slot.assignedStaff.name}</p>
-                                    <button onClick={() => handleUnassign(slot.id)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-gray-400 text-white rounded hover:bg-gray-500">Unassign</button>
-                                </div>
-                            ) : (
-                                <div className="mt-2">
-                                    <select onChange={(e) => handleAssign(slot.id, JSON.parse(e.target.value))} className={`${inputClasses} text-sm`} defaultValue="">
-                                        <option value="">-- Assign Staff --</option>
-                                        {eligibleStaff.map(s => <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>{s.firstName} {s.lastName} ({s.role})</option>)}
-                                    </select>
-                                    {slot.bids.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t dark:border-gray-600">
-                                            <h4 className="text-xs font-bold text-gray-500">BIDS ({slot.bids.length})</h4>
-                                            <ul className="mt-1 space-y-1">
-                                                {slot.bids.map(bid => (
-                                                    <li key={bid.uid} className="flex justify-between items-center text-sm">
-                                                        <span>{bid.name}</span>
-                                                        <button type="button" onClick={() => handleAssign(slot.id, bid)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Assign</button>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                            <div>
+                                <label className={labelClasses}>Location</label>
+                                <input type="text" name="location" value={formData.location} onChange={handleChange} required className={inputClasses} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Start Time</label>
+                                <input type="datetime-local" name="start" value={formData.start} onChange={handleChange} required className={inputClasses} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>End Time</label>
+                                <input type="datetime-local" name="end" value={formData.end} onChange={handleChange} required className={inputClasses} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Notes</label>
+                            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputClasses} />
+                        </div>
+                    </div>
+                )}
+                {activeTab === 'assignments' && (
+                     <div>
+                        <label className={labelClasses}>Role Slots & Assignments</label>
+                        <div className="space-y-4 mt-1 p-2 border rounded-md dark:border-gray-600 max-h-96 overflow-y-auto">
+                            {currentShift.slots.map((slot) => {
+                                const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !currentShift.slots.some(sl => sl.assignedStaff?.uid === s.uid));
+                                return (
+                                <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <div className="flex items-center gap-2 justify-between">
+                                        <select value={slot.roleRequired} onChange={(e) => handleSlotChange(slot.id, 'roleRequired', e.target.value)} className={inputClasses}>
+                                            {CLINICAL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                        <button type="button" onClick={() => removeSlot(slot.id)} className="p-2 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
+                                    {slot.assignedStaff ? (
+                                        <div className="mt-2 flex justify-between items-center bg-green-100 dark:bg-green-900/50 p-2 rounded-md">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center">
+                                                    <ProfileIcon className="w-4 h-4 text-green-700" />
+                                                </div>
+                                                <p className="font-semibold text-green-800 dark:text-green-200">{slot.assignedStaff.name}</p>
+                                            </div>
+                                            <button onClick={() => handleUnassign(slot.id)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-gray-400 text-white rounded hover:bg-gray-500">Unassign</button>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2">
+                                            <select onChange={(e) => e.target.value && initiateAssign(slot.id, JSON.parse(e.target.value))} className={`${inputClasses} text-sm`} defaultValue="">
+                                                <option value="">-- Assign Staff --</option>
+                                                {eligibleStaff.map(s => <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>{s.firstName} {s.lastName} ({s.role})</option>)}
+                                            </select>
+                                            {slot.bids.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t dark:border-gray-600">
+                                                    <h4 className="text-xs font-bold text-gray-500">BIDS ({slot.bids.length})</h4>
+                                                    <ul className="mt-1 space-y-1">
+                                                        {slot.bids.map(bid => (
+                                                            <li key={bid.uid} className="flex justify-between items-center text-sm">
+                                                                <span>{bid.name}</span>
+                                                                <button type="button" onClick={() => initiateAssign(slot.id, bid)} disabled={isProcessing} className="px-2 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Assign</button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-                            )}
+                            )})}
+                            <button type="button" onClick={addSlot} className="flex items-center text-sm px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300"><PlusIcon className="w-4 h-4 mr-1"/> Add Slot</button>
                         </div>
-                    )})}
-                    <button type="button" onClick={addSlot} className="flex items-center text-sm px-3 py-1 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300"><PlusIcon className="w-4 h-4 mr-1"/> Add Slot</button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                 <div>
-                    <label className={labelClasses}>Assigned Vehicle(s)</label>
-                    <select multiple name="assignedVehicleIds" value={formData.assignedVehicleIds} onChange={handleVehicleSelect} className={`${inputClasses} h-24`}>
-                        {vehicles.map(v => <option key={v.id!} value={v.id!}>{v.name} ({v.registration})</option>)}
-                    </select>
-                </div>
-                 <div>
-                    <label className={labelClasses}>Assigned Kits</label>
-                    <select multiple name="assignedKitIds" value={formData.assignedKitIds} onChange={handleKitSelect} className={`${inputClasses} h-24`}>
-                        {kits.map(k => <option key={k.id!} value={k.id!}>{k.name}</option>)}
-                    </select>
-                </div>
-            </div>
-            
-            <div className="mt-4">
-                <label className={labelClasses}>Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputClasses} />
+                    </div>
+                )}
+                {activeTab === 'assets' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className={labelClasses}>Assigned Vehicle(s)</label>
+                            <select multiple name="assignedVehicleIds" value={formData.assignedVehicleIds} onChange={handleVehicleSelect} className={`${inputClasses} h-24`}>
+                                {vehicles.map(v => <option key={v.id!} value={v.id!}>{v.name} ({v.registration})</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Assigned Kits</label>
+                            <select multiple name="assignedKitIds" value={formData.assignedKitIds} onChange={handleKitSelect} className={`${inputClasses} h-24`}>
+                                {kits.map(k => <option key={k.id!} value={k.id!}>{k.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                )}
             </div>
             
             <div className="flex justify-between items-center mt-6">
@@ -490,6 +543,19 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+            <ConfirmationModal 
+                isOpen={!!conflict}
+                onClose={() => setConflict(null)}
+                onConfirm={() => {
+                    if (conflict) {
+                        executeAssign(conflict.slotId, conflict.staff);
+                    }
+                    setConflict(null);
+                }}
+                title="Shift Conflict Detected"
+                message={`${conflict?.staff.name} is already assigned to "${conflict?.conflictingShift.eventName}" which overlaps with this shift. Are you sure you want to double book them?`}
+                confirmText="Yes, Assign Anyway"
+            />
             <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title={type === 'unavailability' ? "Remove Unavailability" : "Delete Shift"} message={type === 'unavailability' ? "Are you sure?" : "Are you sure you want to delete this shift?"} confirmText="Delete" isLoading={isDeleting}/>
             {shift && <RepeatShiftModal isOpen={isRepeatModalOpen} onClose={() => setRepeatModalOpen(false)} shift={shift} onSave={refreshShifts} />}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>

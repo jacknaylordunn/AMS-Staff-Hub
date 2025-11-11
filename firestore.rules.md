@@ -68,8 +68,7 @@ service cloud.firestore {
         allow get: if isAuthenticated();
         allow list: if isAuthenticated(); 
         allow create: if isAuthenticated() && (isManagerOrAdmin(request.auth.uid) || (request.resource.data.isUnavailability == true && request.auth.uid in request.resource.data.allAssignedStaffUids));
-        allow update: if isAuthenticated() && (isManagerOrAdmin(request.auth.uid) || 
-                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slots'])));
+        allow update: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
         allow delete: if isAuthenticated() && (isManagerOrAdmin(request.auth.uid) || (resource.data.isUnavailability == true && request.auth.uid in resource.data.allAssignedStaffUids));
     }
     

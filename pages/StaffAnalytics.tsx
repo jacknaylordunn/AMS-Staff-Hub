@@ -56,15 +56,18 @@ const StaffAnalytics: React.FC = () => {
                 if (shift.isUnavailability) return;
 
                 const durationHours = (shift.end.toMillis() - shift.start.toMillis()) / (1000 * 60 * 60);
+                const assignedStaffInShift = new Set<string>();
 
-                // FIX: Iterate through slots to find assigned staff.
                 (shift.slots || []).forEach(slot => {
                     if (slot.assignedStaff) {
-                        const staff = slot.assignedStaff;
-                        if (analytics[staff.uid]) {
-                            analytics[staff.uid].shiftCount += 1;
-                            analytics[staff.uid].totalHours += durationHours;
-                        }
+                        assignedStaffInShift.add(slot.assignedStaff.uid);
+                    }
+                });
+
+                assignedStaffInShift.forEach(uid => {
+                    if (analytics[uid]) {
+                        analytics[uid].shiftCount += 1;
+                        analytics[uid].totalHours += durationHours;
                     }
                 });
             });

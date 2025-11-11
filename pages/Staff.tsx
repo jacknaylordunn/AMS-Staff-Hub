@@ -113,6 +113,14 @@ const Staff: React.FC = () => {
         }
     };
 
+    const getRowClass = (user: User) => {
+        let base = 'cursor-pointer group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
+        if (editingUser?.uid === user.uid) return `${base} bg-blue-50 dark:bg-blue-900/20`;
+        if (user.role === 'Pending') return `${base} bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400`;
+        if (user.pendingRole) return `${base} bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-400`;
+        return base;
+    };
+
     const pendingRegistrationCount = useMemo(() => users.filter(u => u.role === 'Pending').length, [users]);
     const pendingRoleChangeCount = useMemo(() => users.filter(u => !!u.pendingRole).length, [users]);
 
@@ -183,7 +191,7 @@ const Staff: React.FC = () => {
                                 {filteredUsers.map(user => (
                                     <tr key={user.uid} 
                                         onClick={() => navigate(`/staff/${user.uid}`)} 
-                                        className={`cursor-pointer group hover:bg-gray-50 dark:hover:bg-gray-700/50 ${editingUser?.uid === user.uid ? 'bg-blue-50 dark:bg-gray-700/50' : (user.role === 'Pending' || user.pendingRole) ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+                                        className={getRowClass(user)}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-200">{user.firstName} {user.lastName}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{user.email}</td>
@@ -205,19 +213,19 @@ const Staff: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div onClick={e => e.stopPropagation()}>
                                                 {editingUser?.uid === user.uid ? (
-                                                    <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-700" disabled={isSaving}>Cancel</button>
+                                                    <button onClick={() => setEditingUser(null)} className="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300" disabled={isSaving}>Cancel</button>
                                                 ) : user.pendingRole ? (
                                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => handleApproveRoleChange(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve</button>
-                                                        <button onClick={() => handleRejectRoleChange(user.uid)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Reject</button>
+                                                        <button onClick={() => handleApproveRoleChange(user)} className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-md hover:bg-green-600" disabled={isSaving}>Approve</button>
+                                                        <button onClick={() => handleRejectRoleChange(user.uid)} className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md hover:bg-red-600" disabled={isSaving}>Reject</button>
                                                     </div>
                                                 ) : user.role === 'Pending' ? (
                                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => setEditingUser(user)} className="text-green-600 hover:text-green-800" disabled={isSaving}>Approve & Assign</button>
-                                                        <button onClick={() => handleDeclineUser(user)} className="text-red-600 hover:text-red-800" disabled={isSaving}>Decline</button>
+                                                        <button onClick={() => setEditingUser(user)} className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-md hover:bg-green-600" disabled={isSaving}>Approve & Assign</button>
+                                                        <button onClick={() => handleDeclineUser(user)} className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md hover:bg-red-600" disabled={isSaving}>Decline</button>
                                                     </div>
                                                 ) : (
-                                                    <button onClick={() => setEditingUser(user)} className="text-ams-light-blue hover:text-ams-blue opacity-0 group-hover:opacity-100 transition-opacity" disabled={isSaving}>
+                                                    <button onClick={() => setEditingUser(user)} className="px-2 py-1 text-xs font-semibold text-ams-blue bg-ams-light-blue/20 rounded-md hover:bg-ams-light-blue/40 opacity-0 group-hover:opacity-100 transition-opacity" disabled={isSaving}>
                                                         Edit Role
                                                     </button>
                                                 )}

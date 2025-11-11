@@ -25,7 +25,6 @@ const ai = new GoogleGenAI({ apiKey: API_KEY! });
 // Helper function to determine shift status based on filled slots
 const getShiftStatus = (slotsArr: any[]): string => {
     const totalSlots = slotsArr.length;
-    // FIX: Add check for `s` to prevent error if an element is null.
     const filledSlots = slotsArr.filter((s: any) => s && s.assignedStaff).length;
     if (filledSlots === 0) return 'Open';
     if (filledSlots < totalSlots) return 'Partially Assigned';
@@ -462,9 +461,7 @@ export const bidOnShift = onCall(async (request) => {
       }
 
       const shiftData = shiftDoc.data()!;
-      // FIX: Robustly handle cases where 'slots' may be missing or not an array.
       const slots = Array.isArray(shiftData.slots) ? shiftData.slots : [];
-
       const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
       if (slotIndex === -1) {
@@ -542,9 +539,7 @@ export const cancelBidOnShift = onCall(async (request) => {
             }
 
             const shiftData = shiftDoc.data()!;
-            // FIX: Robustly handle cases where 'slots' may be missing or not an array.
             const slots = Array.isArray(shiftData.slots) ? shiftData.slots : [];
-            
             const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
             if (slotIndex === -1) {
@@ -617,7 +612,7 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
                 slots[slotIndex].bids = [];
             }
             
-            const allAssignedStaffUids = slots.map((s: any) => s && s.assignedStaff?.uid).filter(Boolean);
+            const allAssignedStaffUids = [...new Set(slots.map((s: any) => s && s.assignedStaff?.uid).filter(Boolean))];
             const status = getShiftStatus(slots);
 
             transaction.update(shiftRef, { 
@@ -664,7 +659,7 @@ export const onShiftCreate = onDocumentCreated("shifts/{shiftId}", async (event)
     await batch.commit();
 });
 
-// Sends notifications when staff are assigned to an existing shift.
+// Sends notifications when staff are assigned to or un-assigned from an existing shift.
 export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event) => {
     if (!event.data) return;
     const before = event.data.before.data();
@@ -675,12 +670,13 @@ export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event)
     const beforeSlots = Array.isArray(before.slots) ? before.slots : [];
     const afterSlots = Array.isArray(after.slots) ? after.slots : [];
 
-    const beforeStaff = beforeSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean);
-    const afterStaff = afterSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean);
+    const beforeStaff = new Set(beforeSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean));
+    const afterStaff = new Set(afterSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean));
 
-    const newAssignments = afterStaff.filter(uid => !beforeStaff.includes(uid));
+    const newAssignments = [...afterStaff].filter(uid => !beforeStaff.has(uid));
+    const unAssignments = [...beforeStaff].filter(uid => !afterStaff.has(uid));
 
-    if (newAssignments.length === 0) return;
+    if (newAssignments.length === 0 && unAssignments.length === 0) return;
 
     const db = admin.firestore();
     const batch = db.batch();
@@ -691,6 +687,17 @@ export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event)
             userId: userId,
             message: `You have been assigned to the shift: ${after.eventName} on ${new Date(after.start.toDate()).toLocaleDateString()}`,
             link: `/brief/${event.params.shiftId}`,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    
+    for (const userId of unAssignments) {
+        const newNotifRef = db.collection("notifications").doc();
+        batch.set(newNotifRef, {
+            userId: userId,
+            message: `You have been un-assigned from the shift: ${after.eventName} on ${new Date(after.start.toDate()).toLocaleDateString()}`,
+            link: `/rota`,
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
