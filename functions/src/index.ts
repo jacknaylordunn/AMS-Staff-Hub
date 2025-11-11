@@ -460,12 +460,10 @@ export const bidOnShift = onCall(async (request) => {
         throw new HttpsError("not-found", "Shift does not exist.");
       }
 
-      const shiftData = shiftDoc.data();
-      if (!shiftData || !Array.isArray(shiftData.slots)) {
-        throw new HttpsError("internal", "Shift data is malformed.");
-      }
+      const shiftData = shiftDoc.data()!;
+      // FIX: Robustly handle cases where 'slots' may be missing or not an array.
+      const slots = Array.isArray(shiftData.slots) ? shiftData.slots : [];
 
-      const slots = shiftData.slots as any[];
       const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
       if (slotIndex === -1) {
@@ -489,10 +487,11 @@ export const bidOnShift = onCall(async (request) => {
 
       const newSlots = slots.map((s, index) => {
         if (index === slotIndex) {
+          const currentBids = Array.isArray(s.bids) ? s.bids : [];
           return {
             ...s,
             bids: [
-              ...bids,
+              ...currentBids,
               {
                 uid: uid,
                 name: userName,
@@ -541,16 +540,15 @@ export const cancelBidOnShift = onCall(async (request) => {
                 throw new HttpsError("not-found", "Shift does not exist.");
             }
 
-            const shiftData = shiftDoc.data();
-            if (!shiftData || !Array.isArray(shiftData.slots)) {
-                throw new HttpsError("internal", "Shift data is malformed.");
-            }
+            const shiftData = shiftDoc.data()!;
+            // FIX: Robustly handle cases where 'slots' may be missing or not an array.
+            const slots = Array.isArray(shiftData.slots) ? shiftData.slots : [];
             
-            const slots = shiftData.slots as any[];
             const slotIndex = slots.findIndex((s: any) => s && s.id === slotId);
 
             if (slotIndex === -1) {
-                throw new HttpsError("not-found", "The specified slot does not exist.");
+                // Silently succeed if the slot doesn't exist anymore.
+                return;
             }
             
             const newSlots = slots.map((s, index) => {
@@ -628,19 +626,7 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
             });
         });
         
-        // Handle notifications outside the transaction
-        if (staff) {
-            const shift = (await shiftRef.get()).data();
-            if (shift) {
-                await admin.firestore().collection("notifications").add({
-                    userId: staff.uid,
-                    message: `You have been assigned to the shift: ${shift.eventName} on ${new Date(shift.start.toDate()).toLocaleDateString()}`,
-                    link: `/brief/${shiftId}`,
-                    read: false,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-            }
-        }
+        // Notification logic is now handled by onShiftUpdate trigger to avoid duplicates.
         
         return { success: true };
     } catch (error: any) {
@@ -650,4 +636,61 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
         }
         throw new HttpsError("internal", "Could not assign staff due to a server error.");
     }
+});
+
+// Sends notifications when staff are assigned to a newly created shift.
+export const onShiftCreate = onDocumentCreated("shifts/{shiftId}", async (event) => {
+    const shift = event.data?.data();
+    if (!shift || !shift.slots) return;
+
+    const db = admin.firestore();
+    const batch = db.batch();
+
+    const assignedSlots = (shift.slots as any[]).filter(s => s.assignedStaff);
+    if (assignedSlots.length === 0) return;
+
+    for (const slot of assignedSlots) {
+        const staff = slot.assignedStaff;
+        const newNotifRef = db.collection("notifications").doc();
+        batch.set(newNotifRef, {
+            userId: staff.uid,
+            message: `You have been assigned a new shift: ${shift.eventName} on ${new Date(shift.start.toDate()).toLocaleDateString()}`,
+            link: `/brief/${event.params.shiftId}`,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    await batch.commit();
+});
+
+// Sends notifications when staff are assigned to an existing shift.
+export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event) => {
+    if (!event.data) return;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    if (!before || !after) return;
+    
+    const beforeStaff = (before.slots as any[]).map(s => s.assignedStaff?.uid).filter(Boolean);
+    const afterStaff = (after.slots as any[]).map(s => s.assignedStaff?.uid).filter(Boolean);
+
+    const newAssignments = afterStaff.filter(uid => !beforeStaff.includes(uid));
+
+    if (newAssignments.length === 0) return;
+
+    const db = admin.firestore();
+    const batch = db.batch();
+    
+    for (const userId of newAssignments) {
+        const newNotifRef = db.collection("notifications").doc();
+        batch.set(newNotifRef, {
+            userId: userId,
+            message: `You have been assigned to the shift: ${after.eventName} on ${new Date(after.start.toDate()).toLocaleDateString()}`,
+            link: `/brief/${event.params.shiftId}`,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+
+    await batch.commit();
 });

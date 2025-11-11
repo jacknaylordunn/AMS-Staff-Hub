@@ -1,7 +1,6 @@
 import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
 import type { Shift, ShiftSlot, User } from '../types';
-import { createNotification } from './notificationService';
 import { showToast } from '../components/Toast';
 
 const getShiftStatus = (slots: ShiftSlot[]): Shift['status'] => {
@@ -84,13 +83,7 @@ export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> =
     const status = getShiftStatus(shiftData.slots);
     // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).get(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
     await db.collection('shifts').add({ ...shiftData, allAssignedStaffUids, status });
-
-    // Notify assigned staff
-    for (const slot of shiftData.slots) {
-        if (slot.assignedStaff) {
-             await createNotification(slot.assignedStaff.uid, `You have been assigned a new shift: ${shiftData.eventName} on ${shiftData.start.toDate().toLocaleDateString()}`, '/rota');
-        }
-    }
+    // Notifications are now handled by a secure cloud function.
 };
 
 export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift, 'id'>>): Promise<void> => {
