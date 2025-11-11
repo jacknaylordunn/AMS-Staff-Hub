@@ -2,7 +2,6 @@
 
 This document outlines the recommended security rules for the Firestore database to ensure data integrity and security based on user roles. These should be deployed to your Firebase project.
 
-```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -31,10 +30,8 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      // A user can get their own document.
-      allow get: if isAuthenticated() && request.auth.uid == userId;
-      // A manager can also get any user document.
-      allow get: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
+      // A user can get their own document, and managers can get any user document.
+      allow get: if isAuthenticated() && (request.auth.uid == userId || isManagerOrAdmin(request.auth.uid));
 
       // Only managers can list multiple user documents (e.g., for the Staff page).
       allow list: if isAuthenticated() && isManagerOrAdmin(request.auth.uid);
@@ -232,4 +229,3 @@ service cloud.firestore {
     }
   }
 }
-```
