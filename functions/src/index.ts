@@ -1,10 +1,14 @@
 // FIX: Updated to Firebase Functions v2 syntax.
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { GoogleGenAI } from "@google/genai";
 
 admin.initializeApp();
+
+// Set the region for all functions
+setGlobalOptions({ region: "us-central1" });
 
 // Initialize the Gemini client. It will automatically use the API_KEY secret.
 // Ensure the secret is set by running: firebase functions:secrets:set API_KEY
