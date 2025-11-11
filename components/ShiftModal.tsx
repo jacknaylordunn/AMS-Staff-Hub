@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 // FIX: Use compat firestore types.
 import firebase from 'firebase/compat/app';
 import type { Shift, ShiftSlot, User, Vehicle, Kit } from '../types';
-import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon, ProfileIcon } from './icons';
+import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon, ProfileIcon, ShieldExclamationIcon } from './icons';
 import ConfirmationModal from './ConfirmationModal';
 import { showToast } from './Toast';
 import { bidOnShift, cancelBidOnShift, assignStaffToSlot } from '../services/rotaService';
@@ -404,7 +405,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                         <label className={labelClasses}>Role Slots & Assignments</label>
                         <div className="space-y-4 mt-1 p-2 border rounded-md dark:border-gray-600 max-h-96 overflow-y-auto">
                             {currentShift.slots.map((slot) => {
-                                const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !currentShift.slots.some(sl => sl.assignedStaff?.uid === s.uid));
+                                const eligibleStaff = staff.filter(s => isRoleOrHigher(s.role, slot.roleRequired) && !currentShift.slots.some(sl => sl.id !== slot.id && sl.assignedStaff?.uid === s.uid));
                                 return (
                                 <div key={slot.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                                     <div className="flex items-center gap-2 justify-between">
@@ -427,7 +428,26 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                                         <div className="mt-2">
                                             <select onChange={(e) => e.target.value && initiateAssign(slot.id, JSON.parse(e.target.value))} className={`${inputClasses} text-sm`} defaultValue="">
                                                 <option value="">-- Assign Staff --</option>
-                                                {eligibleStaff.map(s => <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>{s.firstName} {s.lastName} ({s.role})</option>)}
+                                                {eligibleStaff.map(s => {
+                                                    const shiftStart = new Date(formData.start);
+                                                    const shiftEnd = new Date(formData.end);
+                                                    
+                                                    const isDoubleBooked = allShifts.some(otherShift => {
+                                                        if (otherShift.id === currentShift?.id) return false;
+                                                        if (!otherShift.allAssignedStaffUids.includes(s.uid)) return false;
+
+                                                        const otherStart = otherShift.start.toDate();
+                                                        const otherEnd = otherShift.end.toDate();
+                                                        
+                                                        return shiftStart < otherEnd && shiftEnd > otherStart;
+                                                    });
+
+                                                    return (
+                                                        <option key={s.uid} value={JSON.stringify({uid: s.uid, name: `${s.firstName} ${s.lastName}`})}>
+                                                            {isDoubleBooked ? '⚠️ ' : ''}{s.firstName} {s.lastName} ({s.role})
+                                                        </option>
+                                                    );
+                                                })}
                                             </select>
                                             {slot.bids.length > 0 && (
                                                 <div className="mt-2 pt-2 border-t dark:border-gray-600">
@@ -502,6 +522,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
             );
         }
         
+        const mySlot = (currentShift.slots || []).find(s => s.assignedStaff?.uid === currentUser.uid);
         const biddableSlots = (currentShift.slots || []).filter(s => !s.assignedStaff && isRoleOrHigher(currentUser.role, s.roleRequired)) || [];
         
         return (
@@ -511,6 +532,16 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                  <p className="mt-2 text-gray-600 dark:text-gray-400">{currentShift.location}</p>
                  {currentShift.notes && <p className="mt-2 text-sm italic">"{currentShift.notes}"</p>}
                  
+                 {mySlot && (
+                    <div className="mt-6 pt-4 border-t dark:border-gray-600">
+                        <h4 className="font-semibold mb-2">Your Assignment</h4>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md">
+                            <p className="font-bold text-ams-blue dark:text-ams-light-blue">{mySlot.roleRequired}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">You are confirmed for this role.</p>
+                        </div>
+                    </div>
+                )}
+
                  <div className="mt-6 pt-4 border-t dark:border-gray-600">
                     <h4 className="font-semibold mb-2">Available Slots to Bid On</h4>
                     {biddableSlots.length > 0 ? (

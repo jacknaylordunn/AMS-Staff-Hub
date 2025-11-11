@@ -1,3 +1,4 @@
+
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { DashboardIcon, EprfIcon, DocsIcon, RotaIcon, PatientsIcon, EventsIcon, CheckIcon, ChartIcon, MegaphoneIcon, AdminIcon, CPDIcon, ShieldExclamationIcon, BoxIcon, PillIcon, HeartIcon, QualityIcon } from './icons';
@@ -64,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               <HeartIcon className="w-6 h-6 mr-3" />
               Wellbeing
             </ReactRouterDOM.NavLink>
-            <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Clinical</div>
+            <div className="px-6 py-4 text-gray-400 dark:text-gray-400 text-sm uppercase">Clinical</div>
             <ReactRouterDOM.NavLink to="/patients" className={navLinkClasses} onClick={handleLinkClick}>
               <PatientsIcon className="w-6 h-6 mr-3" />
               Patients
@@ -81,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             </ReactRouterDOM.NavLink>
             {isManager && (
               <>
-                <div className="px-6 py-4 text-gray-400 dark:text-gray-500 text-sm uppercase">Management</div>
+                <div className="px-6 py-4 text-gray-400 dark:text-gray-400 text-sm uppercase">Management</div>
                 <ReactRouterDOM.NavLink to="/staff" className={navLinkClasses} onClick={handleLinkClick}>
                   <PatientsIcon className="w-6 h-6 mr-3" />
                   Staff

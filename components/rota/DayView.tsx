@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import type { Shift, User } from '../../types';
+import type { Shift } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { isRoleOrHigher } from '../../utils/roleHelper';
 
@@ -70,10 +70,19 @@ const DayView: React.FC<DayViewProps> = ({ currentDate, shifts, onOpenModal }) =
                             key={shift.id}
                             style={{ top: `${top}%`, height: `${height}%` }}
                             onClick={() => isClickable && onOpenModal(shift, undefined, shift.isUnavailability ? 'unavailability' : 'shift')}
-                            className={`absolute left-2 right-2 p-2 rounded-lg border-l-4 text-white ${styleClasses} ${isClickable ? 'cursor-pointer' : ''}`}
+                            className={`absolute left-2 right-2 p-2 rounded-lg border-l-4 text-white overflow-y-auto ${styleClasses} ${isClickable ? 'cursor-pointer' : ''}`}
                         >
                             <p className="font-bold text-sm truncate">{shift.isUnavailability ? (isMyShift || user?.role === 'Manager' ? 'Unavailable' : 'Booked Off') : shift.eventName}</p>
                             <p className="text-xs">{shift.start.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {shift.end.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                            {!shift.isUnavailability && (
+                                <div className="mt-1 text-xs space-y-0.5 overflow-hidden">
+                                    {(shift.slots || []).map(slot => (
+                                        <p key={slot.id} className="truncate">
+                                            <span className="font-semibold">{slot.roleRequired}:</span> {slot.assignedStaff ? slot.assignedStaff.name : <span className="opacity-70">Open</span>}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     );
                 })}
