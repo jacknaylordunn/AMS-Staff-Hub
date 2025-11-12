@@ -10,18 +10,6 @@ admin.initializeApp();
 // Set the region for all functions
 setGlobalOptions({ region: "us-central1" });
 
-// Initialize the Gemini client. It will automatically use the API_KEY secret.
-// Ensure the secret is set by running: firebase functions:secrets:set API_KEY
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  console.error(
-    "Gemini API key not found. Set the secret by running 'firebase functions:secrets:set API_KEY'"
-  );
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
-
 // Helper function to determine shift status based on filled slots
 const getShiftStatus = (slotsArr: any[]): string => {
     const totalSlots = slotsArr.length;
@@ -43,6 +31,16 @@ export const askClinicalAssistant = onCall(
         "The function must be called while authenticated."
       );
     }
+
+    // Initialize the Gemini client inside the function.
+    // The API_KEY secret is guaranteed to be available here at runtime.
+    const API_KEY = process.env.API_KEY;
+    if (!API_KEY) {
+        console.error("Gemini API key is not available in the function environment.");
+        throw new HttpsError("internal", "The AI assistant is not configured correctly.");
+    }
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+
 
     const query = request.data.query;
     if (!query || typeof query !== "string") {

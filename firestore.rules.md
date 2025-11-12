@@ -26,9 +26,6 @@ service cloud.firestore {
     }
     
     // --- VALIDATION FUNCTIONS ---
-    function isValidUserRole(role) {
-      return role in ['Pending', 'First Aider', 'FREC3', 'FREC4/ECA', 'FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Welfare', 'Admin', 'Manager'];
-    }
     function isValidString(str, min, max) {
       return str is string && str.size() >= min && str.size() <= max;
     }
