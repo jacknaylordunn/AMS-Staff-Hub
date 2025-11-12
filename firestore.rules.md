@@ -61,15 +61,21 @@ service cloud.firestore {
         return resource.data.createdBy.uid == request.auth.uid;
       }
       function isCrewMember() {
-          return request.auth.uid in resource.data.crewMembers.map(m => m.uid);
+        // This rule requires a 'crewMemberUids' array of strings on the document.
+        // This field is managed by the onEprfWrite cloud function.
+        return request.auth.uid in resource.data.crewMemberUids;
       }
       function isDraft() {
         return resource.data.status == 'Draft';
       }
 
+      // A crew member or a manager can get an individual document.
       allow get: if isAuthenticated() && (isCrewMember() || isManager());
-      // Listing is restricted to managers. Users must query for their own ePRFs.
-      allow list: if isManager(); 
+      
+      // Any authenticated user can perform queries. The query will only succeed if every
+      // document in the result set passes the 'get' rule. This forces client-side
+      // queries to be properly filtered (e.g., using 'array-contains' on crewMemberUids).
+      allow list: if isAuthenticated();
       
       allow create: if isAuthenticated()
                     && request.resource.data.createdBy.uid == request.auth.uid

@@ -345,16 +345,26 @@ export const onEprfWrite = onDocumentWritten("eprfs/{eprfId}", async (event) => 
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
     const db = admin.firestore();
-    const promises = [];
+    const promises: Promise<any>[] = [];
 
-    // --- Data Integrity: Update patient's authorized clinicians ---
-    if (afterData && afterData.patientId) {
-        const crewUids = (afterData.crewMembers || []).map((c: any) => c.uid).filter(Boolean);
-        if (crewUids.length > 0) {
-            const patientRef = db.collection("patients").doc(afterData.patientId);
-            promises.push(patientRef.update({
-                authorizedClinicianUids: admin.firestore.FieldValue.arrayUnion(...crewUids)
-            }));
+    // --- Data Integrity logic ---
+    if (afterData) {
+        // 1. Update patient's authorized clinicians list
+        if (afterData.patientId) {
+            const crewUids = (afterData.crewMembers || []).map((c: any) => c.uid).filter(Boolean);
+            if (crewUids.length > 0) {
+                const patientRef = db.collection("patients").doc(afterData.patientId);
+                promises.push(patientRef.update({
+                    authorizedClinicianUids: admin.firestore.FieldValue.arrayUnion(...crewUids)
+                }));
+            }
+        }
+
+        // 2. Denormalize crew UIDs onto the ePRF itself for security rules.
+        const crewMemberUids = (afterData.crewMembers || []).map((c: any) => c.uid).filter(Boolean);
+        // This check prevents an infinite loop by only running if the array differs.
+        if (JSON.stringify(crewMemberUids.sort()) !== JSON.stringify((afterData.crewMemberUids || []).sort())) {
+            promises.push(event.data!.after.ref.update({ crewMemberUids }));
         }
     }
     

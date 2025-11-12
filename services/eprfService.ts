@@ -171,14 +171,14 @@ export const getEPRFsForPatient = async (patientId: string, user: AppUser): Prom
     let q;
 
     if (isManager) {
-        // Managers can see all ePRFs for a patient. This query relies on rules allowing broad access for managers.
+        // Managers can see all ePRFs for a patient, allowed by `list: if isManager()` rule.
         q = eprfsCol.where('patientId', '==', patientId);
     } else {
-        // Non-managers can only see ePRFs for this patient that they created.
-        // This is a more secure query that works with the existing rules for all users.
+        // Non-managers query for ePRFs where they are listed as a crew member.
+        // This query is allowed by the security rule: `get` will pass for each document.
         q = eprfsCol 
             .where('patientId', '==', patientId)
-            .where('createdBy.uid', '==', user.uid);
+            .where('crewMemberUids', 'array-contains', user.uid);
     }
 
     const snapshot = await q.get();
