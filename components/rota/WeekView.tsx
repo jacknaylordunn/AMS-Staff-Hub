@@ -41,7 +41,7 @@ const WeekView: React.FC<WeekViewProps> = ({ currentDate, shifts, onOpenModal })
         const biddableSlots = (shift.slots || []).filter(s => !s.assignedStaff && isRoleOrHigher(currentUser?.role, s.roleRequired)).length > 0;
         const isClickable = !shift.isUnavailability || isMyShift || isManager;
         
-        let borderColor = 'border-gray-400';
+        let borderColor = 'border-gray-400 dark:border-gray-500';
         let bgColor = 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/50 dark:hover:bg-gray-700';
         
         if (shift.isUnavailability) {

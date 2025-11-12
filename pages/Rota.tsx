@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Shift, ShiftSlot, User as AppUser, Vehicle, Kit } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Shift, User as AppUser, Vehicle, Kit } from '../types';
 import { listenToShiftsForRange, createShift, updateShift, deleteShift } from '../services/rotaService';
 import { getUsers } from '../services/userService';
 import { listenToVehicles } from '../services/assetService';
@@ -71,22 +71,12 @@ const Rota: React.FC = () => {
         };
     }, [isManager, isOnline]);
     
-    const refreshShifts = useCallback(async () => {
-        setLoading(true);
-        const unsubscribe = listenToShiftsForRange(fetchRange.startDate, fetchRange.endDate, (shiftsData) => {
-            setShifts(shiftsData);
-            setLoading(false);
-        });
-        // This is a bit of a hack to force a re-render after the listener is set up
-        setTimeout(() => unsubscribe(), 1000);
-    }, [fetchRange]);
-
-    const handleOpenModal = useCallback((shift: Shift | null, date?: Date, type: 'shift' | 'unavailability' = 'shift') => {
+    const handleOpenModal = (shift: Shift | null, date?: Date, type: 'shift' | 'unavailability' = 'shift') => {
         setSelectedShift(shift);
         setModalType(type);
         if (date) setModalDate(date);
         setIsModalOpen(true);
-    }, []);
+    };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -101,6 +91,7 @@ const Rota: React.FC = () => {
             await createShift(shiftData);
         }
         // Listener will update the UI automatically
+        handleCloseModal();
     };
 
     const handleDeleteShift = async (shiftId: string) => {
@@ -135,7 +126,6 @@ const Rota: React.FC = () => {
                     kits={kits}
                     type={modalType}
                     currentUser={user}
-                    refreshShifts={refreshShifts}
                     allShifts={shifts}
                 />
             )}

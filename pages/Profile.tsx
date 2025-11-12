@@ -1,8 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-// FIX: Removed modular auth import.
-// import * as firebaseAuth from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { requestRoleChange, updateUserProfile } from '../services/userService';
 import { showToast } from '../components/Toast';
@@ -45,7 +43,6 @@ const Profile: React.FC = () => {
     const handlePasswordReset = async () => {
         if (user && user.email) {
             try {
-                // FIX: Use compat auth syntax.
                 await auth.sendPasswordResetEmail(user.email);
                 showToast("Password reset email sent. Please check your inbox.", 'success');
             } catch (error) {
@@ -68,7 +65,6 @@ const Profile: React.FC = () => {
                 const newDisplayName = `${firstName} ${lastName}`.trim();
                 // Update Firebase Auth profile
                 if(auth.currentUser.displayName !== newDisplayName) {
-                    // FIX: Use compat auth syntax.
                     await auth.currentUser.updateProfile({ displayName: newDisplayName });
                 }
                 

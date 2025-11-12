@@ -11,7 +11,7 @@ interface DayViewProps {
 }
 
 const DayView: React.FC<DayViewProps> = ({ currentDate, shifts, onOpenModal }) => {
-    const { user } = useAuth();
+    const { user, isManager } = useAuth();
     
     const dayShifts = useMemo(() => {
         return shifts.filter(s => {
@@ -32,7 +32,7 @@ const DayView: React.FC<DayViewProps> = ({ currentDate, shifts, onOpenModal }) =
     };
 
     return (
-        <div className="flex">
+        <div className="flex h-full overflow-y-auto">
             <div className="w-16 flex-shrink-0">
                 {hours.map(hour => (
                     <div key={hour} className="h-24 text-right pr-2 text-xs text-gray-400 border-t border-gray-200 dark:border-gray-700">
@@ -63,7 +63,7 @@ const DayView: React.FC<DayViewProps> = ({ currentDate, shifts, onOpenModal }) =
                     else if (shift.status === 'Open') styleClasses = 'bg-yellow-500/80 dark:bg-yellow-500/80 border-yellow-600';
                     else if (shift.status === 'Partially Assigned') styleClasses = 'bg-orange-500/80 dark:bg-orange-500/80 border-orange-600';
                     
-                    const isClickable = !shift.isUnavailability || isMyShift || user?.role === 'Manager';
+                    const isClickable = !shift.isUnavailability || isMyShift || isManager;
 
                     return (
                         <div

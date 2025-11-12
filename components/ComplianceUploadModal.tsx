@@ -6,8 +6,6 @@ import { addComplianceDocumentToUser } from '../services/userService';
 import { uploadFile } from '../services/storageService';
 import { SpinnerIcon } from './icons';
 import { showToast } from './Toast';
-// FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
 import firebase from 'firebase/compat/app';
 
 interface ComplianceUploadModalProps {
@@ -47,7 +45,6 @@ const ComplianceUploadModal: React.FC<ComplianceUploadModalProps> = ({ isOpen, o
                 url: downloadURL,
                 fileName: file.name,
                 expiryDate: expiryDate || undefined,
-                // FIX: Use compat 'Timestamp'.
                 uploadedAt: firebase.firestore.Timestamp.now(),
             };
 

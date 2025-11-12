@@ -1,22 +1,18 @@
 
 
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
-// FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
 import firebase from 'firebase/compat/app';
-// FIX: Replaced undefined 'EventLog' with 'Shift' type.
-import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, Shift } from '../../types';
+import type { EPRFForm, Patient, VitalSign, MedicationAdministered, Intervention, Injury, WelfareLogEntry, User as AppUser, Attachment, Shift } from '../types';
 import { PlusIcon, TrashIcon, SpinnerIcon, CheckIcon, CameraIcon, ChevronLeftIcon, ChevronRightIcon, QuestionMarkCircleIcon, ShieldExclamationIcon, DocsIcon } from './icons';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { addPatient } from '../services/patientService';
 import { updateEPRF, finalizeEPRF, deleteEPRF } from '../services/eprfService';
-// FIX: Replaced obsolete 'eventService' with 'rotaService' to fetch shifts.
 import { getShiftsForDateRange } from '../services/rotaService';
 import { getUsers } from '../services/userService';
 import { uploadFile } from '../services/storageService';
-import { showToast } from '../components/Toast';
+import { showToast } from './Toast';
 import PatientModal from './PatientModal';
 import ConfirmationModal from './ConfirmationModal';
 import ValidationModal from './ValidationModal';
@@ -256,7 +252,6 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
             const seniors = users.filter(u => u.uid !== user?.uid && ['FREC5/EMT/AAP', 'Paramedic', 'Nurse', 'Doctor', 'Manager', 'Admin'].includes(u.role || ''));
             setSeniorClinicians(seniors);
         });
-        // FIX: Replaced logic using 'eventId' with 'shiftId' and fetched shifts instead of events.
         if (!state.shiftId) {
             const start = new Date();
             const end = new Date();
@@ -291,7 +286,6 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     
     const handleSaveNewPatient = async (newPatient: Omit<Patient, 'id' | 'createdAt'>) => {
         try {
-            // FIX: Use compat 'Timestamp'.
             const patientId = await addPatient(newPatient);
             handleSelectPatient({ ...newPatient, id: patientId, createdAt: firebase.firestore.Timestamp.now() });
             showToast('Patient created successfully.', 'success');
@@ -412,7 +406,6 @@ const EPRFFormComponent: React.FC<EPRFFormProps> = ({ initialEPRFData, onComplet
     
     const renderStep = () => {
         const stepName = steps[currentStep-1];
-        // FIX: Changed prop name from 'availableEvents' to 'availableShifts' to match Step1_Incident's props.
         const stepProps = { state, dispatch, user, allStaff, availableShifts, isSaving, setWitnessModalOpen, setMedicationToWitnessIndex };
         
         switch (stepName) {

@@ -35,6 +35,14 @@
       * {
         transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out;
       }
+      /* Fix for dark mode select text color */
+      .dark select {
+        color: #e5e7eb; /* Equivalent to text-gray-200 */
+      }
+      .dark select option {
+        background: #374151; /* Equivalent to bg-gray-700 */
+        color: #e5e7eb;
+      }
   </style>
   <script type="importmap">
 {

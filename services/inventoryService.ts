@@ -5,13 +5,11 @@ import { DEFAULT_KIT_CHECKLISTS } from '../types';
 
 // Kit Functions
 export const getKits = async (): Promise<Kit[]> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const snapshot = await db.collection('kits').orderBy('name').get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
 };
 
 export const listenToKits = (callback: (kits: Kit[]) => void): () => void => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const q = db.collection('kits').orderBy('name');
     return q.onSnapshot((snapshot) => {
         const kits = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Kit));
@@ -20,7 +18,6 @@ export const listenToKits = (callback: (kits: Kit[]) => void): () => void => {
 };
 
 export const getKitById = async (kitId: string): Promise<Kit | null> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const docRef = db.doc(`kits/${kitId}`);
     const docSnap = await docRef.get();
     if (!docSnap.exists) return null;
@@ -29,7 +26,6 @@ export const getKitById = async (kitId: string): Promise<Kit | null> => {
 
 export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck' | 'assignedTo'>): Promise<string> => {
     const defaultChecklist = DEFAULT_KIT_CHECKLISTS[kitData.type] || [];
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const docRef = await db.collection('kits').add({
         ...kitData,
         createdAt: firebase.firestore.Timestamp.now(),
@@ -37,24 +33,20 @@ export const addKit = async (kitData: Omit<Kit, 'id' | 'createdAt' | 'lastCheck'
     });
     // Add the generated QR code value back to the doc
     const qrCodeValue = `aegis-kit-qr:${docRef.id}`;
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     await docRef.update({ qrCodeValue });
     return docRef.id;
 };
 
 export const updateKit = async (kitId: string, kitData: Partial<Omit<Kit, 'id'>>): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     await db.doc(`kits/${kitId}`).update(kitData);
 };
 
 export const deleteKit = async (kitId: string): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     await db.doc(`kits/${kitId}`).delete();
 };
 
 // Kit Check Functions
 export const getKitChecks = async (kitId: string): Promise<KitCheck[]> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const checksCol = db.collection('kits').doc(kitId).collection('checks');
     const q = checksCol.orderBy('date', 'desc').limit(20);
     const snapshot = await q.get();
@@ -62,12 +54,10 @@ export const getKitChecks = async (kitId: string): Promise<KitCheck[]> => {
 };
 
 export const addKitCheck = async (kitId: string, checkData: Omit<KitCheck, 'id' | 'date'>): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const kitRef = db.doc(`kits/${kitId}`);
     const checksCol = kitRef.collection('checks');
     const now = firebase.firestore.Timestamp.now();
     
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp, db.batch) to resolve type errors and align with the application's Firebase setup.
     const batch = db.batch();
 
     // Add the check document

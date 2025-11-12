@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listenToUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUserProfile } from '../services/userService';
+import { listenToUsers, updateUserProfile, approveRoleChange, rejectRoleChange, deleteUser } from '../services/userService';
 import type { User } from '../types';
 import { SpinnerIcon, RefreshIcon } from '../components/icons';
 import { showToast } from '../components/Toast';
@@ -102,7 +102,7 @@ const Staff: React.FC = () => {
         if (!userToDecline) return;
         setIsSaving(true);
         try {
-            await deleteUserProfile(userToDecline.uid);
+            await deleteUser(userToDecline.uid);
             showToast("User registration declined and profile deleted.", "success");
         } catch (e) {
             showToast("Failed to decline user.", "error");
@@ -140,7 +140,7 @@ const Staff: React.FC = () => {
                 onClose={() => setDeclineModalOpen(false)}
                 onConfirm={handleConfirmDecline}
                 title="Decline Registration"
-                message={`Are you sure you want to decline the registration for ${userToDecline.firstName} ${userToDecline.lastName}? This will permanently delete their profile.`}
+                message={`Are you sure you want to decline the registration for ${userToDecline.firstName} ${userToDecline.lastName}? This will permanently delete their account and profile.`}
                 confirmText="Decline & Delete"
                 isLoading={isSaving}
             />}

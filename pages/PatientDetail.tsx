@@ -12,8 +12,6 @@ import { showToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { performAiAudit } from '../services/auditService';
-// FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp.
 import firebase from 'firebase/compat/app';
 
 const DetailCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -244,7 +242,6 @@ const PatientDetail: React.FC = () => {
                 ...selectedEPRF, 
                 status: 'Reviewed', 
                 reviewNotes: undefined,
-                // FIX: Use compat 'Timestamp'.
                 reviewedBy: { ...reviewer, date: firebase.firestore.Timestamp.now() }
             };
             

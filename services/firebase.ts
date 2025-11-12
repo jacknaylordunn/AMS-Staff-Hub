@@ -1,17 +1,10 @@
 
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
-// FIX: Using modular firestore was causing import errors. Reverting to compat version.
 import 'firebase/compat/firestore';
-// FIX: Using compat imports for storage and functions to resolve module errors.
 import 'firebase/compat/storage';
-import { getFunctions } from 'firebase/functions';
+import 'firebase/compat/functions';
 import 'firebase/compat/messaging';
-
-// FIX: Removed modular auth import.
-// import { getAuth } from 'firebase/auth';
-// FIX: Removed modular firestore imports.
-// import { enableIndexedDbPersistence, getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCXi3QZphKo0pnyP6IIgS_dVL0rWxpTE5Y",
@@ -30,17 +23,14 @@ export const VAPID_KEY = 'BDSG-vA0Z6i_8qE2yJVh5Q-3p2N8yFw049xtuBwLqL9e3bY7c3X7z5
 const app = firebase.initializeApp(firebaseConfig);
 
 // Initialize services using compat syntax.
-// FIX: Use compat auth.
 export const auth = firebase.auth();
-// FIX: Use compat version of firestore.
 export const db = firebase.firestore();
 export const storage = firebase.storage();
-export const functions = getFunctions(app);
+export const functions = firebase.functions();
 export const messaging = firebase.messaging.isSupported() ? firebase.messaging() : null;
 
 
 // Enable offline persistence
-// FIX: Use compat syntax for persistence.
 db.enablePersistence().catch((err) => {
     if (err.code === 'failed-precondition') {
         console.warn('Firestore persistence failed: multiple tabs open. Some offline features may not be available.');

@@ -1,6 +1,6 @@
-// Forcing deployment v4
+// Forcing deployment v5
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { GoogleGenAI } from "@google/genai";
@@ -32,7 +32,7 @@ const getShiftStatus = (slotsArr: any[]): string => {
 };
 
 
-// FIX: Updated to onCall v2 syntax and granted access to the API_KEY secret.
+// Updated to onCall v2 syntax and granted access to the API_KEY secret.
 export const askClinicalAssistant = onCall(
   { secrets: ["API_KEY"] },
   async (request) => {
@@ -58,6 +58,7 @@ export const askClinicalAssistant = onCall(
             contents: query,
             config: {
                 systemInstruction: `You are a clinical decision support assistant for Aegis Medical Solutions, a UK-based event medical provider. Your answers must be based on current UK clinical guidelines, primarily JRCALC. Do not provide a diagnosis. Your role is to provide information to trained clinicians to aid their decision-making, not to replace it. Always include a disclaimer at the end that the information is for guidance only and the clinician remains responsible for all patient care decisions.`,
+                responseMimeType: request.data.query.includes("JSON object") ? "application/json" : "text/plain",
             }
         });
 
@@ -72,7 +73,7 @@ export const askClinicalAssistant = onCall(
   }
 );
 
-// FIX: Updated to onCall v2 syntax.
+// Updated to onCall v2 syntax.
 export const sendAnnouncement = onCall(
   async (request) => {
     // Check auth
@@ -262,14 +263,15 @@ export const sendAnnouncement = onCall(
 );
 
 
-// FIX: Renamed function to avoid deployment conflict when changing trigger type.
-export const handleUserUpdates = onDocumentUpdated("users/{userId}", async (event) => {
+export const onUserUpdate = onDocumentWritten("users/{userId}", async (event) => {
     if (!event.data) return null;
 
     const before = event.data.before.data();
     const after = event.data.after.data();
+    // On delete or create, do nothing
+    if (!before || !after) return null;
+
     const db = admin.firestore();
-    
     const promises = [];
 
     // 1. Check for new role change request
@@ -321,8 +323,7 @@ export const handleUserUpdates = onDocumentUpdated("users/{userId}", async (even
     return null;
   });
 
-// FIX: Renamed function from onKudoCreate to handleKudoCreation to resolve deployment error.
-export const handleKudoCreation = onDocumentCreated("kudos/{kudoId}", async (event) => {
+export const onKudoCreate = onDocumentCreated("kudos/{kudoId}", async (event) => {
         const snap = event.data;
         if (!snap) return;
         const kudo = snap.data();
@@ -339,29 +340,68 @@ export const handleKudoCreation = onDocumentCreated("kudos/{kudoId}", async (eve
         });
     });
 
-// FIX: Renamed function from onEprfUpdate to handleEprfUpdate to resolve deployment error.
-export const handleEprfUpdate = onDocumentUpdated("eprfs/{eprfId}", async (event) => {
-    if (!event.data) return;
-    const before = event.data.before.data();
-    const after = event.data.after.data();
-    
-    // Check if ePRF was returned to draft
-    if (before.status !== 'Draft' && after.status === 'Draft' && after.reviewNotes) {
-      const db = admin.firestore();
-      const newNotifRef = db.collection("notifications").doc();
+export const onEprfWrite = onDocumentWritten("eprfs/{eprfId}", async (event) => {
+    const eprfId = event.params.eprfId;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    const db = admin.firestore();
+    const promises = [];
 
-      await newNotifRef.set({
-            userId: after.createdBy.uid,
-            message: `Your ePRF for ${after.patientName} was returned for correction.`,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            link: `/patients/${after.patientId}`,
-      });
+    // --- Data Integrity: Update patient's authorized clinicians ---
+    if (afterData && afterData.patientId) {
+        const crewUids = (afterData.crewMembers || []).map((c: any) => c.uid).filter(Boolean);
+        if (crewUids.length > 0) {
+            const patientRef = db.collection("patients").doc(afterData.patientId);
+            promises.push(patientRef.update({
+                authorizedClinicianUids: admin.firestore.FieldValue.arrayUnion(...crewUids)
+            }));
+        }
+    }
+    
+    // --- Notification Logic ---
+    if (beforeData && afterData) { // This is an update
+        // 1. Check if ePRF was returned to draft
+        if (beforeData.status !== 'Draft' && afterData.status === 'Draft' && afterData.reviewNotes) {
+            const newNotifRef = db.collection("notifications").doc();
+            promises.push(newNotifRef.set({
+                    userId: afterData.createdBy.uid,
+                    message: `Your ePRF for ${afterData.patientName} was returned for correction.`,
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    link: `/patients/${afterData.patientId}?eprfId=${eprfId}`,
+            }));
+        }
+        
+        // 2. Check if ePRF was submitted for review
+        if (beforeData.status === 'Draft' && afterData.status === 'Pending Review') {
+            const usersSnapshot = await db.collection("users").where("role", "in", ["Manager", "Admin"]).get();
+            if (!usersSnapshot.empty) {
+                const batch = db.batch();
+                const notificationMessage = `${afterData.createdBy.name} submitted an ePRF for review (${afterData.patientName}).`;
+                
+                usersSnapshot.forEach(doc => {
+                    const newNotifRef = db.collection("notifications").doc();
+                    batch.set(newNotifRef, {
+                        userId: doc.id,
+                        message: notificationMessage,
+                        read: false,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        link: `/patients/${afterData.patientId}?eprfId=${eprfId}`,
+                    });
+                });
+                promises.push(batch.commit());
+            }
+        }
+    }
+    
+    if (promises.length > 0) {
+        await Promise.all(promises);
     }
     return null;
-  });
+});
 
-// FIX: Updated to onCall v2 syntax.
+
+// Updated to onCall v2 syntax.
 export const getSeniorClinicians = onCall(
   async (request) => {
     if (!request.auth) {
@@ -400,7 +440,7 @@ export const getSeniorClinicians = onCall(
   }
 );
 
-// FIX: Updated to onCall v2 syntax.
+// Updated to onCall v2 syntax.
 export const getStaffListForKudos = onCall(
     async (request) => {
         if (!request.auth) {
@@ -428,7 +468,7 @@ export const getStaffListForKudos = onCall(
     }
 );
 
-// FIX: Updated to onCall v2 syntax.
+// Updated to onCall v2 syntax.
 export const bidOnShift = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication is required.");
@@ -518,7 +558,7 @@ export const bidOnShift = onCall(async (request) => {
 });
 
 
-// FIX: Updated to onCall v2 syntax.
+// Updated to onCall v2 syntax.
 export const cancelBidOnShift = onCall(async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Authentication is required.");
@@ -612,17 +652,10 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
                 slots[slotIndex].bids = [];
             }
             
-            const allAssignedStaffUids = [...new Set(slots.map((s: any) => s && s.assignedStaff?.uid).filter(Boolean))];
-            const status = getShiftStatus(slots);
-
             transaction.update(shiftRef, { 
                 slots: slots,
-                allAssignedStaffUids: allAssignedStaffUids,
-                status: status
             });
         });
-        
-        // Notification logic is now handled by onShiftUpdate trigger to avoid duplicates.
         
         return { success: true };
     } catch (error: any) {
@@ -634,74 +667,198 @@ export const assignStaffToShiftSlot = onCall(async (request) => {
     }
 });
 
-// Sends notifications when staff are assigned to a newly created shift.
-export const onShiftCreate = onDocumentCreated("shifts/{shiftId}", async (event) => {
-    const shift = event.data?.data();
-    if (!shift || !shift.slots) return;
 
-    const db = admin.firestore();
-    const batch = db.batch();
+// NEW: Centralized shift logic trigger. Replaces onShiftCreate and onShiftUpdate.
+export const onShiftWrite = onDocumentWritten("shifts/{shiftId}", async (event) => {
+    const shiftId = event.params.shiftId;
+    const afterData = event.data?.after.data();
 
-    const assignedSlots = (shift.slots as any[]).filter(s => s && s.assignedStaff);
-    if (assignedSlots.length === 0) return;
-
-    for (const slot of assignedSlots) {
-        const staff = slot.assignedStaff;
-        const newNotifRef = db.collection("notifications").doc();
-        batch.set(newNotifRef, {
-            userId: staff.uid,
-            message: `You have been assigned a new shift: ${shift.eventName} on ${new Date(shift.start.toDate()).toLocaleDateString()}`,
-            link: `/brief/${event.params.shiftId}`,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+    // On delete, do nothing
+    if (!afterData) {
+        console.log(`Shift ${shiftId} deleted. No further action.`);
+        return;
     }
-    await batch.commit();
+
+    // On create/update, recalculate derived data and update the document
+    const slots = (afterData.slots as any[]) || [];
+    const allAssignedStaffUids = [...new Set(slots.map(s => s.assignedStaff?.uid).filter(Boolean))];
+    const status = getShiftStatus(slots);
+    
+    // Check if an update is needed to prevent infinite trigger loops
+    if (
+        status !== afterData.status ||
+        JSON.stringify(allAssignedStaffUids.sort()) !== JSON.stringify((afterData.allAssignedStaffUids || []).sort())
+    ) {
+        await event.data?.after.ref.update({
+            status,
+            allAssignedStaffUids,
+        });
+        // Return here because this update will re-trigger the function, and we'll handle notifications then.
+        return;
+    }
+
+    // Notification logic
+    const beforeData = event.data?.before.data();
+    if (beforeData) { // This is an update
+        const beforeSlots = (beforeData.slots as any[]) || [];
+        const afterSlots = (afterData.slots as any[]) || [];
+
+        const beforeStaff = new Set(beforeSlots.map(s => s?.assignedStaff?.uid).filter(Boolean));
+        const afterStaff = new Set(afterSlots.map(s => s?.assignedStaff?.uid).filter(Boolean));
+
+        const newAssignments = [...afterStaff].filter(uid => !beforeStaff.has(uid));
+        const unAssignments = [...beforeStaff].filter(uid => !afterStaff.has(uid));
+        
+        if (newAssignments.length > 0 || unAssignments.length > 0) {
+            const db = admin.firestore();
+            const batch = db.batch();
+            
+            for (const userId of newAssignments) {
+                const newNotifRef = db.collection("notifications").doc();
+                batch.set(newNotifRef, {
+                    userId: userId,
+                    message: `You have been assigned to the shift: ${afterData.eventName} on ${afterData.start.toDate().toLocaleDateString()}`,
+                    link: `/brief/${shiftId}`,
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+            
+            for (const userId of unAssignments) {
+                const newNotifRef = db.collection("notifications").doc();
+                batch.set(newNotifRef, {
+                    userId: userId,
+                    message: `You have been un-assigned from the shift: ${afterData.eventName} on ${afterData.start.toDate().toLocaleDateString()}`,
+                    link: `/rota`,
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+        
+            await batch.commit();
+        }
+    } else { // This is a create
+        if (allAssignedStaffUids.length > 0) {
+            const db = admin.firestore();
+            const batch = db.batch();
+            for (const userId of allAssignedStaffUids) {
+                const newNotifRef = db.collection("notifications").doc();
+                batch.set(newNotifRef, {
+                    userId: userId,
+                    message: `You have been assigned a new shift: ${afterData.eventName} on ${afterData.start.toDate().toLocaleDateString()}`,
+                    link: `/brief/${shiftId}`,
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
+            await batch.commit();
+        }
+    }
 });
 
-// Sends notifications when staff are assigned to or un-assigned from an existing shift.
-export const onShiftUpdate = onDocumentUpdated("shifts/{shiftId}", async (event) => {
-    if (!event.data) return;
-    const before = event.data.before.data();
-    const after = event.data.after.data();
 
-    if (!before || !after) return;
+// NEW: Callable function for deleting users
+export const deleteUserAndData = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication is required.");
+    }
+
+    const adminUid = request.auth.uid;
+    const userToDeleteUid = request.data.uid;
+
+    if (!userToDeleteUid || typeof userToDeleteUid !== "string") {
+        throw new HttpsError("invalid-argument", "The function must be called with a 'uid' string argument.");
+    }
     
-    const beforeSlots = Array.isArray(before.slots) ? before.slots : [];
-    const afterSlots = Array.isArray(after.slots) ? after.slots : [];
+    // Verify requester is an Admin
+    const adminDoc = await admin.firestore().collection("users").doc(adminUid).get();
+    if (!adminDoc.exists || adminDoc.data()?.role !== 'Admin') {
+        throw new HttpsError("permission-denied", "Only admins can delete users.");
+    }
 
-    const beforeStaff = new Set(beforeSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean));
-    const afterStaff = new Set(afterSlots.map(s => s && s.assignedStaff?.uid).filter(Boolean));
+    try {
+        // Delete from Auth
+        await admin.auth().deleteUser(userToDeleteUid);
+        // Delete from Firestore
+        await admin.firestore().collection("users").doc(userToDeleteUid).delete();
+        
+        // Future enhancement: Add logic here to find and anonymize/delete user-generated content (e.g., ePRFs, CPD logs).
+        
+        return { success: true, message: `User ${userToDeleteUid} deleted successfully.` };
+    } catch (error: any) {
+        console.error(`Failed to delete user ${userToDeleteUid}:`, error);
+        if (error.code === 'auth/user-not-found') {
+            // If user not in auth, maybe they were already deleted. Try deleting from Firestore anyway.
+            await admin.firestore().collection("users").doc(userToDeleteUid).delete().catch(() => {});
+            return { success: true, message: `User ${userToDeleteUid} not found in Auth, but Firestore record deleted.` };
+        }
+        throw new HttpsError("internal", "An error occurred while deleting the user.");
+    }
+});
 
-    const newAssignments = [...afterStaff].filter(uid => !beforeStaff.has(uid));
-    const unAssignments = [...beforeStaff].filter(uid => !afterStaff.has(uid));
+// NEW: Trigger for aggregating staff analytics
+export const onTimeClockWrite = onDocumentWritten("timeClockEntries/{entryId}", async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
 
-    if (newAssignments.length === 0 && unAssignments.length === 0) return;
+    // On create or delete, do nothing for now. We only care when an entry is completed.
+    if (!beforeData || !afterData) {
+        return;
+    }
 
+    // We only care about entries moving to 'Clocked Out'
+    if (beforeData.status === 'Clocked In' && afterData.status === 'Clocked Out' && afterData.durationHours) {
+        const userId = afterData.userId;
+        const date = afterData.clockInTime.toDate();
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // e.g., "2023-09"
+
+        const analyticsRef = admin.firestore().collection('userAnalytics').doc(userId);
+        
+        try {
+            await admin.firestore().runTransaction(async (transaction) => {
+                const doc = await transaction.get(analyticsRef);
+                
+                const data = doc.exists ? doc.data()! : { totalHours: 0, shiftCount: 0, monthlyHours: {} };
+
+                const newTotalHours = (data.totalHours || 0) + afterData.durationHours;
+                const newShiftCount = (data.shiftCount || 0) + 1;
+                
+                const newMonthlyHours = data.monthlyHours || {};
+                newMonthlyHours[monthYear] = (newMonthlyHours[monthYear] || 0) + afterData.durationHours;
+
+                transaction.set(analyticsRef, {
+                    totalHours: newTotalHours,
+                    shiftCount: newShiftCount,
+                    monthlyHours: newMonthlyHours,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                    userName: afterData.userName,
+                }, { merge: true });
+            });
+        } catch (e) {
+            console.error("Failed to update user analytics:", e);
+        }
+    }
+});
+
+export const onMajorIncidentDelete = onDocumentDeleted("majorIncidents/{incidentId}", async (event) => {
+    const incidentId = event.params.incidentId;
     const db = admin.firestore();
-    const batch = db.batch();
-    
-    for (const userId of newAssignments) {
-        const newNotifRef = db.collection("notifications").doc();
-        batch.set(newNotifRef, {
-            userId: userId,
-            message: `You have been assigned to the shift: ${after.eventName} on ${new Date(after.start.toDate()).toLocaleDateString()}`,
-            link: `/brief/${event.params.shiftId}`,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    }
-    
-    for (const userId of unAssignments) {
-        const newNotifRef = db.collection("notifications").doc();
-        batch.set(newNotifRef, {
-            userId: userId,
-            message: `You have been un-assigned from the shift: ${after.eventName} on ${new Date(after.start.toDate()).toLocaleDateString()}`,
-            link: `/rota`,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    }
+    const batchSize = 100;
 
-    await batch.commit();
+    const subcollections = ["methaneReports", "checkins"];
+
+    for (const subcollection of subcollections) {
+        const collectionRef = db.collection("majorIncidents").doc(incidentId).collection(subcollection);
+        let query = collectionRef.orderBy("__name__").limit(batchSize);
+
+        // eslint-disable-next-line no-await-in-loop
+        for (let snapshot = await query.get(); snapshot.size > 0; snapshot = await query.get()) {
+            const batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            // eslint-disable-next-line no-await-in-loop
+            await batch.commit();
+        }
+    }
 });

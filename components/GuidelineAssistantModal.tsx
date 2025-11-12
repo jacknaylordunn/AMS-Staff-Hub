@@ -1,8 +1,6 @@
 
 import React, { useState } from 'react';
-// FIX: Removed modular import for httpsCallable.
 import { functions } from '../services/firebase';
-import { httpsCallable } from 'firebase/functions';
 import { SpinnerIcon, SparklesIcon, QuestionMarkCircleIcon } from './icons';
 import { showToast } from './Toast';
 
@@ -18,8 +16,7 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
     const [error, setError] = useState('');
     const [showHelp, setShowHelp] = useState(false);
 
-    // FIX: Use compat httpsCallable syntax.
-    const askClinicalAssistant = httpsCallable(functions, 'askClinicalAssistant');
+    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
 
     const handleQuery = async (e: React.FormEvent) => {
@@ -33,7 +30,6 @@ const GuidelineAssistantModal: React.FC<GuidelineAssistantModalProps> = ({ isOpe
 
         try {
             const result = await askClinicalAssistant({ query });
-            // FIX: Cast result from compat callable function.
             setResponse((result.data as { response: string }).response);
         } catch (err: any) {
             console.error("Cloud function error:", err);

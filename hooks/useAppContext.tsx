@@ -1,13 +1,9 @@
 
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-// FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp and GeoPoint.
 import firebase from 'firebase/compat/app';
-// FIX: Removed unused 'EventLog' type which is not defined in types.ts
 import type { Shift, EPRFForm, TimeClockEntry } from '../types';
 import { useAuth } from './useAuth';
-// FIX: Changed import path to point to the .tsx file to resolve module ambiguity.
 import { getActiveClockInForUser } from '../services/timeClockService';
 
 
@@ -34,7 +30,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!saved) return null;
       const parsed = JSON.parse(saved);
       // Re-hydrate Timestamps and GeoPoints
-      // FIX: Use compat 'Timestamp' and 'GeoPoint'.
       if (parsed.clockInTime) parsed.clockInTime = new firebase.firestore.Timestamp(parsed.clockInTime.seconds, parsed.clockInTime.nanoseconds);
       if (parsed.clockOutTime) parsed.clockOutTime = new firebase.firestore.Timestamp(parsed.clockOutTime.seconds, parsed.clockOutTime.nanoseconds);
       if (parsed.clockInLocation) parsed.clockInLocation = new firebase.firestore.GeoPoint(parsed.clockInLocation.latitude, parsed.clockInLocation.longitude);

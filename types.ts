@@ -1,7 +1,7 @@
 
 
-// FIX: Replaced modular SDK type imports with compat equivalents.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp and GeoPoint.
+// Replaced modular SDK type imports with compat equivalents.
+// The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore' to access types like Timestamp and GeoPoint.
 import firebase from 'firebase/compat/app';
 
 export interface ComplianceDocument {
@@ -40,6 +40,7 @@ export interface Patient {
     medications: string;
     medicalHistory: string;
     createdAt: firebase.firestore.Timestamp;
+    authorizedClinicianUids?: string[];
 }
 
 export interface AuditEntry {
@@ -67,7 +68,6 @@ export interface EPRFForm {
   status?: 'Draft' | 'Pending Review' | 'Reviewed';
   // Linking IDs
   patientId: string | null;
-  // FIX: Added shiftId to correctly link ePRF to a shift from the rota.
   shiftId: string | null;
   eventName: string | null;
 
@@ -574,4 +574,12 @@ export interface AiAuditResult {
     strengths: string[];
     areasForImprovement: string[];
     keyLearningPoints: string[];
+}
+
+export interface UserAnalytics {
+  totalHours: number;
+  shiftCount: number;
+  monthlyHours: { [key: string]: number }; // "YYYY-MM": hours
+  lastUpdated: firebase.firestore.Timestamp;
+  userName: string;
 }

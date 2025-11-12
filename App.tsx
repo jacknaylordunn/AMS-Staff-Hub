@@ -38,8 +38,6 @@ import StaffAnalytics from './pages/StaffAnalytics';
 import PrintAsset from './pages/PrintAsset';
 import EventBrief from './pages/EventBrief';
 import LiveAssetDashboard from './pages/LiveAssetDashboard';
-// FIX: Removed modular auth import.
-// import * as firebaseAuth from 'firebase/auth';
 import { auth, messaging } from './services/firebase';
 import { showToast } from './components/Toast';
 import { SpinnerIcon } from './components/icons';
@@ -51,7 +49,6 @@ const PendingApproval: React.FC = () => {
     const navigate = ReactRouterDOM.useNavigate();
     const handleLogout = async () => {
         try {
-            // FIX: Use compat auth syntax for signOut.
             await auth.signOut();
             navigate('/login');
         } catch (error) {

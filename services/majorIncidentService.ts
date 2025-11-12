@@ -6,7 +6,6 @@ import { sendAnnouncement } from './announcementService';
 // --- Incident Management ---
 
 export const getIncidents = async (): Promise<MajorIncident[]> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const incidentsCol = db.collection('majorIncidents');
     const q = incidentsCol.orderBy('declaredAt', 'desc');
     const snapshot = await q.get();
@@ -14,7 +13,6 @@ export const getIncidents = async (): Promise<MajorIncident[]> => {
 };
 
 export const getActiveIncidents = async (): Promise<MajorIncident[]> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const incidentsCol = db.collection('majorIncidents');
     const q = incidentsCol.where('status', '==', 'Active');
     const snapshot = await q.get();
@@ -25,7 +23,6 @@ export const getActiveIncidents = async (): Promise<MajorIncident[]> => {
 }
 
 export const getIncidentById = async (incidentId: string): Promise<MajorIncident | null> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const docRef = db.doc(`majorIncidents/${incidentId}`);
     const docSnap = await docRef.get();
     if (!docSnap.exists) return null;
@@ -36,11 +33,9 @@ export const declareMajorIncident = async (data: { name: string, location: strin
     const incidentData = {
         ...data,
         status: 'Active' as const,
-        // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
         declaredAt: firebase.firestore.Timestamp.now(),
         declaredBy: declarer,
     };
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const docRef = await db.collection('majorIncidents').add(incidentData);
     
     // Send notification to all users
@@ -54,7 +49,6 @@ export const declareMajorIncident = async (data: { name: string, location: strin
 };
 
 export const standDownIncident = async (incidentId: string): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     await db.doc(`majorIncidents/${incidentId}`).update({
         status: 'Stood Down',
         stoodDownAt: firebase.firestore.Timestamp.now(),
@@ -63,10 +57,7 @@ export const standDownIncident = async (incidentId: string): Promise<void> => {
 
 export const deleteIncident = async (incidentId: string): Promise<void> => {
     // This function deletes the main incident document.
-    // NOTE: In a production environment, subcollections (methaneReports, checkins)
-    // are NOT automatically deleted. A Firebase Cloud Function triggered on document
-    // deletion would be required to clean up subcollections.
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
+    // A cloud function 'onMajorIncidentDelete' is now responsible for cleaning up subcollections.
     await db.doc(`majorIncidents/${incidentId}`).delete();
 };
 
@@ -74,7 +65,6 @@ export const deleteIncident = async (incidentId: string): Promise<void> => {
 // --- METHANE Reports ---
 
 export const submitMethaneReport = async (reportData: Omit<METHANEreport, 'id' | 'submittedAt'>): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const reportsCol = db.collection('majorIncidents').doc(reportData.incidentId).collection('methaneReports');
     await reportsCol.add({
         ...reportData,
@@ -82,9 +72,7 @@ export const submitMethaneReport = async (reportData: Omit<METHANEreport, 'id' |
     });
 };
 
-// FIX: Corrected return type for onSnapshot listener from 'firebase.firestore.Unsubscribe' to '() => void'.
 export const getIncidentMethaneReports = (incidentId: string, callback: (reports: METHANEreport[]) => void): () => void => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const reportsCol = db.collection('majorIncidents').doc(incidentId).collection('methaneReports');
     const q = reportsCol.orderBy('submittedAt', 'desc');
     return q.onSnapshot((snapshot) => {
@@ -96,7 +84,6 @@ export const getIncidentMethaneReports = (incidentId: string, callback: (reports
 // --- Staff Check-in ---
 
 export const checkInToIncident = async (incidentId: string, user: User, status: StaffCheckin['status']): Promise<void> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const checkinRef = db.doc(`majorIncidents/${incidentId}/checkins/${user.uid}`);
     await checkinRef.set({
         incidentId: incidentId,
@@ -108,9 +95,7 @@ export const checkInToIncident = async (incidentId: string, user: User, status: 
     });
 };
 
-// FIX: Corrected return type for onSnapshot listener from 'firebase.firestore.Unsubscribe' to '() => void'.
 export const getIncidentStaffCheckins = (incidentId: string, callback: (checkins: StaffCheckin[]) => void): () => void => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection, firebase.firestore.Timestamp) and used 'firebase.firestore.Unsubscribe' type to resolve type errors and align with the application's Firebase setup.
     const checkinsCol = db.collection('majorIncidents').doc(incidentId).collection('checkins');
     const q = checkinsCol.orderBy('timestamp', 'desc');
     return q.onSnapshot((snapshot) => {

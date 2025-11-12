@@ -1,17 +1,9 @@
 
+
 import firebase from 'firebase/compat/app';
 import { db, functions } from './firebase';
-import { httpsCallable } from 'firebase/functions';
 import type { Shift, ShiftSlot, User } from '../types';
 import { showToast } from '../components/Toast';
-
-const getShiftStatus = (slots: ShiftSlot[]): Shift['status'] => {
-    const totalSlots = slots.length;
-    const filledSlots = slots.filter(s => s.assignedStaff).length;
-    if (filledSlots === 0) return 'Open';
-    if (filledSlots < totalSlots) return 'Partially Assigned';
-    return 'Fully Assigned';
-};
 
 export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
     const docRef = db.doc(`shifts/${shiftId}`);
@@ -71,21 +63,13 @@ export const getShiftsForUser = async (uid: string, year: number, month: number)
 };
 
 export const createShift = async (shiftData: Omit<Shift, 'id'>): Promise<void> => {
-    const allAssignedStaffUids = [...new Set(shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid))];
-    const status = getShiftStatus(shiftData.slots);
-    await db.collection('shifts').add({ ...shiftData, allAssignedStaffUids, status });
-    // Notifications are now handled by a secure cloud function.
+    // Derived fields like `status` and `allAssignedStaffUids` are now calculated by a backend function.
+    await db.collection('shifts').add(shiftData);
 };
 
 export const updateShift = async (shiftId: string, shiftData: Partial<Omit<Shift, 'id'>>): Promise<void> => {
-    let dataToUpdate = { ...shiftData };
-
-    if (shiftData.slots) {
-        dataToUpdate.allAssignedStaffUids = [...new Set(shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid))];
-        dataToUpdate.status = getShiftStatus(shiftData.slots);
-    }
-    
-    await db.doc(`shifts/${shiftId}`).update(dataToUpdate);
+    // Derived fields like `status` and `allAssignedStaffUids` are now calculated by a backend function.
+    await db.doc(`shifts/${shiftId}`).update(shiftData);
 };
 
 export const deleteShift = async (shiftId: string): Promise<void> => {
@@ -93,17 +77,17 @@ export const deleteShift = async (shiftId: string): Promise<void> => {
 };
 
 export const bidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
-    const bidOnShiftFn = httpsCallable(functions, 'bidOnShift');
+    const bidOnShiftFn = functions.httpsCallable('bidOnShift');
     await bidOnShiftFn({ shiftId, slotId });
 };
 
 export const cancelBidOnShift = async (shiftId: string, slotId: string): Promise<void> => {
-    const cancelBidOnShiftFn = httpsCallable(functions, 'cancelBidOnShift');
+    const cancelBidOnShiftFn = functions.httpsCallable('cancelBidOnShift');
     await cancelBidOnShiftFn({ shiftId, slotId });
 };
 
 export const assignStaffToSlot = async (shiftId: string, slotId: string, staff: { uid: string; name: string; } | null) => {
-    const assignStaffFn = httpsCallable(functions, 'assignStaffToShiftSlot');
+    const assignStaffFn = functions.httpsCallable('assignStaffToShiftSlot');
     await assignStaffFn({ shiftId, slotId, staff });
 };
 
@@ -120,9 +104,8 @@ export const createMultipleShifts = async (shiftsData: Omit<Shift, 'id'>[]): Pro
         
         chunk.forEach(shiftData => {
             const docRef = shiftsCol.doc();
-            const allAssignedStaffUids = shiftData.slots.map(s => s.assignedStaff?.uid).filter((uid): uid is string => !!uid);
-            const status = getShiftStatus(shiftData.slots);
-            batch.set(docRef, { ...shiftData, allAssignedStaffUids, status });
+            // Derived fields like `status` and `allAssignedStaffUids` will be calculated by a backend function.
+            batch.set(docRef, shiftData);
         });
         
         await batch.commit();

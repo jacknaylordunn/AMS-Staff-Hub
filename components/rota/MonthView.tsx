@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import type { Shift } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,7 +10,7 @@ interface MonthViewProps {
     shifts: Shift[];
     onOpenModal: (shift: Shift | null, date?: Date, type?: 'shift' | 'unavailability') => void;
     setViewMode: (mode: ViewMode) => void;
-    setCurrentDate: (date: Date) => void;
+    setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
 }
 
 const MonthView: React.FC<MonthViewProps> = ({ currentDate, shifts, onOpenModal, setViewMode, setCurrentDate }) => {
@@ -57,7 +56,7 @@ const MonthView: React.FC<MonthViewProps> = ({ currentDate, shifts, onOpenModal,
         const biddableSlots = (shift.slots || []).filter(s => !s.assignedStaff && isRoleOrHigher(user?.role, s.roleRequired)).length > 0;
         const isClickable = !shift.isUnavailability || isMyShift || isManager;
         
-        let borderColor = 'border-gray-400';
+        let borderColor = 'border-gray-400 dark:border-gray-500';
         let bgColor = 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/50 dark:hover:bg-gray-700';
         
         if (shift.isUnavailability) {

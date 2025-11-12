@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-// FIX: Use compat firestore types.
 import firebase from 'firebase/compat/app';
 import type { Shift, ShiftSlot, User, Vehicle, Kit } from '../types';
 import { SpinnerIcon, TrashIcon, PlusIcon, CopyIcon, RefreshIcon, ProfileIcon, ShieldExclamationIcon } from './icons';
@@ -22,13 +21,12 @@ interface ShiftModalProps {
     kits: Kit[];
     type: 'shift' | 'unavailability';
     currentUser: User;
-    refreshShifts: () => Promise<void>;
     allShifts: Shift[];
 }
 
 const CLINICAL_ROLES = ALL_ROLES.filter(r => !['Pending', 'Admin', 'Manager'].includes(r!));
 
-const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, staff, vehicles, kits, type, currentUser, refreshShifts, allShifts }) => {
+const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDelete, shift, date, staff, vehicles, kits, type, currentUser, allShifts }) => {
     const [formData, setFormData] = useState({
         eventName: '',
         location: '',
@@ -184,7 +182,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 assignedKitNames: formData.assignedKitIds.map(id => kits.find(k => k.id === id)?.name || 'Unknown'),
             };
             await onSave(shiftData);
-            onClose();
         } catch (error) {
             console.error("Failed to save shift:", error);
             showToast('Failed to save shift.', 'error');
@@ -199,7 +196,6 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         try {
             await onDelete(currentShift.id!);
             showToast(currentShift.isUnavailability ? "Unavailability removed." : "Shift deleted successfully.", "success");
-            onClose();
         } catch (error) {
             showToast(currentShift.isUnavailability ? "Failed to remove unavailability." : "Failed to delete shift.", "error");
         } finally {
@@ -357,7 +353,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
         <button
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg ${activeTab === tab ? 'bg-white dark:bg-gray-800 border-x border-t dark:border-gray-600' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg ${activeTab === tab ? 'bg-white dark:bg-gray-800 border-x border-t dark:border-gray-600' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
         >
             {label}
         </button>
@@ -451,7 +447,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                                             </select>
                                             {slot.bids.length > 0 && (
                                                 <div className="mt-2 pt-2 border-t dark:border-gray-600">
-                                                    <h4 className="text-xs font-bold text-gray-500">BIDS ({slot.bids.length})</h4>
+                                                    <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400">BIDS ({slot.bids.length})</h4>
                                                     <ul className="mt-1 space-y-1">
                                                         {slot.bids.map(bid => (
                                                             <li key={bid.uid} className="flex justify-between items-center text-sm">
@@ -493,8 +489,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                     {shift && <button type="button" onClick={() => setDeleteModalOpen(true)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center"><TrashIcon className="w-5 h-5 mr-2"/> Delete</button>}
                 </div>
                 <div className="flex gap-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded-md">Cancel</button>
-                    <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-ams-blue text-white rounded-md flex items-center">{isProcessing && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200">Cancel</button>
+                    <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-ams-blue text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-400 flex items-center">{isProcessing && <SpinnerIcon className="w-5 h-5 mr-2" />} Save</button>
                 </div>
             </div>
         </form>
@@ -588,16 +584,16 @@ const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, onSave, onDele
                 confirmText="Yes, Assign Anyway"
             />
             <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title={type === 'unavailability' ? "Remove Unavailability" : "Delete Shift"} message={type === 'unavailability' ? "Are you sure?" : "Are you sure you want to delete this shift?"} confirmText="Delete" isLoading={isDeleting}/>
-            {shift && <RepeatShiftModal isOpen={isRepeatModalOpen} onClose={() => setRepeatModalOpen(false)} shift={shift} onSave={refreshShifts} />}
+            {shift && <RepeatShiftModal isOpen={isRepeatModalOpen} onClose={() => setRepeatModalOpen(false)} shift={shift} onSave={onClose} />}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-content" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-bold text-ams-blue dark:text-ams-light-blue">{title}</h2>
                     {isManager && shift && (
                         <div className="flex gap-2">
-                             <button onClick={() => setRepeatModalOpen(true)} title="Repeat Shift" className="p-2 text-gray-500 hover:text-ams-blue disabled:opacity-50"><RefreshIcon className="w-5 h-5"/></button>
+                             <button onClick={() => setRepeatModalOpen(true)} title="Repeat Shift" className="p-2 text-gray-500 hover:text-ams-blue dark:text-gray-400 disabled:opacity-50"><RefreshIcon className="w-5 h-5"/></button>
                              <button onClick={() => {
                                 // TODO: Implement duplicate
-                             }} title="Duplicate Shift" className="p-2 text-gray-500 hover:text-ams-blue disabled:opacity-50"><CopyIcon className="w-5 h-5"/></button>
+                             }} title="Duplicate Shift" className="p-2 text-gray-500 hover:text-ams-blue dark:text-gray-400 disabled:opacity-50"><CopyIcon className="w-5 h-5"/></button>
                         </div>
                     )}
                 </div>

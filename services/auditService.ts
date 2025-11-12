@@ -1,10 +1,7 @@
 
-
-// FIX: Use compat firestore and functions syntax.
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import { db, functions } from './firebase';
-import { httpsCallable } from 'firebase/functions';
 import type { EPRFForm, Patient, AiAuditResult } from '../types';
 import { getUserProfile } from "./userService";
 
@@ -40,11 +37,9 @@ const getJRCALCGuidelines = () => {
 };
 
 export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise<string> => {
-    // FIX: Use compat httpsCallable
-    const askClinicalAssistant = httpsCallable(functions, 'askClinicalAssistant');
+    const askClinicalAssistant = functions.httpsCallable('askClinicalAssistant');
 
     // 1. Fetch associated patient data
-    // FIX: Use compat 'get' and 'doc' functions.
     const patientDoc = await db.collection('patients').doc(eprf.patientId!).get();
     if (!patientDoc.exists) throw new Error("Patient not found for audit");
     const patient = { id: patientDoc.id, ...patientDoc.data() } as Patient;
@@ -102,12 +97,10 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
         patientId: eprf.patientId!,
         eventName: eprf.eventName,
         incidentDate: eprf.incidentDate,
-        // FIX: Use compat 'Timestamp'.
         auditedAt: firebase.firestore.Timestamp.now(),
         auditedBy: { uid: managerId, name: `${managerProfile.firstName} ${managerProfile.lastName}` },
     };
 
-    // FIX: Use compat 'doc' and 'set' functions.
     const auditDocRef = db.collection('audits').doc(eprf.id!); // Use ePRF ID as audit ID for 1:1 mapping
     await auditDocRef.set(auditResult);
 
@@ -115,7 +108,6 @@ export const performAiAudit = async (eprf: EPRFForm, managerId: string): Promise
 };
 
 export const getAuditResults = async (): Promise<AiAuditResult[]> => {
-    // FIX: Use compat firestore methods.
     const auditsCol = db.collection('audits');
     const q = auditsCol.orderBy('auditedAt', 'desc');
     const snapshot = await q.get();

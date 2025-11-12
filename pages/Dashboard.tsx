@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
 import { getAllDraftsForUser, getPendingEPRFs } from '../services/eprfService';
-import { getShiftsForUser } from '../services/rotaService';
+import { getShiftsForUser, getShiftsForDateRange } from '../services/rotaService';
 import { getActiveIncidents } from '../services/majorIncidentService';
 import { getUsers, saveFCMToken } from '../services/userService';
 import { getVehicles } from '../services/assetService';
@@ -67,6 +68,7 @@ const Dashboard: React.FC = () => {
     const [pendingReviews, setPendingReviews] = useState<EPRFForm[]>([]);
     const [pendingStaff, setPendingStaff] = useState<AppUser[]>([]);
     const [vehiclesRequiringMaintenance, setVehiclesRequiringMaintenance] = useState<Vehicle[]>([]);
+    const [staffOnDutyToday, setStaffOnDutyToday] = useState<number>(0);
     
     // Modals
     const [isScannerOpen, setScannerOpen] = useState(false);
@@ -86,10 +88,16 @@ const Dashboard: React.FC = () => {
         if (user) {
             const fetchData = async () => {
                 const today = new Date();
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                endOfMonth.setHours(23, 59, 59, 999);
+
                 const promises: Promise<any>[] = [
                     getAllDraftsForUser(user.uid),
                     getActiveIncidents(),
-                    getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()),
+                    isManager 
+                        ? getShiftsForDateRange(startOfMonth, endOfMonth) 
+                        : getShiftsForUser(user.uid, today.getFullYear(), today.getMonth()),
                 ];
 
                 if (isManager) {
@@ -111,12 +119,32 @@ const Dashboard: React.FC = () => {
                 // Process successful results
                 if (results[0].status === 'fulfilled') setDrafts(results[0].value as EPRFForm[]);
                 if (results[1].status === 'fulfilled') setActiveIncident((results[1].value as MajorIncident[])[0] || null);
+                
                 if (results[2].status === 'fulfilled') {
                     const shifts = results[2].value as Shift[];
-                    const upcomingShifts = shifts
-                        .filter(s => s.start.toDate() > today && !s.isUnavailability)
+                    
+                    const myUpcomingShifts = shifts
+                        .filter(s => {
+                            const isMyShift = (s.allAssignedStaffUids || []).includes(user.uid);
+                            return isMyShift && s.start.toDate() > today && !s.isUnavailability;
+                        })
                         .sort((a, b) => a.start.toMillis() - b.start.toMillis());
-                    if (upcomingShifts.length > 0) setNextShift(upcomingShifts[0]);
+
+                    if (myUpcomingShifts.length > 0) setNextShift(myUpcomingShifts[0]);
+
+                    if (isManager) {
+                        const now = new Date();
+                        const onDutyShifts = shifts.filter(s => 
+                            !s.isUnavailability &&
+                            s.start.toDate() <= now &&
+                            s.end.toDate() >= now
+                        );
+                        const onDutyStaffUids = new Set<string>();
+                        onDutyShifts.forEach(s => {
+                            (s.allAssignedStaffUids || []).forEach(uid => onDutyStaffUids.add(uid));
+                        });
+                        setStaffOnDutyToday(onDutyStaffUids.size);
+                    }
                 }
                 
                 if (isManager) {
@@ -207,7 +235,6 @@ const Dashboard: React.FC = () => {
         );
     };
 
-    const staffOnDutyToday = 0; // This would require more complex shift logic, placeholder for now.
 
     return (
         <div>

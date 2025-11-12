@@ -1,12 +1,10 @@
 import firebase from 'firebase/compat/app';
 import { db } from './firebase';
-// FIX: Replaced undefined 'EventLog' type with 'Shift' as events are now managed as shifts.
 import type { Shift } from '../types';
 import { getShiftsForDateRange, getShiftById } from './rotaService';
 
 
 type EventStatus = 'Completed' | 'Active' | 'Upcoming';
-// FIX: Changed type to Omit<Shift, 'status'> to avoid type conflict on the 'status' property.
 type EventShift = Omit<Shift, 'status'> & { status: EventStatus };
 
 const getEventStatus = (shift: Shift): EventStatus => {
@@ -27,7 +25,6 @@ const getEventStatus = (shift: Shift): EventStatus => {
 
 // Event Functions
 export const getEvents = async (): Promise<EventShift[]> => {
-    // FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection) to align with the application's Firebase setup. Also imported firebase to use firebase.firestore.Unsubscribe type.
     const eventsCol = db.collection('events');
     const q = eventsCol.orderBy('date', 'desc');
     const snapshot = await q.get();
@@ -43,15 +40,12 @@ export const getEventById = async (eventId: string): Promise<EventShift | null> 
 }
 
 export const createEvent = async (eventData: Omit<Shift, 'id' | 'status' | 'slots' | 'allAssignedStaffUids'>): Promise<void> => {
-    // FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection) to align with the application's Firebase setup. Also imported firebase to use firebase.firestore.Unsubscribe type.
     await db.collection('events').add(eventData);
 }
 export const updateEvent = async (eventId: string, eventData: Partial<Omit<Shift, 'id'| 'status'>>): Promise<void> => {
-    // FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection) to align with the application's Firebase setup. Also imported firebase to use firebase.firestore.Unsubscribe type.
     await db.doc(`events/${eventId}`).update(eventData);
 }
 export const deleteEvent = async (eventId: string): Promise<void> => {
-    // FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection) to align with the application's Firebase setup. Also imported firebase to use firebase.firestore.Unsubscribe type.
     await db.doc(`events/${eventId}`).delete();
 }
 
@@ -64,7 +58,6 @@ export const createMultipleEvents = async (eventsData: Omit<Shift, 'id' | 'statu
     }
 
     for (const chunk of chunks) {
-        // FIX: Replaced modular Firestore imports and function calls with compat syntax (e.g., db.collection) to align with the application's Firebase setup. Also imported firebase to use firebase.firestore.Unsubscribe type.
         const batch = db.batch();
         const eventsCol = db.collection('events');
         

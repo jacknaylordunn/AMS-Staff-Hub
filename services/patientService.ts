@@ -4,7 +4,6 @@ import type { Patient } from '../types';
 
 // Patient Functions
 export const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt'>): Promise<string> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
     const docRef = await db.collection('patients').add({
         ...patientData,
         createdAt: firebase.firestore.Timestamp.now(),
@@ -13,7 +12,6 @@ export const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt'>)
 }
 
 export const getPatientById = async (patientId: string): Promise<Patient | null> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
     const docRef = db.doc(`patients/${patientId}`);
     const docSnap = await docRef.get();
     if(docSnap.exists){
@@ -23,11 +21,10 @@ export const getPatientById = async (patientId: string): Promise<Patient | null>
 }
 
 export const getPatients = async (searchTerm: string = ''): Promise<Patient[]> => {
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
     const patientsCol = db.collection('patients');
     // Note: Firestore does not support native text search. For scalability, a dedicated search service
     // like Algolia or Elasticsearch is recommended. This implementation fetches a limited set and filters client-side.
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
+    // Listing is now restricted to managers by Firestore rules.
     const q = patientsCol.orderBy('lastName').limit(50);
     const snapshot = await q.get();
     const patients = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
@@ -45,7 +42,6 @@ export const searchPatients = async (searchTerm: string): Promise<Patient[]> => 
     if(!searchTerm) return [];
     // This is a simplified client-side search and will not scale well with a large patient database.
     // A proper implementation would use a dedicated search service.
-    // FIX: Replaced all modular Firestore imports and function calls with their compat equivalents (e.g., db.collection(...).add(), firebase.firestore.Timestamp) to resolve type errors and align with the application's Firebase setup.
     const patientsCol = db.collection('patients');
     const q = patientsCol.orderBy('lastName').limit(100);
     const snapshot = await q.get();

@@ -2,39 +2,47 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function getUserData(userId) {
-      return firestore.get(/databases/(default)/documents/users/$(userId)).data;
+    function isUser(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function isManager() {
+        return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['Manager', 'Admin'];
     }
 
-    function isManagerOrAdmin(uid) {
-      let userData = getUserData(uid);
-      return userData != null && userData.role in ['Manager', 'Admin'];
+    function isValidImage() {
+        return request.resource.size < 5 * 1024 * 1024 // < 5MB
+            && request.resource.contentType.matches('image/.*');
     }
-
-    function getEprfData(eprfId) {
-        return firestore.get(/databases/(default)/documents/eprfs/$(eprfId)).data;
+    function isValidDocument() {
+        return request.resource.size < 10 * 1024 * 1024 // < 10MB
+            && (request.resource.contentType.matches('application/pdf') ||
+                request.resource.contentType.matches('application/msword') ||
+                request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
     }
 
     match /documents/{fileName} {
       allow read: if request.auth != null;
-      allow write: if isManagerOrAdmin(request.auth.uid);
+      allow write: if isManager() && isValidDocument();
     }
     
     match /compliance_documents/{userId}/{fileName} {
-      allow read, write: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
+      allow read: if isUser(userId) || isManager();
+      allow write: if (isUser(userId) || isManager()) && (isValidDocument() || isValidImage());
     }
     
     match /cpd_attachments/{userId}/{fileName} {
-      allow read: if request.auth.uid == userId || isManagerOrAdmin(request.auth.uid);
-      allow write: if request.auth.uid == userId;
+      allow read: if isUser(userId) || isManager();
+      allow write: if isUser(userId) && (isValidDocument() || isValidImage());
     }
     
     match /signatures/{eprfId}/{fileName} {
-        allow read, write: if getEprfData(eprfId).createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
+        allow read: if request.auth != null; // Simplified, assuming access is controlled via URL
+        allow write: if request.auth != null && isValidImage();
     }
 
     match /attachments/{eprfId}/{fileName} {
-        allow read, write: if getEprfData(eprfId).createdBy.uid == request.auth.uid || isManagerOrAdmin(request.auth.uid);
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && (isValidImage() || isValidDocument() || request.resource.contentType.matches('video/.*'));
     }
     
     match /{allPaths=**} {

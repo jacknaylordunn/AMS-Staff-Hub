@@ -1,7 +1,5 @@
 
 
-// FIX: Use compat firestore types.
-// FIX: The 'firestore' named export does not exist on 'firebase/compat/app'. Changed to default import 'firebase' and used 'firebase.firestore.Timestamp' to create a new timestamp.
 import firebase from 'firebase/compat/app';
 import type { EPRFForm, User as AppUser } from '../types';
 
@@ -11,7 +9,6 @@ export const getInitialFormState = (eventName: string | null, location: string |
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '';
   return {
     patientId: null,
-    // FIX: Initialize shiftId to correctly link to shifts.
     shiftId: null,
     eventName: eventName || null,
     presentationType: 'Medical/Trauma',
@@ -98,7 +95,6 @@ export const getInitialFormState = (eventName: string | null, location: string |
     clinicianSignatureUrl: '',
     signaturesNeedSync: false,
     crewMembers: user ? [{ uid: user.uid, name: fullName }] : [],
-    // FIX: Use compat 'Timestamp'.
     createdAt: firebase.firestore.Timestamp.now(),
     createdBy: user ? { uid: user.uid, name: fullName } : { uid: '', name: '' },
     status: 'Draft',
