@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import type { Shift, TimeClockEntry } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useAppContext } from '../hooks/useAppContext';
-// FIX: Changed import path to point to the .tsx file to resolve module ambiguity.
 import { clockIn, clockOut, getTimeClockEntriesForDateRange } from '../services/timeClockService';
 import { getShiftsForDateRange } from '../services/rotaService';
 import { SpinnerIcon } from '../components/icons';
@@ -115,7 +114,6 @@ const StaffTimeClock: React.FC = () => {
             {userShifts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {userShifts.map(shift => {
-                        // FIX: Find the user's specific slot to get their role for this shift.
                         const mySlot = (shift.slots || []).find(s => s.assignedStaff?.uid === user?.uid);
                         return (
                         <div key={shift.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col justify-between border-l-4 border-ams-blue dark:border-ams-light-blue">

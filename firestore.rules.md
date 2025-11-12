@@ -44,8 +44,7 @@ service cloud.firestore {
                     && request.resource.data.email == request.auth.token.email
                     && request.resource.data.role == 'Pending'
                     && request.resource.data.createdAt == request.time;
-      allow update: if (isUser(userId) && request.resource.data.role == resource.data.role && request.resource.data.email == resource.data.email) // user can update non-critical fields
-                    || isManager(); // manager can update anything
+      allow update: if (isUser(userId) && request.resource.data.role == resource.data.role && request.resource.data.email == resource.data.email) || isManager();
       allow delete: if isAdmin(); // only admins can delete users (via cloud function)
     }
 
